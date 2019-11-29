@@ -47,8 +47,11 @@ def make_game(game):
     print('Making game {}'.format(game))        
     env = gym.make(game)
     # remove timelimit wrapper
-    if type(env) == gym.wrappers.time_limit.TimeLimit:
-        env = env.env
+    try:
+        if type(env) == gym.wrappers.time_limit.TimeLimit:
+            env = env.env
+    except:
+        pass
     
     if is_atari_game(env):
         env = prepare_atari_env(env)

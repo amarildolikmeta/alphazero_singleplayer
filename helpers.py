@@ -35,6 +35,9 @@ def check_space(space):
     elif isinstance(space,spaces.Discrete):
         dim = space.n
         discrete = True
+    # elif isinstance(space, spaces.Tuple):
+    #     dim = (len(space.spaces))
+    #     discrete = False
     else:
         raise NotImplementedError('This type of space is not supported')
     return dim, discrete
