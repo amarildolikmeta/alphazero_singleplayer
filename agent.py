@@ -14,14 +14,14 @@ class EnvEvalWrapper(object):
 
 #### Agent ##
 def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, temp, n_hidden_layers, n_hidden_units,
-          stochastic=False,  eval_freq=-1, eval_episodes=100, alpha=0.6, out_dir='../', visualize=False):
+          stochastic=False,  eval_freq=-1, eval_episodes=100, alpha=0.6, out_dir='../', pre_process=None,
+          visualize=False):
     ''' Outer training loop '''
+    if pre_process is not None:
+        pre_process()
+
     # tf.reset_default_graph()
-    from gym.envs.registration import register
-    register(
-        id='Blackjack_pi-v0',
-        entry_point='envs.blackjack_pi:BlackjackEnv',
-    )
+
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     episode_returns = []  # storage

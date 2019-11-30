@@ -56,6 +56,13 @@ if __name__ == '__main__':
     out_dir = 'logs/'+args.game+'/'+time_str+'/'
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
+
+    def pre_process():
+         from gym.envs.registration import register
+         register(
+             id='Blackjack_pi-v0',
+             entry_point='envs.blackjack_pi:BlackjackEnv',
+         )
     fun_args = [args.game, args.n_ep, args.n_mcts, args.max_ep_len, args.lr, args.c, args.gamma,
                 args.data_size, args.batch_size,args.temp, args.n_hidden_layers, args.n_hidden_units,
                 True, args.eval_freq, args.eval_episodes]
@@ -66,7 +73,7 @@ if __name__ == '__main__':
         affinity = min(len(os.sched_getaffinity(0)), n)
         out = Parallel(n_jobs=affinity)(
             delayed(agent)(*(fun_args + [ alpha + i * delta_alpha, out_dir+'/alpha_' +
-                                          str(alpha + i * delta_alpha) + '/']))
+                                          str(alpha + i * delta_alpha) + '/', pre_process]))
             for i in range(n))
 
         # fig, ax = plt.subplots(1, figsize=[7, 5])
@@ -96,7 +103,8 @@ if __name__ == '__main__':
                                                                        out_dir=out_dir,
                                                                        visualize=args.visualize,
                                                                        eval_freq=args.eval_freq,
-                                                                       eval_episodes=args.eval_episodes)
+                                                                       eval_episodes=args.eval_episodes,
+                                                                       pre_process=None)
 
         # Finished training: Visualize
         fig, ax = plt.subplots(1, figsize=[7, 5])
