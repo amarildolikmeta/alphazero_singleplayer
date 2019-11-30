@@ -69,7 +69,7 @@ if __name__ == '__main__':
                                           str(alpha + i * delta_alpha) + '/']))
             for i in range(n))
 
-        fig, ax = plt.subplots(1, figsize=[7, 5])
+        # fig, ax = plt.subplots(1, figsize=[7, 5])
         # for j in range(len(out)):
         #     episode_returns, timepoints, a_best, seed_best, R_best, model = out[j]
         #     total_eps = len(episode_returns)
@@ -83,7 +83,7 @@ if __name__ == '__main__':
         # lgd = fig.legend(loc='lower center', ncol=n/2, fancybox=True, shadow=True)
         # plt.savefig(out_dir + name, bbox_inches="tight", bbox_extra_artists=(lgd,))
     else:
-        episode_returns, timepoints, a_best, seed_best, R_best, model = agent(game=args.game, n_ep=args.n_ep, n_mcts=args.n_mcts,
+        episode_returns, timepoints, a_best, seed_best, R_best = agent(game=args.game, n_ep=args.n_ep, n_mcts=args.n_mcts,
                                                                        max_ep_len=args.max_ep_len, lr=args.lr, c=args.c,
                                                                        gamma=args.gamma,
                                                                        data_size=args.data_size,
