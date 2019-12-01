@@ -116,6 +116,7 @@ class MCTSStochastic(MCTS):
         ''' Process the output at the root node '''
         counts = np.array([child_action.n for child_action in self.root.child_actions])
         Q = np.array([child_action.Q for child_action in self.root.child_actions])
+
         pi_target = stable_normalizer(counts, temp)
         V_target = np.sum((counts / np.sum(counts)) * Q)[None]
         return self.root.index.flatten(), pi_target, V_target

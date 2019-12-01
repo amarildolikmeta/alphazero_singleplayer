@@ -108,8 +108,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
                 def pi_wrapper(ob):
                     env_wrapper.mcts.search(n_mcts=n_mcts, c=c, Env=Env, mcts_env=mcts_env)
-                    state, pi, V = env_wrapper.mcts.return_results(temp)
-                    a = np.random.choice(len(pi), p=pi)
+                    state, pi, V = env_wrapper.mcts.return_results(temp=0)
+                    a = np.argmax(pi)
                     return a
 
                 rews = eval_policy(pi_wrapper, env_wrapper, n_episodes=eval_episodes, verbose=False)

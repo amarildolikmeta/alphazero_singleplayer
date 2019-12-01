@@ -12,7 +12,12 @@ from gym import spaces
 
 def stable_normalizer(x,temp):
     ''' Computes x[i]**temp/sum_i(x[i]**temp) '''
-    x = (x / np.max(x))**temp
+    if temp == 0:
+        bestA = np.argmax(x)
+        probs = [0.] * len(x)
+        probs[bestA] = 1.
+        return probs
+    x = (x / np.max(x)) ** (.1 / temp)
     return np.abs(x/np.sum(x))
 
 def argmax(x):
