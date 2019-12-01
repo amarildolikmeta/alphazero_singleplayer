@@ -49,7 +49,34 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     with tf.Session() as sess:
         model.sess = sess
         sess.run(tf.global_variables_initializer())
+
         for ep in range(n_ep):
+            if eval_freq > 0 and ep > 0and ep % eval_freq == 0:
+                print('Evaluating policy for {} episodes!'.format(eval_episodes))
+                seed = np.random.randint(1e7)  # draw some Env seed
+                Env.seed(seed)
+                mcts = mcts_maker(root_index=s, root=None, model=model, na=model.action_dim, **mcts_params)
+                env_wrapper = EnvEvalWrapper()
+                env_wrapper.mcts = mcts
+
+                def reset_env():
+                    s = Env.reset()
+                    env_wrapper.mcts = mcts_maker(root_index=s, root=None, model=model,
+                                                  na=model.action_dim, **mcts_params)
+                    return s
+
+                env_wrapper.reset = reset_env
+                env_wrapper.step = lambda x: Env.step(x)
+
+                def pi_wrapper(ob):
+                    env_wrapper.mcts.search(n_mcts=n_mcts, c=c, Env=Env, mcts_env=mcts_env)
+                    state, pi, V = env_wrapper.mcts.return_results(temp=0)
+                    a = np.argmax(pi)
+                    return a
+
+                rews = eval_policy(pi_wrapper, env_wrapper, n_episodes=eval_episodes, verbose=False)
+                offline_scores.append([np.min(rews), np.max(rews), np.mean(rews), np.std(rews)])
+                np.save(out_dir + '/offline_scores.npy', offline_scores)
             start = time.time()
             s = Env.reset()
             R = 0.0  # Total return counter
@@ -90,31 +117,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             # print('Finished episode {}, total return: {}, total time: {} sec'.format(ep, np.round(R, 2),
             #                                                                          np.round((time.time() - start),
             #                                                                                   1)))
-            if eval_freq > 0 and ep % eval_freq == 0:
-                print('Evaluating policy for {} episodes!'.format(eval_episodes))
-                Env.seed(seed)
-                mcts = mcts_maker(root_index=s, root=None, model=model, na=model.action_dim, **mcts_params)
-                env_wrapper = EnvEvalWrapper()
-                env_wrapper.mcts = mcts
 
-                def reset_env():
-                    s = Env.reset()
-                    env_wrapper.mcts = mcts_maker(root_index=s, root=None, model=model,
-                                                  na=model.action_dim, **mcts_params)
-                    return s
-
-                env_wrapper.reset = reset_env
-                env_wrapper.step = lambda x: Env.step(x)
-
-                def pi_wrapper(ob):
-                    env_wrapper.mcts.search(n_mcts=n_mcts, c=c, Env=Env, mcts_env=mcts_env)
-                    state, pi, V = env_wrapper.mcts.return_results(temp=0)
-                    a = np.argmax(pi)
-                    return a
-
-                rews = eval_policy(pi_wrapper, env_wrapper, n_episodes=eval_episodes, verbose=False)
-                offline_scores.append([np.min(rews), np.max(rews), np.mean(rews), np.std(rews)])
-                np.save(out_dir + '/offline_scores.npy', offline_scores)
 
             if R > R_best:
                 a_best = a_store
