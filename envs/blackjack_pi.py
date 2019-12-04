@@ -129,7 +129,13 @@ class BlackjackEnv(gym.Env):
                 int(usable_ace(self.player))
         return np.array([s]) #(sum_hand(self.player), self.dealer[0], usable_ace(self.player))
 
+    def get_signature(self):
+        sig = {'player': np.copy(self.player), 'dealer': np.copy(self.dealer)}
+        return sig
 
+    def set_signature(self, sig):
+        self.player = np.copy(sig['player']).tolist()
+        self.dealer = np.copy(sig['dealer']).tolist()
 
     def reset(self):
         self.dealer = draw_hand(self.np_random)

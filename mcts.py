@@ -4,6 +4,7 @@ from helpers import (argmax, is_atari_game, copy_atari_state, restore_atari_stat
 from igraph import Graph, EdgeSeq, Edge
 import plotly.graph_objects as go
 import plotly.io as pio
+import json
 
 ##### MCTS functions #####
 
@@ -44,6 +45,16 @@ class State():
         self.na = na
         self.child_actions = [Action(a, parent_state=self, Q_init=self.V) for a in range(na)]
         self.priors = model.predict_pi(index).flatten()
+
+    def to_json(self):
+        inf = {}
+        inf["state"] = str(self.index)
+        inf["V"] = str(self.V)
+        inf["n"] = self.n
+        inf["terminal"] = self.terminal
+        inf["priors"] = str(self.priors)
+        inf["r"] = self.r
+        return json.dumps(inf)
 
     def select(self, c=1.5):
         ''' Select one of the child actions based on UCT rule '''
@@ -123,7 +134,7 @@ class MCTS():
         V_target = np.sum((counts / np.sum(counts)) * Q)[None]
         return self.root.index.flatten(), pi_target, V_target
 
-    def forward(self, a, s1):
+    def forward(self, a, s1, r):
         ''' Move the root forward '''
         if not hasattr(self.root.child_actions[a], 'child_state'):
             self.root = None
@@ -198,12 +209,14 @@ class MCTS():
                           plot_bgcolor='rgb(248,248,248)'
                           )
         fig.show()
+        print("A")
 
 
     def inorderTraversal(self, root, g, vertex_index, parent_index, v_label, a_label):
         if root:
             g.add_vertex(vertex_index)
-            v_label.append(str(root.index))
+            #v_label.append(str(root.index) + " Value="+str(root.V))
+            v_label.append(root.to_json())
             if root.parent_action:
                 g.add_edge(parent_index, vertex_index)
                 a_label.append(root.parent_action.index)
@@ -233,7 +246,7 @@ def make_annotations(pos, labels, Xe, Ye, a_labels, M, position, font_size=10, f
         annotations.append(
             dict(
                 text=labels[k], # or replace labels with a different list for the text within the circle
-                x=pos[k][0], y=2*M-position[k][1],
+                x=pos[k][0]+2, y=2*M-position[k][1],
                 xref='x1', yref='y1',
                 font=dict(color=font_color, size=font_size),
                 showarrow=False)

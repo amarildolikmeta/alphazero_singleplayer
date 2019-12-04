@@ -24,6 +24,8 @@ def eval_policy(pi,  env, n_episodes=100, add_terminal=False, verbose=True, inte
             t += 1
             if done:
                 break
+            else:
+                env.forward(a, s)
 
         if verbose:
             print("Episode {0}: Return = {1}, Duration = {2}, Time = {3} s".format(i, rew, t, time.time() - start))

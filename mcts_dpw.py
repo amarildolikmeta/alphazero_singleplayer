@@ -15,8 +15,8 @@ class StochasticAction(Action):
         self.n_children = 0
         self.state_indeces = {}
 
-    def add_child_state(self, s1, r, terminal, model):
-        child_state = StochasticState(s1, r, terminal, self, self.parent_state.na, model)
+    def add_child_state(self, s1, r, terminal, model, signature):
+        child_state = StochasticState(s1, r, terminal, self, self.parent_state.na, model, signature)
         self.child_states.append(child_state)
         s1_hash = s1.tostring()
         self.state_indeces[s1_hash] = self.n_children
@@ -33,7 +33,7 @@ class StochasticAction(Action):
 
     def sample_state(self):
         p = []
-        for i, s  in enumerate(self.child_states):
+        for i, s in enumerate(self.child_states):
             s = self.child_states[i]
             p.append(s.n / self.n)
         return self.child_states[np.random.choice(a=self.n_children, p=p)]
@@ -43,14 +43,14 @@ class StochasticAction(Action):
 class StochasticState(State):
     ''' StochasticState object '''
 
-    def __init__(self, index, r, terminal, parent_action, na, model):
+    def __init__(self, index, r, terminal, parent_action, na, model, signature):
         self.index = index  # state
         self.r = r  # reward upon arriving in this state
         self.terminal = terminal  # whether the domain terminated in this state
         self.parent_action = parent_action
         self.n = 0
         self.model = model
-
+        self.signature = signature
         self.evaluate()
         # Child actions
         self.na = na
@@ -66,20 +66,26 @@ class MCTSStochastic(MCTS):
         super(MCTSStochastic, self).__init__(root, root_index, model, na, gamma)
         self.alpha = alpha
 
-    def search(self, n_mcts, c, Env, mcts_env):
+    def search(self, n_mcts, c, Env, mcts_env,t ):
         ''' Perform the MCTS search from the root '''
+        is_atari = is_atari_game(Env)
+        if is_atari:
+            snapshot = copy_atari_state(Env)  # for Atari: snapshot the root at the beginning
+        else:
+            mcts_env = copy.deepcopy(Env)  # copy original Env to rollout from
+        # else:
+        #     restore_atari_state(mcts_env, snapshot)
         if self.root is None:
             # initialize new root
             self.root = StochasticState(self.root_index, r=0.0, terminal=False, parent_action=None, na=self.na,
-                                        model=self.model)
+                                        model=self.model, signature=mcts_env.get_signature())
         else:
             self.root.parent_action = None  # continue from current root
         if self.root.terminal:
             raise (ValueError("Can't do tree search from a terminal state"))
 
-        is_atari = is_atari_game(Env)
-        if is_atari:
-            snapshot = copy_atari_state(Env)  # for Atari: snapshot the root at the beginning
+
+
 
         for i in range(n_mcts):
             state = self.root  # reset to root for new trace
@@ -87,20 +93,38 @@ class MCTSStochastic(MCTS):
                 mcts_env = copy.deepcopy(Env)  # copy original Env to rollout from
             else:
                 restore_atari_state(mcts_env, snapshot)
+            # obs1 = mcts_env._get_obs().flatten()
+            # obs2 = Env._get_obs().flatten()
+            # if not np.array_equal(obs1, obs2):
+            #     print("HOLDUP")
             mcts_env.seed()
             while not state.terminal:
+                # obs = mcts_env._get_obs().flatten()
+                # flattened_State = state.index.flatten()
+                # if not np.array_equal(flattened_State, obs):
+                #     print("WHATTTTTT")
                 action = state.select(c=c)
                 k = np.ceil(c * action.n ** self.alpha)
                 if k >= action.n_children:
                     s1, r, t, _ = mcts_env.step(action.index)
+                    # if action.index == 0 and not np.array_equal(s1.flatten(), action.parent_state.index.flatten()):
+                    #     print("WTF")
                     if action.get_state_ind(s1) != -1:
-                        state = action.child_states[action.get_state_ind(s1)]  # select
+                        state = action.child_states[action.get_state_ind(s1)]# select
+                        state.r = r
                         continue
                     else:
-                        state = action.add_child_state(s1, r, t, self.model)  # expand
+                        # if action.index == 0 and len(action.child_states) > 0:
+                        #     print("Error")
+                        state = action.add_child_state(s1, r, t, self.model, mcts_env.get_signature())  # expand
                         break
                 else:
                     state = action.sample_state()
+                    mcts_env.set_signature(state.signature)
+                    # obs = mcts_env._get_obs().flatten()
+                    # flattened_State = state.index.flatten()
+                    # if not np.array_equal(flattened_State, obs):
+                    #     print("WHATTTTTT")
 
             # Back-up
             R = state.V
@@ -121,7 +145,7 @@ class MCTSStochastic(MCTS):
         V_target = np.sum((counts / np.sum(counts)) * Q)[None]
         return self.root.index.flatten(), pi_target, V_target
 
-    def forward(self, a, s1):
+    def forward(self, a, s1, r):
         ''' Move the root forward '''
         action = self.root.child_actions[a]
         if action.n_children > 0:
@@ -129,81 +153,17 @@ class MCTSStochastic(MCTS):
                 self.root = None
                 self.root_index = s1
             else:
-                self.root = self.root.child_actions[a].child_states[action.get_state_ind(s1)]
-
+                self.root = action.child_states[action.get_state_ind(s1)]
+                self.root.r = r
         else:
             self.root = None
             self.root_index = s1
 
-    # def visualize(self):
-    #     g = Graph()
-    #     v_label = []
-    #     nr_vertices = self.inorderTraversal(self.root, g, 0, 0, v_label)
-    #     # self.count = 0
-    #     # self.print_tree(self.root)v
-    #     lay = g.layout_reingold_tilford(mode="in", root=[0])
-    #     # igraph.plot(g, layout=lay)
-    #
-    #     position = {k: lay[k] for k in range(nr_vertices)}
-    #     Y = [lay[k][1] for k in range(nr_vertices)]
-    #     M = max(Y)
-    #
-    #     E = [e.tuple for e in g.es]  # list of edges
-    #
-    #     L = len(position)
-    #     Xn = [position[k][0] for k in range(L)]
-    #     Yn = [2 * M - position[k][1] for k in range(L)]
-    #     Xe = []
-    #     Ye = []
-    #     for edge in E:
-    #         Xe += [position[edge[0]][0], position[edge[1]][0], None]
-    #         Ye += [2 * M - position[edge[0]][1], 2 * M - position[edge[1]][1], None]
-    #
-    #     labels = v_label
-    #     fig = go.Figure()
-    #     fig.add_trace(go.Scatter(x=Xe,
-    #                              y=Ye,
-    #                              mode='lines',
-    #                              line=dict(color='rgb(210,210,210)', width=1),
-    #                              hoverinfo='none'
-    #                              ))
-    #     fig.add_trace(go.Scatter(x=Xn,
-    #                              y=Yn,
-    #                              mode='markers',
-    #                              name='bla',
-    #                              marker=dict(symbol='circle-dot',
-    #                                          size=18,
-    #                                          color='#6175c1',  # '#DB4551',
-    #                                          line=dict(color='rgb(50,50,50)', width=1)
-    #                                          ),
-    #                              text=labels,
-    #                              hoverinfo='text',
-    #                              opacity=0.8
-    #                              ))
-    #
-    #     axis = dict(showline=False,  # hide axis line, grid, ticklabels and  title
-    #                 zeroline=False,
-    #                 showgrid=False,
-    #                 showticklabels=False,
-    #                 )
-    #
-    #     fig.update_layout(title='Tree with Reingold-Tilford Layout',
-    #                       annotations=make_annotations(position, v_label, labels, M, position),
-    #                       font_size=12,
-    #                       showlegend=False,
-    #                       xaxis=axis,
-    #                       yaxis=axis,
-    #                       margin=dict(l=40, r=40, b=85, t=100),
-    #                       hovermode='closest',
-    #                       plot_bgcolor='rgb(248,248,248)'
-    #                       )
-    #     fig.show()
-    #     print("A")
-
     def inorderTraversal(self, root, g, vertex_index, parent_index, v_label, a_label):
         if root:
             g.add_vertex(vertex_index)
-            v_label.append(str(root.index))
+            #v_label.append(str(root.index))
+            v_label.append(root.to_json())
             if root.parent_action:
                 g.add_edge(parent_index, vertex_index)
                 a_label.append(root.parent_action.index)
@@ -223,20 +183,3 @@ class MCTSStochastic(MCTS):
         for i, a in enumerate(root.child_actions):
             if hasattr(a, 'child_state'):
                 self.print_tree(a.child_state)
-
-
-# def make_annotations(pos, text, labels, M, position, font_size=10, font_color='rgb(250,250,250)'):
-#     L = len(pos)
-#     if len(text) != L:
-#         raise ValueError('The lists pos and text must have the same len')
-#     annotations = []
-#     for k in range(L):
-#         annotations.append(
-#             dict(
-#                 text=labels[k],  # or replace labels with a different list for the text within the circle
-#                 x=pos[k][0], y=2 * M - position[k][1],
-#                 xref='x1', yref='y1',
-#                 font=dict(color=font_color, size=font_size),
-#                 showarrow=False)
-#         )
-#     return annotations
