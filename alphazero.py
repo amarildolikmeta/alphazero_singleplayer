@@ -70,7 +70,7 @@ if __name__ == '__main__':
         alpha = args.min_alpha
         delta_alpha = args.delta_alpha
         n = int((args.max_alpha - args.min_alpha) / delta_alpha)
-        affinity = min(len(os.sched_getaffinity(0)), n)
+        affinity = min(min(len(os.sched_getaffinity(0)), n), 4)
         out = Parallel(n_jobs=affinity)(
             delayed(agent)(*(fun_args + [ alpha + i * delta_alpha, out_dir+'/alpha_' +
                                           str(alpha + i * delta_alpha) + '/', pre_process]))
