@@ -213,7 +213,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 def pi_wrapper(ob):
                     if not is_atari :
                         mcts_env = None
-                    # env_wrapper.mcts.search(n_mcts=n_mcts, c=c, Env=Env, mcts_env=mcts_env, t=-1)
+                    # env_wrapper.mcts.search(n_mcts=n_mcts, c=c, Env=Env, mcts_env=mcts_env)
                     # state, pi, V = env_wrapper.mcts.return_results(temp=0)
                     pi = model.predict_pi(s).flatten()
                     a = np.argmax(pi)
@@ -238,7 +238,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 # MCTS step
                 if not is_atari:
                     mcts_env = None
-                mcts.search(n_mcts=n_mcts, c=c, Env=Env, mcts_env=mcts_env, t=t)  # perform a forward search
+                mcts.search(n_mcts=n_mcts, c=c, Env=Env, mcts_env=mcts_env)  # perform a forward search
                 if visualize:
                     mcts.visualize()
                 state, pi, V = mcts.return_results(temp)  # extract the root output

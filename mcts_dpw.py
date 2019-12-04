@@ -66,7 +66,7 @@ class MCTSStochastic(MCTS):
         super(MCTSStochastic, self).__init__(root, root_index, model, na, gamma)
         self.alpha = alpha
 
-    def search(self, n_mcts, c, Env, mcts_env,t ):
+    def search(self, n_mcts, c, Env, mcts_env):
         ''' Perform the MCTS search from the root '''
         is_atari = is_atari_game(Env)
         if is_atari:
