@@ -59,10 +59,13 @@ if __name__ == '__main__':
 
     def pre_process():
          from gym.envs.registration import register
-         register(
-             id='Blackjack_pi-v0',
-             entry_point='envs.blackjack_pi:BlackjackEnv',
-         )
+         try:
+             register(
+                 id='Blackjack_pi-v0',
+                 entry_point='envs.blackjack_pi:BlackjackEnv',
+             )
+         except:
+             pass
     fun_args = [args.game, args.n_ep, args.n_mcts, args.max_ep_len, args.lr, args.c, args.gamma,
                 args.data_size, args.batch_size,args.temp, args.n_hidden_layers, args.n_hidden_units,
                 True, args.eval_freq, args.eval_episodes]
