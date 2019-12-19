@@ -58,6 +58,7 @@ class State():
 
     def select(self, c=1.5):
         ''' Select one of the child actions based on UCT rule '''
+
         UCT = np.array(
             [child_action.Q + prior * c * (np.sqrt(self.n + 1) / (child_action.n + 1)) for child_action, prior in
              zip(self.child_actions, self.priors)])

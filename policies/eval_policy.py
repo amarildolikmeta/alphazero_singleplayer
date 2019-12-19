@@ -5,7 +5,7 @@ import time
 def eval_policy(pi,  env, n_episodes=100, add_terminal=False, verbose=True, interactive=False):
 
     rewards = []
-
+    lens = []
     for i in range(n_episodes):
         start = time.time()
         s = env.reset()
@@ -25,15 +25,16 @@ def eval_policy(pi,  env, n_episodes=100, add_terminal=False, verbose=True, inte
             if done:
                 break
             else:
-                env.forward(a, s)
+                env.forward(a, s, r)
 
         if verbose:
             print("Episode {0}: Return = {1}, Duration = {2}, Time = {3} s".format(i, rew, t, time.time() - start))
         rewards.append(rew)
+        lens.append(t)
 
     avg = np.mean(rewards)
     std = np.std(rewards)
     if verbose:
         print("Average Return = {0} +- {1}".format(avg, std))
     env.reset()
-    return rewards
+    return rewards, lens

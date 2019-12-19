@@ -85,8 +85,6 @@ class MCTSStochastic(MCTS):
             raise (ValueError("Can't do tree search from a terminal state"))
 
 
-
-
         for i in range(n_mcts):
             state = self.root  # reset to root for new trace
             if not is_atari:
