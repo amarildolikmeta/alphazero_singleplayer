@@ -55,6 +55,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 print('Evaluating policy for {} episodes!'.format(eval_episodes))
                 seed = np.random.randint(1e7)  # draw some Env seed
                 Env.seed(seed)
+                s = Env.reset()
                 mcts = mcts_maker(root_index=s, root=None, model=model, na=model.action_dim, **mcts_params)
                 env_wrapper = EnvEvalWrapper()
                 env_wrapper.mcts = mcts
