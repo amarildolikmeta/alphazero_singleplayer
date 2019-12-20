@@ -121,7 +121,10 @@ class MCTS():
             R = state.V
             state.update()
             while state.parent_action is not None:  # loop back-up until root is reached
-                R = state.r + self.gamma * R
+                if not state.terminal:
+                    R = state.r + self.gamma * R
+                else:
+                    R = state.r
                 action = state.parent_action
                 action.update(R)
                 state = action.parent_state
