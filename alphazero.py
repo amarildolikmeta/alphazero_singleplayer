@@ -27,7 +27,7 @@ markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^','2','1','3','4']
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--game', default='Blackjack_pi-v0', help='Training environment')
-    parser.add_argument('--n_ep', type=int, default=20000, help='Number of episodes')
+    parser.add_argument('--n_ep', type=int, default=1000, help='Number of episodes')
     parser.add_argument('--n_mcts', type=int, default=1600, help='Number of MCTS traces per step')
     parser.add_argument('--max_ep_len', type=int, default=300, help='Maximum number of steps per episode')
     parser.add_argument('--lr', type=float, default=0.01, help='Learning rate')
@@ -42,7 +42,7 @@ if __name__ == '__main__':
     parser.add_argument('--stochastic', action='store_true')
     parser.add_argument('--alpha_test', action='store_true')
     parser.add_argument('--visualize', action='store_true')
-    parser.add_argument('--eval_freq', type=int, default=200, help='Evaluation_frequency')
+    parser.add_argument('--eval_freq', type=int, default=20, help='Evaluation_frequency')
     parser.add_argument('--eval_episodes', type=int, default=300, help='Episodes of evaluation')
     parser.add_argument('--delta_alpha', type=float, default=0.2, help='progressive widening parameter')
     parser.add_argument('--min_alpha', type=float, default=0, help='progressive widening parameter')

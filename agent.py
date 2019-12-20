@@ -51,7 +51,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         sess.run(tf.global_variables_initializer())
 
         for ep in range(n_ep):
-            if eval_freq > 0 and ep > 0 and ep % eval_freq == 0:
+            if eval_freq > 0  and ep % eval_freq == 0: #and ep > 0
                 print('Evaluating policy for {} episodes!'.format(eval_episodes))
                 seed = np.random.randint(1e7)  # draw some Env seed
                 Env.seed(seed)
