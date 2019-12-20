@@ -128,7 +128,10 @@ class MCTSStochastic(MCTS):
             R = state.V
             state.update()
             while state.parent_action is not None:  # loop back-up until root is reached
-                R = state.r + self.gamma * R
+                if not state.terminal:
+                    R = state.r + self.gamma * R
+                else:
+                    R = state.r
                 action = state.parent_action
                 action.update(R)
                 state = action.parent_state
@@ -141,6 +144,8 @@ class MCTSStochastic(MCTS):
 
         pi_target = stable_normalizer(counts, temp)
         V_target = np.sum((counts / np.sum(counts)) * Q)[None]
+        #V_target = np.max((counts / np.sum(counts)) * Q)[None]
+        #V_target = np.max(Q)[None]
         return self.root.index.flatten(), pi_target, V_target
 
     def forward(self, a, s1, r):
