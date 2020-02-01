@@ -89,7 +89,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                     a = np.argmax(pi)
                     return a
 
-                rews, lens = eval_policy(pi_wrapper, env_wrapper, n_episodes=eval_episodes, verbose=False)
+                rews, lens = eval_policy(pi_wrapper, env_wrapper, n_episodes=eval_episodes, verbose=True)
                 offline_scores.append([np.min(rews), np.max(rews), np.mean(rews), np.std(rews),
                                        len(rews), np.mean(lens)])
                 # if len(rews) < eval_episodes or len(rews) == 0:
@@ -157,4 +157,4 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 print("ASD")
             model.save(out_dir + 'model')
     # Return results
-    return episode_returns, timepoints, a_best, seed_best, R_best
+    return episode_returns, timepoints, a_best, seed_best, R_best, offline_scores
