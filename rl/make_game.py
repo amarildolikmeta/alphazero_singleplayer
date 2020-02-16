@@ -5,8 +5,9 @@ Custom game generation function
 """
 import gym
 import numpy as np
-from .wrappers import NormalizeWrapper,ReparametrizeWrapper,PILCOWrapper,ScaleRewardWrapper,ClipRewardWrapper,ScaledObservationWrapper
-
+from .wrappers import NormalizeWrapper,ReparametrizeWrapper,PILCOWrapper,ScaleRewardWrapper,ClipRewardWrapper,\
+    ScaledObservationWrapper
+from envs import generate_taxi, generate_arms, generate_river, generate_loop, generate_chain, generate_three_arms
 # Register deterministic FrozenLakes
 from gym.envs.registration import register
 register(
@@ -24,6 +25,13 @@ register(
     reward_threshold=0.78, # optimum = .8196
 )
 
+game_to_env = {
+                "Chain": generate_chain,
+                "Taxi": generate_taxi,
+                "Loop": generate_loop,
+                "RiverSwim": generate_river,
+                "SixArms": generate_arms,
+                "ThreeArms": generate_three_arms}
 def get_base_env(env):
     ''' removes all wrappers '''
     while hasattr(env,'env'):
@@ -35,8 +43,11 @@ def is_atari_game(env):
     env = get_base_env(env)
     return hasattr(env,'ale')
 
-def make_game(game):
+def make_game(game, game_params={}):
     ''' Modifications to Env '''
+    if game in game_to_env.keys():
+        return game_to_env[game](**game_params)
+
     name,version = game.rsplit('-',1)
     if len(version) > 2:
         modify = version[2:]

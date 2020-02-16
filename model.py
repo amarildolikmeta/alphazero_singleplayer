@@ -48,9 +48,13 @@ class Model():
                                                 self.pi: pib})
 
     def predict_V(self, s):
+        if len(s.shape) != len(self.x.shape):
+            s = s.reshape((-1,) + s.shape)
         return self.sess.run(self.V_hat, feed_dict={self.x: s})
 
     def predict_pi(self, s):
+        if len(s.shape) != len(self.x.shape):
+            s = s.reshape((-1,) + s.shape)
         return self.sess.run(self.pi_hat, feed_dict={self.x: s})
 
     def save(self, save_path, variables=None):

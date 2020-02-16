@@ -2,7 +2,7 @@ import numpy as np
 import time
 
 
-def eval_policy(pi,  env, n_episodes=100, add_terminal=False, verbose=True, interactive=False):
+def eval_policy(pi,  env, n_episodes=100, add_terminal=False, verbose=True, interactive=False, max_len=np.inf):
 
     rewards = []
     lens = []
@@ -11,7 +11,7 @@ def eval_policy(pi,  env, n_episodes=100, add_terminal=False, verbose=True, inte
         s = env.reset()
         t = 0
         rew = 0
-        while True:
+        while t <= max_len:
             s = np.concatenate([s, [0]]) if add_terminal else s
             a = pi(s)
             ns, r, done, inf = env.step(a)
@@ -27,7 +27,7 @@ def eval_policy(pi,  env, n_episodes=100, add_terminal=False, verbose=True, inte
             else:
                 env.forward(a, s, r)
 
-        if verbose:
+        if verbose and False:
             print("Episode {0}: Return = {1}, Duration = {2}, Time = {3} s".format(i, rew, t, time.time() - start))
         rewards.append(rew)
         lens.append(t)

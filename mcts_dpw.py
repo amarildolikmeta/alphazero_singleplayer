@@ -75,10 +75,12 @@ class MCTSStochastic(MCTS):
             mcts_env = copy.deepcopy(Env)  # copy original Env to rollout from
         # else:
         #     restore_atari_state(mcts_env, snapshot)
+        if mcts_env._state != Env._state:
+            print("Copying went wrong")
         if self.root is None:
             # initialize new root
             self.root = StochasticState(self.root_index, r=0.0, terminal=False, parent_action=None, na=self.na,
-                                        model=self.model, signature=mcts_env.get_signature())
+                                        model=self.model, signature=Env.get_signature())
         else:
             self.root.parent_action = None  # continue from current root
         if self.root.terminal:
@@ -110,7 +112,6 @@ class MCTSStochastic(MCTS):
                     if action.get_state_ind(s1) != -1:
                         state = action.child_states[action.get_state_ind(s1)]# select
                         state.r = r
-                        continue
                     else:
                         # if action.index == 0 and len(action.child_states) > 0:
                         #     print("Error")
@@ -154,14 +155,13 @@ class MCTSStochastic(MCTS):
         if action.n_children > 0:
             if action.get_state_ind(s1) == -1:
                 self.root = None
-                self.root_index = s1
             else:
                 self.root = action.child_states[action.get_state_ind(s1)]
+                self.root.parent_action = None
                 self.root.r = r
         else:
             self.root = None
-            self.root_index = s1
-
+        self.root_index = s1
     def inorderTraversal(self, root, g, vertex_index, parent_index, v_label, a_label):
         if root:
             g.add_vertex(vertex_index)
@@ -169,7 +169,7 @@ class MCTSStochastic(MCTS):
             v_label.append(root.to_json())
             if root.parent_action:
                 g.add_edge(parent_index, vertex_index)
-                a_label.append(root.parent_action.index)
+                a_label.append(str(root.parent_action.index) + "(" + str(root.parent_action.n) + ")")
             par_index = vertex_index
             vertex_index += 1
             for i, a in enumerate(root.child_actions):

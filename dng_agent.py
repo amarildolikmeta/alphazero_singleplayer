@@ -15,7 +15,7 @@ class EnvEvalWrapper(object):
 #### Agent ##
 def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, temp, n_hidden_layers, n_hidden_units,
           stochastic=False,  eval_freq=-1, eval_episodes=100, alpha=0.6, out_dir='../', pre_process=None,
-          visualize=False, game_params={}):
+          visualize=False):
     ''' Outer training loop '''
     if pre_process is not None:
         pre_process()
@@ -27,9 +27,9 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     episode_returns = []  # storage
     timepoints = []
     # Environments
-    Env = make_game(game, game_params)
+    Env = make_game(game)
     is_atari = is_atari_game(Env)
-    mcts_env = make_game(game, game_params) if is_atari else None
+    mcts_env = make_game(game) if is_atari else None
     online_scores = []
     offline_scores = []
     mcts_params = dict(
@@ -71,8 +71,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                     return s
 
                 def forward(a, s, r):
-                    #env_wrapper.mcts.forward(a, s, r)
-                    pass
+                    env_wrapper.mcts.forward(a, s, r)
+                    #pass
 
                 env_wrapper.reset = reset_env
                 env_wrapper.step = lambda x: Env.step(x)
@@ -82,15 +82,14 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 def pi_wrapper(ob):
                     if not is_atari:
                         mcts_env = None
-                    #env_wrapper.mcts.search(n_mcts=n_mcts, c=c, Env=Env, mcts_env=mcts_env)
-                    #state, pi, V = env_wrapper.mcts.return_results(temp=0)
-                    pi = model.predict_pi(s).flatten()
+                    env_wrapper.mcts.search(n_mcts=n_mcts, c=c, Env=Env, mcts_env=mcts_env)
+                    state, pi, V = env_wrapper.mcts.return_results(temp=0)
+                    #pi = model.predict_pi(s).flatten()
                     env_wrapper.curr_probs.append(pi)
                     a = np.argmax(pi)
                     return a
 
-                rews, lens = eval_policy(pi_wrapper, env_wrapper, n_episodes=eval_episodes, verbose=True
-                                         , max_len=max_ep_len)
+                rews, lens = eval_policy(pi_wrapper, env_wrapper, n_episodes=eval_episodes, verbose=True)
                 offline_scores.append([np.min(rews), np.max(rews), np.mean(rews), np.std(rews),
                                        len(rews), np.mean(lens)])
                 # if len(rews) < eval_episodes or len(rews) == 0:

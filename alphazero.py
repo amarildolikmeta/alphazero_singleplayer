@@ -31,7 +31,7 @@ if __name__ == '__main__':
     parser.add_argument('--game', default='Blackjack_pi-v0', help='Training environment')
     parser.add_argument('--n_ep', type=int, default=1000, help='Number of episodes')
     parser.add_argument('--n_mcts', type=int, default=20, help='Number of MCTS traces per step')
-    parser.add_argument('--max_ep_len', type=int, default=300, help='Maximum number of steps per episode')
+    parser.add_argument('--max_ep_len', type=int, default=50, help='Maximum number of steps per episode')
     parser.add_argument('--lr', type=float, default=0.01, help='Learning rate')
     parser.add_argument('--c', type=float, default=1.5, help='UCT constant')
     parser.add_argument('--temp', type=float, default=1.0,
@@ -46,7 +46,7 @@ if __name__ == '__main__':
     parser.add_argument('--alpha_test', action='store_true')
     parser.add_argument('--visualize', action='store_true')
     parser.add_argument('--eval_freq', type=int, default=20, help='Evaluation_frequency')
-    parser.add_argument('--eval_episodes', type=int, default=300, help='Episodes of evaluation')
+    parser.add_argument('--eval_episodes', type=int, default=50, help='Episodes of evaluation')
     parser.add_argument('--delta_alpha', type=float, default=0.2, help='progressive widening parameter')
     parser.add_argument('--min_alpha', type=float, default=0, help='progressive widening parameter')
     parser.add_argument('--max_alpha', type=float, default=2, help='progressive widening parameter')
@@ -100,8 +100,12 @@ if __name__ == '__main__':
         # plt.savefig(out_dir + name, bbox_inches="tight", bbox_extra_artists=(lgd,))
     else:
         exps = []
+        game_params = {}
+        if args.game == 'Taxi':
+            game_params['grid'] = 'grid.txt'
+            game_params['box'] = True
         for i in range(args.n_experiments):
-
+            out_dir_i = out_dir + str(i) + '/'
             episode_returns, timepoints, a_best, \
                 seed_best, R_best, offline_scores = agent(game=args.game,
                                                           n_ep=args.n_ep,
@@ -117,14 +121,14 @@ if __name__ == '__main__':
                                                           n_hidden_units=args.n_hidden_units,
                                                           stochastic=args.stochastic,
                                                           alpha=args.alpha,
-                                                          out_dir=out_dir,
+                                                          out_dir=out_dir_i,
                                                           visualize=args.visualize,
                                                           eval_freq=args.eval_freq,
                                                           eval_episodes=args.eval_episodes,
-                                                          pre_process=None)
+                                                          pre_process=None, game_params=game_params)
             exps.append(offline_scores)
             scores = np.stack(exps, axis=0)
-            np.save("scores.npy", scores)
+            np.save(out_dir + "scores.npy", scores)
 
         # Finished training: Visualize
         # fig, ax = plt.subplots(1, figsize=[7, 5])

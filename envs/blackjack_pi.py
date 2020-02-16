@@ -3,7 +3,8 @@ from gym import spaces
 from gym.utils import seeding
 from gym.envs.registration import register
 import numpy as np
-
+from mushroom.environments.environment import MDPInfo
+from mushroom.utils import spaces as mushroom_spaces
 # register(
 #     id='Blackjack_pi-v0',
 #     entry_point='envs.blackjack_pi:BlackjackEnv',
@@ -86,6 +87,9 @@ class BlackjackEnv(gym.Env):
         else:
             self.dims = dims = [32, 11, 2]
             self.observation_space = spaces.Discrete(np.prod(dims))
+            ob_space = mushroom_spaces.Discrete(self.observation_space.n)
+            ac_space = mushroom_spaces.Discrete(2)
+            self._mdp_info = MDPInfo(ob_space, ac_space, 1., np.inf)
         # spaces.Tuple((
         #     spaces.Discrete(32),
         #     spaces.Discrete(11),
@@ -95,12 +99,22 @@ class BlackjackEnv(gym.Env):
         # Flag to payout 1.5 on a "natural" blackjack win, like casino rules
         # Ref: http://www.bicyclecards.com/how-to-play/blackjack/
         self.natural = natural
+
         # Start the first game
         self.reset()
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
+
+    @property
+    def info(self):
+        """
+        Returns:
+             An object containing the info of the environment.
+
+        """
+        return self._mdp_info
 
     def step(self, action):
         assert self.action_space.contains(action)
