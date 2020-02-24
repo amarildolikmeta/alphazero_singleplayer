@@ -1,7 +1,12 @@
+import copy
+
 import numpy as np
 import tensorflow as tf
 import os
 import time
+
+from tqdm import trange
+
 from helpers import is_atari_game, store_safely, Database
 from rl.make_game import make_game
 from model import Model
@@ -12,10 +17,29 @@ from policies.eval_policy import eval_policy
 class EnvEvalWrapper(object):
     pass
 
+DEBUG = False
+DEBUG_TAXI = False
+
 #### Agent ##
 def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, temp, n_hidden_layers, n_hidden_units,
           stochastic=False,  eval_freq=-1, eval_episodes=100, alpha=0.6, out_dir='../', pre_process=None,
           visualize=False, game_params={}):
+
+    visualizer = None
+
+    if DEBUG_TAXI:
+        from utils.visualization.taxi import TaxiVisualizer
+        with open("grid2.txt", 'r') as f:
+            m = f.readlines()
+            matrix = []
+            for r in m:
+                row = []
+                for ch in r.strip('\n'):
+                    row.append(ch)
+                matrix.append(row)
+            visualizer = TaxiVisualizer(matrix)
+            f.close()
+
     ''' Outer training loop '''
     if pre_process is not None:
         pre_process()
@@ -46,16 +70,24 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     t_total = 0  # total steps
     R_best = -np.Inf
 
+
     with tf.Session() as sess:
         model.sess = sess
         sess.run(tf.global_variables_initializer())
 
-        for ep in range(n_ep):
+        for ep in trange(n_ep) if DEBUG else range(n_ep):
+            if DEBUG_TAXI:
+                visualizer.reset()
+
             if eval_freq > 0  and ep % eval_freq == 0: #and ep > 0
                 print('Evaluating policy for {} episodes!'.format(eval_episodes))
                 seed = np.random.randint(1e7)  # draw some Env seed
                 Env.seed(seed)
                 s = Env.reset()
+
+                if DEBUG_TAXI:
+                    visualizer.visualize_taxi(copy.deepcopy(s), None)
+
                 mcts = mcts_maker(root_index=s, root=None, model=model, na=model.action_dim, **mcts_params)
                 env_wrapper = EnvEvalWrapper()
                 env_wrapper.mcts = mcts
@@ -123,16 +155,28 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 # Make the true step
                 a = np.random.choice(len(pi), p=pi)
                 a_store.append(a)
+
                 s1, r, terminal, _ = Env.step(a)
+
+                if DEBUG_TAXI:
+                    olds, olda = copy.deepcopy(s1), copy.deepcopy(a)
+                    visualizer.visualize_taxi(olds, olda)
+
                 R += r
                 t_total += n_mcts  # total number of environment steps (counts the mcts steps)
 
                 if terminal:
+                    #TODO remove this
+                    # if r > 0:
+                    #     print("Terminal state reward: ", r)
                     break
                 else:
                     mcts.forward(a, s1, r)
 
             # Finished episode
+            if DEBUG:
+                print("Train episode return:", R)
+                print("Train episode actions:", a_store)
             episode_returns.append(R)  # store the total episode return
             online_scores.append(R)
             timepoints.append(t_total)  # store the timestep count of the episode return
@@ -151,8 +195,14 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             # Train
             D.reshuffle()
             try:
+                if DEBUG:
+                    print("Training network")
                 for epoch in range(1):
                     for sb, Vb, pib in D:
+                        if DEBUG:
+                            print("sb:", sb)
+                            print("Vb:", Vb)
+                            print("pib:", pib)
                         model.train(sb, Vb, pib)
             except Exception as e:
                 print("ASD")

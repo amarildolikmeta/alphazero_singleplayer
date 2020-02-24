@@ -3,8 +3,8 @@ from gym import spaces
 from gym.utils import seeding
 from gym.envs.registration import register
 import numpy as np
-from mushroom.environments.environment import MDPInfo
-from mushroom.utils import spaces as mushroom_spaces
+from mushroom_rl.environments.environment import MDPInfo
+from mushroom_rl.utils import spaces as mushroom_spaces
 # register(
 #     id='Blackjack_pi-v0',
 #     entry_point='envs.blackjack_pi:BlackjackEnv',

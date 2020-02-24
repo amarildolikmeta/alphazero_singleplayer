@@ -1,6 +1,6 @@
 import numpy as np
-from mushroom.environments.environment import  MDPInfo
-from mushroom.utils import spaces
+from mushroom_rl.environments.environment import MDPInfo
+from mushroom_rl.utils import spaces
 from gym.utils import seeding
 from gym import spaces as gym_spaces
 
@@ -42,6 +42,9 @@ class FiniteMDP:
         self.seed()
         self.t = 0
         #super().__init__(mdp_info)
+
+    def get_state(self):
+        return self._state
 
     def get_signature(self):
         sig = {'state': np.copy(self._state)}
