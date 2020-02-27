@@ -25,7 +25,7 @@ DEBUG_TAXI = False
 
 #### Agent ##
 def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, temp, n_hidden_layers, n_hidden_units,
-          stochastic=False,  eval_freq=-1, eval_episodes=100, alpha=0.6, out_dir='../', pre_process=None,
+          stochastic=False,  eval_freq=-1, eval_episodes=100, alpha=0.6, n_epochs=100, out_dir='../', pre_process=None,
           visualize=False, game_params={}):
 
     visualizer = None
@@ -88,7 +88,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             if DEBUG_TAXI:
                 visualizer.reset()
 
-            if eval_freq > 0  and ep % eval_freq == 0: #and ep > 0
+            if eval_freq > 0 and ep % eval_freq == 0: #and ep > 0
                 print('--------------------------------\nEvaluating policy for {} episodes!'.format(eval_episodes))
                 seed = np.random.randint(1e7)  # draw some Env seed
                 Env.seed(seed)
@@ -206,7 +206,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             try:
                 if DEBUG:
                     print("Training network")
-                for epoch in range(1):
+                for epoch in range(n_epochs):
+                    D.reshuffle()
                     for sb, Vb, pib in D:
                         if DEBUG:
                             print("sb:", sb)
@@ -219,12 +220,15 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                             ep_pi_loss.append(pi_l)
             except Exception as e:
                 print("Something wrong while training")
+
             # model.save(out_dir + 'model')
             if ep % eval_freq == 0:
                 ep_V_loss = mean(ep_V_loss)
                 ep_pi_loss = mean(ep_pi_loss)
-                print("Episode {0:3d}:\t V Loss={1:.5f},\tpi_loss={1:.5f}".format(ep, ep_V_loss, ep_pi_loss))
-
+                print()
+                print("Episode", ep)
+                print("pi_loss:", ep_pi_loss)
+                print("V_loss:", ep_V_loss)
                 V_loss.append(ep_V_loss)
                 pi_loss.append(ep_pi_loss)
 

@@ -52,6 +52,8 @@ if __name__ == '__main__':
     parser.add_argument('--max_alpha', type=float, default=2, help='progressive widening parameter')
     parser.add_argument('--n_hidden_layers', type=int, default=2, help='Number of hidden layers in NN')
     parser.add_argument('--n_hidden_units', type=int, default=16, help='Number of units per hidden layers in NN')
+    parser.add_argument('--n_epochs', type=int, default=10, help='Number of epochs of training for the NN')
+
 
     args = parser.parse_args()
     start_time = time.time()
@@ -74,7 +76,7 @@ if __name__ == '__main__':
 
     fun_args = [args.game, args.n_ep, args.n_mcts, args.max_ep_len, args.lr, args.c, args.gamma,
                 args.data_size, args.batch_size, args.temp, args.n_hidden_layers, args.n_hidden_units,
-                True, args.eval_freq, args.eval_episodes]
+                True, args.eval_freq, args.eval_episodes, args.n_epochs]
     if args.alpha_test:
         alpha = args.min_alpha
         delta_alpha = args.delta_alpha
@@ -125,7 +127,8 @@ if __name__ == '__main__':
                                                           visualize=args.visualize,
                                                           eval_freq=args.eval_freq,
                                                           eval_episodes=args.eval_episodes,
-                                                          pre_process=None, game_params=game_params)
+                                                          pre_process=None, game_params=game_params,
+                                                          n_epochs=args.n_epochs)
             exps.append(offline_scores)
             scores = np.stack(exps, axis=0)
             np.save(out_dir + "scores.npy", scores)
