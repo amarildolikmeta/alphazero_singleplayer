@@ -82,3 +82,17 @@ class Model():
             for v in variables:
                 restores.append(v.assign(loaded_params[v.name]))
         sess.run(restores)
+
+    def evaluate_loss(self, episode, sb, Vb, pib):
+        V_loss, pi_loss = self.sess.run([self.V_loss, self.pi_loss],
+                                              feed_dict={self.x: sb,
+                                                         self.V: Vb,
+                                                         self.pi: pib})
+
+        pi_loss = np.mean(pi_loss)
+
+        # print("Episode {0:3d}:\t V Loss={1:.5f},\tpi_loss={1:.5f}".
+        #      format(episode, V_loss, pi_loss))
+
+        return V_loss, pi_loss
+

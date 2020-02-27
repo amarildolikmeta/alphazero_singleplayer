@@ -1,4 +1,5 @@
 import copy
+from statistics import mean
 
 import numpy as np
 import tensorflow as tf
@@ -13,6 +14,8 @@ from model import Model
 from mcts import MCTS
 from mcts_dpw import MCTSStochastic
 from policies.eval_policy import eval_policy
+
+import matplotlib.pyplot as plt
 
 class EnvEvalWrapper(object):
     pass
@@ -75,12 +78,18 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         model.sess = sess
         sess.run(tf.global_variables_initializer())
 
+        pi_loss = []
+        V_loss = []
+
         for ep in trange(n_ep) if DEBUG else range(n_ep):
+            ep_pi_loss = []
+            ep_V_loss = []
+
             if DEBUG_TAXI:
                 visualizer.reset()
 
             if eval_freq > 0  and ep % eval_freq == 0: #and ep > 0
-                print('Evaluating policy for {} episodes!'.format(eval_episodes))
+                print('--------------------------------\nEvaluating policy for {} episodes!'.format(eval_episodes))
                 seed = np.random.randint(1e7)  # draw some Env seed
                 Env.seed(seed)
                 s = Env.reset()
@@ -204,8 +213,28 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                             print("Vb:", Vb)
                             print("pib:", pib)
                         model.train(sb, Vb, pib)
+                        if ep % eval_freq == 0:
+                            v_l, pi_l = model.evaluate_loss(ep, sb, Vb, pib)
+                            ep_V_loss.append(v_l)
+                            ep_pi_loss.append(pi_l)
             except Exception as e:
-                print("ASD")
-            model.save(out_dir + 'model')
+                print("Something wrong while training")
+            # model.save(out_dir + 'model')
+            if ep % eval_freq == 0:
+                ep_V_loss = mean(ep_V_loss)
+                ep_pi_loss = mean(ep_pi_loss)
+                print("Episode {0:3d}:\t V Loss={1:.5f},\tpi_loss={1:.5f}".format(ep, ep_V_loss, ep_pi_loss))
+
+                V_loss.append(ep_V_loss)
+                pi_loss.append(ep_pi_loss)
+
+                plt.plot(V_loss, label="V_loss")
+                plt.plot(pi_loss, label="pi_loss")
+                plt.grid = True
+                plt.xlabel = "Evaluation Episode"
+                plt.ylabel = "Loss"
+                plt.legend()
+                plt.show()
+
     # Return results
-    return episode_returns, timepoints, a_best, seed_best, R_best, offline_scores
+    return episode_returns, timepoints, a_best, seed_best, R_best, offline_scores, V_loss, pi_loss
