@@ -4,4 +4,6 @@
 
 .idea/
 
-logs/
+/logs
+
+__pycache__/
