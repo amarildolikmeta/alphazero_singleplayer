@@ -1,12 +1,14 @@
 import numpy as np
 import time
 
+from tqdm import trange
+
 
 def eval_policy(pi,  env, n_episodes=100, add_terminal=False, verbose=True, interactive=False, max_len=np.inf):
 
     rewards = []
     lens = []
-    for i in range(n_episodes):
+    for i in trange(n_episodes):
         #TODO remove this
         acts = []
         start = time.time()
@@ -30,7 +32,7 @@ def eval_policy(pi,  env, n_episodes=100, add_terminal=False, verbose=True, inte
             else:
                 env.forward(a, s, r)
 
-        if verbose or True:
+        if verbose:
             #print(acts)
             print("Episode {0}: Return = {1}, Duration = {2}, Time = {3} s".format(i, rew, t, time.time() - start))
         rewards.append(rew)
@@ -38,7 +40,7 @@ def eval_policy(pi,  env, n_episodes=100, add_terminal=False, verbose=True, inte
 
     avg = np.mean(rewards)
     std = np.std(rewards)
-    if verbose:
+    if verbose or True:
         print("Average Return = {0} +- {1}".format(avg, std))
     env.reset()
     return rewards, lens
