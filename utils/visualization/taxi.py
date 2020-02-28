@@ -78,8 +78,6 @@ class TaxiVisualizer(object):
         else:
             outfile.write("\n")
 
-        input()
-
         # No need to return anything for human
         if mode != 'human':
             with closing(outfile):

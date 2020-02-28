@@ -23,7 +23,7 @@ class EnvEvalWrapper(object):
 
 
 DEBUG = False
-DEBUG_TAXI = False
+DEBUG_TAXI = True
 
 
 #### Agent ##
@@ -91,9 +91,6 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             Env.seed(seed)
             s = Env.reset()
 
-            if DEBUG_TAXI:
-                visualizer.visualize_taxi(copy.deepcopy(s), None)
-
             mcts = mcts_maker(root_index=s, root=None, model=model, na=model.action_dim, **mcts_params)
             env_wrapper = EnvEvalWrapper()
             env_wrapper.mcts = mcts
@@ -156,7 +153,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
         # TODO parallelize here, very slow
         print("\nPerforming MCTS steps")
-        for _ in trange(max_ep_len):
+        for _ in trange(max_ep_len) if not DEBUG_TAXI else range(max_ep_len):
             # MCTS step
             if not is_atari:
                 mcts_env = None
