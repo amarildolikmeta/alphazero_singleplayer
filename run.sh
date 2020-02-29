@@ -1,0 +1,1 @@
+/home/digga/anaconda3/envs/alphazero_singleplayer/bin/python /home/digga/Programming/alphazero_singleplayer/alphazero.py --game=Taxi --gamma=0.95 --stochastic --max_ep_len=200 --lr=0.01 --n_hidden_layers=4 --n_hidden_units=32 --n_epochs=100 --eval_freq=10

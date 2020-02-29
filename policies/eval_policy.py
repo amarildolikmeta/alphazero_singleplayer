@@ -8,9 +8,8 @@ def eval_policy(pi,  env, n_episodes=100, add_terminal=False, verbose=True, inte
 
     rewards = []
     lens = []
-    for i in trange(n_episodes):
-        #TODO remove this
-        acts = []
+    for i in range(n_episodes):
+        print('Evaluated ' + str(i) + ' of ' + str(n_episodes), end='\r')
         start = time.time()
         s = env.reset()
         t = 0
@@ -18,7 +17,6 @@ def eval_policy(pi,  env, n_episodes=100, add_terminal=False, verbose=True, inte
         while t <= max_len:
             s = np.concatenate([s, [0]]) if add_terminal else s
             a = pi(s)
-            acts.append(a)
             ns, r, done, inf = env.step(a)
             s = ns
             if interactive:

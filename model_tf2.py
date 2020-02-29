@@ -35,49 +35,15 @@ class Model(object):
         self.value_model = None
         self.policy_model = None
 
-        self.inp = None
-        self.x = None
-
-        # Input layer
-        if not self.state_discrete:
-            self.inp = self.x = layers.Input(shape=self.state_dim, dtype="float32")
-        else:
-            # TODO Might be possible to use embedding here
-            self.inp = layers.Input(dtype="int32", shape=(1,))
-            self.x = layers.Lambda(OneHot, arguments={"state_dim": self.state_dim})(self.inp)
-            # self.x = tf.squeeze(tf.one_hot(self.inp, self.state_dim, axis=1), axis=2)
-
-        # Feedforward: Can be modified to any representation function, e.g. convolutions, residual networks, etc
-        for i in range(n_hidden_layers):
-            self.x = (layers.Dense(n_hidden_units, activation=tf.nn.elu))(self.x)
-
-        # Output
-
-        log_pi_hat = layers.Dense(self.action_dim, activation=None)(self.x)
-        self.pi_hat = layers.Softmax()(log_pi_hat)  # policy head
-        self.V_hat = layers.Dense(1, activation=None)(self.x)  # value head
-
-        # Compile the model for training
-
         if joint_networks:
-            self.model = tf.keras.Model(inputs=self.inp, outputs=[self.V_hat, self.pi_hat])
-
-            self.model.compile(optimizer=keras.optimizers.RMSprop(learning_rate=lr),
-                               loss=[keras.losses.mean_squared_error, keras.losses.categorical_crossentropy],
-                               loss_weights=[1.0, 1.0])
+            self.model = self.build_joint_model(lr, n_hidden_layers, n_hidden_units, self.state_dim, self.action_dim, self.state_discrete)
 
         else:
-            self.policy_model = tf.keras.Model(inputs=self.inp, outputs=self.pi_hat)
-            self.value_model = tf.keras.Model(inputs=self.inp, outputs=self.V_hat)
+            self.policy_model = self.build_policy_network(lr, n_hidden_layers, n_hidden_units, self.state_dim, self.action_dim, self.state_discrete)
+            self.value_model = self.build_value_network(lr, n_hidden_layers, n_hidden_units, self.state_dim, self.state_discrete)
 
-            self.policy_model.compile(optimizer=keras.optimizers.RMSprop(learning_rate=lr),
-                                      loss=keras.losses.categorical_crossentropy)
-
-            self.value_model.compile(optimizer=keras.optimizers.RMSprop(learning_rate=lr),
-                                     loss=keras.losses.mean_squared_error)
-
-    def build_joint_model(self, lr, n_hidden_layers, n_hidden_units, state_dim, action_dim):
-        if not self.state_discrete:
+    def build_joint_model(self, lr, n_hidden_layers, n_hidden_units, state_dim, action_dim, state_discrete):
+        if not state_discrete:
             inp = x = layers.Input(shape=state_dim, dtype="float32")
         else:
             # TODO Might be possible to use embedding here
@@ -97,9 +63,60 @@ class Model(object):
 
         model = tf.keras.Model(inputs=inp, outputs=[V_hat, pi_hat])
 
-        model.compile(optimizer=keras.optimizers.RMSprop(learning_rate=lr),
-                           loss=[keras.losses.mean_squared_error, keras.losses.categorical_crossentropy],
-                           loss_weights=[1.0, 1.0])
+        model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr),
+                      loss=[keras.losses.mean_squared_error, keras.losses.categorical_crossentropy],
+                      loss_weights=[1.0, 1.0])
+
+        return model
+
+    def build_policy_network(self, lr, n_hidden_layers, n_hidden_units, state_dim, action_dim, state_discrete):
+        lr = 0.1
+
+        if not state_discrete:
+            inp = x = layers.Input(shape=state_dim, dtype="float32")
+        else:
+            # TODO Might be possible to use embedding here
+            inp = layers.Input(dtype="int32", shape=(1,))
+            x = layers.Lambda(OneHot, arguments={"state_dim": state_dim})(inp)
+            # self.x = tf.squeeze(tf.one_hot(self.inp, self.state_dim, axis=1), axis=2)
+
+        # Feedforward: Can be modified to any representation function, e.g. convolutions, residual networks, etc
+        for i in range(n_hidden_layers):
+            x = (layers.Dense(n_hidden_units, activation=tf.nn.elu))(x)
+
+        # Output
+
+        log_pi_hat = layers.Dense(action_dim, activation=None)(x)
+        pi_hat = layers.Softmax()(log_pi_hat)  # policy head
+
+        model = tf.keras.Model(inputs=inp, outputs=pi_hat)
+
+        model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr),
+                      loss=keras.losses.categorical_crossentropy)
+
+        return model
+
+    def build_value_network(self, lr, n_hidden_layers, n_hidden_units, state_dim, state_discrete):
+        if not state_discrete:
+            inp = x = layers.Input(shape=state_dim, dtype="float32")
+        else:
+            # TODO Might be possible to use embedding here
+            inp = layers.Input(dtype="int32", shape=(1,))
+            x = layers.Lambda(OneHot, arguments={"state_dim": state_dim})(inp)
+            # self.x = tf.squeeze(tf.one_hot(self.inp, self.state_dim, axis=1), axis=2)
+
+        # Feedforward: Can be modified to any representation function, e.g. convolutions, residual networks, etc
+        for i in range(n_hidden_layers):
+            x = (layers.Dense(n_hidden_units, activation=tf.nn.elu))(x)
+
+        # Output
+
+        V_hat = layers.Dense(1, activation=None)(x)  # value head
+
+        model = tf.keras.Model(inputs=inp, outputs=V_hat)
+
+        model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr),
+                      loss=keras.losses.mean_squared_error)
 
         return model
 
@@ -114,23 +131,22 @@ class Model(object):
             v_loss = self.value_model.train_on_batch(sb, y=Vb)
             return [pi_loss + v_loss, v_loss, pi_loss]
 
-
     def predict_V(self, s):
-        if len(s.shape) != len(self.x.shape):
+        if len(s.shape) != self.state_dim:
             s = s.reshape((-1,) + s.shape)
 
         if self.joint_model:
             return self.model.predict(s)[0]
         else:
-            return self.policy_model.predict(s)
+            return self.value_model.predict(s)
 
     def predict_pi(self, s):
-        if len(s.shape) != len(self.x.shape):
+        if len(s.shape) != self.state_dim:
             s = s.reshape((-1,) + s.shape)
         if self.joint_model:
             return self.model.predict(s)[1]
         else:
-            return self.value_model.predict(s)
+            return self.policy_model.predict(s)
 
     def save(self, save_path, variables=None):
         if not self.joint_model:

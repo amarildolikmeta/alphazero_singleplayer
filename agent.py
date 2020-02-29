@@ -23,7 +23,7 @@ class EnvEvalWrapper(object):
 
 
 DEBUG = False
-DEBUG_TAXI = True
+DEBUG_TAXI = False
 
 
 #### Agent ##
@@ -86,10 +86,10 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             visualizer.reset()
 
         if eval_freq > 0 and ep % eval_freq == 0:  # and ep > 0
-            print('--------------------------------\nEvaluating policy for {} episodes!'.format(eval_episodes))
+            print('--------------------------------\nEvaluating policy for {} episodes!\n'.format(eval_episodes))
             seed = np.random.randint(1e7)  # draw some Env seed
             Env.seed(seed)
-            s = Env.reset()
+            s = start_s = Env.reset()
 
             mcts = mcts_maker(root_index=s, root=None, model=model, na=model.action_dim, **mcts_params)
             env_wrapper = EnvEvalWrapper()
@@ -135,6 +135,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             # if np.std(rews) == 0.:
             #     print("WTF 2")
             np.save(out_dir + '/offline_scores.npy', offline_scores)
+
         start = time.time()
         s = Env.reset()
         R = 0.0  # Total return counter
@@ -145,15 +146,18 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             mcts_env.reset()
             mcts_env.seed(seed)
 
-        #TODO this print is unclear
+        # TODO this print is unclear
         if ep % eval_freq == 0:
             print("\nCollecting %d episodes" % eval_freq)
         mcts = mcts_maker(root_index=s, root=None, model=model, na=model.action_dim,
                           **mcts_params)  # the object responsible for MCTS searches
 
         # TODO parallelize here, very slow
-        print("\nPerforming MCTS steps")
-        for _ in trange(max_ep_len) if not DEBUG_TAXI else range(max_ep_len):
+        print("\nPerforming MCTS steps\n")
+        for st in trange(max_ep_len) if not DEBUG_TAXI and False else range(max_ep_len):
+
+            print('Step ' + str(st+1) + ' of ' + str(max_ep_len), end='\r')
+
             # MCTS step
             if not is_atari:
                 mcts_env = None
@@ -209,8 +213,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         # Train
         D.reshuffle()
         try:
-            print("Training network")
-            for _ in trange(n_epochs):
+            print("\nTraining network")
+            for _ in range(n_epochs):
                 D.reshuffle()
                 for sb, Vb, pib in D:
                     if DEBUG:
@@ -221,27 +225,46 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                     if ep % eval_freq == 0 or True:
                         ep_V_loss.append(loss[1])
                         ep_pi_loss.append(loss[2])
+
+            # Plot the loss over training epochs
+
+            plt.plot(ep_V_loss, label="V_loss")
+            plt.plot(ep_pi_loss, label="pi_loss")
+            plt.grid = True
+            plt.title("Training loss")
+            plt.xlabel = "Epoch"
+            plt.ylabel = "Loss"
+            plt.legend()
+            plt.show()
+
         except Exception as e:
             print("Something wrong while training")
 
         # model.save(out_dir + 'model')
-        if ep % eval_freq == 0:
-            ep_V_loss = mean(ep_V_loss)
-            ep_pi_loss = mean(ep_pi_loss)
-            print()
-            print("Episode", ep)
-            print("pi_loss:", ep_pi_loss)
-            print("V_loss:", ep_V_loss)
-            V_loss.append(ep_V_loss)
-            pi_loss.append(ep_pi_loss)
 
-            plt.plot(V_loss, label="V_loss")
-            plt.plot(pi_loss, label="pi_loss")
-            plt.grid = True
-            plt.xlabel = "Evaluation Episode"
-            plt.ylabel = "Loss"
-            plt.legend()
-            plt.show()
+        ep_V_loss = mean(ep_V_loss)
+        ep_pi_loss = mean(ep_pi_loss)
+        print()
+        print("Episode", ep)
+        print("pi_loss:", ep_pi_loss)
+        print("V_loss:", ep_V_loss)
+        V_loss.append(ep_V_loss)
+        pi_loss.append(ep_pi_loss)
+
+        # Plot the loss over different episodes
+
+        plt.plot(V_loss, label="V_loss")
+        plt.plot(pi_loss, label="pi_loss")
+        plt.grid = True
+        plt.title("Loss over episodes")
+        plt.xlabel = "Evaluation Episode"
+        plt.ylabel = "Loss"
+        plt.legend()
+        plt.show()
+
+        print("\nStart policy: ", model.predict_pi(start_s))
+        print("Start value:", model.predict_V(start_s))
+        print()
 
     # Return results
     return episode_returns, timepoints, a_best, seed_best, R_best, offline_scores, V_loss, pi_loss
