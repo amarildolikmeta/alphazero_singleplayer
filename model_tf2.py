@@ -29,8 +29,6 @@ class Model(object):
 
         self.joint_model = joint_networks
 
-        print(self.joint_model)
-
         self.model = None
         self.value_model = None
         self.policy_model = None
