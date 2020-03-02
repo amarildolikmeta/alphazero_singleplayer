@@ -109,6 +109,7 @@ def generate_taxi(grid, prob=.9, rew=(0, 1, 3, 15), gamma=.99, horizon=np.inf, b
     else:
         r = compute_reward(grid_map, cell_list, passenger_list, rew)
     mu = compute_mu(grid_map, cell_list, passenger_list)
+
     return Taxi(p=p, mu=mu, rew=r, horizon=horizon, gamma=gamma, box=box, grid_map=grid_map,
                 passenger_list=passenger_list, cell_list=cell_list)
     # env = FiniteMDP(p, r, mu, gamma, horizon)
@@ -406,3 +407,31 @@ def compute_mu(grid_map, cell_list, passenger_list):
         mu[i] = 1. / len(starts)
 
     return mu
+
+if __name__ == '__main__':
+
+    mdp = generate_taxi('../grid.txt', box=True, easy_mode=True)
+    from utils.visualization.taxi import TaxiVisualizer
+
+    with open("../grid.txt", 'r') as f:
+        m = f.readlines()
+        matrix = []
+        for r in m:
+            row = []
+            for ch in r.strip('\n'):
+                row.append(ch)
+            matrix.append(row)
+        visualizer = TaxiVisualizer(matrix)
+        f.close()
+
+    n_episodes = 10
+    for ep in range(n_episodes):
+        done = False
+        s = mdp.reset()
+        visualizer.reset()
+        t = 0
+        while not done:
+            a = int(input())
+            s, r, done, _ = mdp.step(a)
+            visualizer.visualize_taxi(s,a)
+            t += 1
