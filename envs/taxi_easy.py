@@ -4,9 +4,9 @@ import gym.spaces as spaces
 from envs.FiniteMDP import FiniteMDP
 
 
-class Taxi(FiniteMDP):
+class TaxiEasy(FiniteMDP):
     def __init__(self, p, rew, grid_map, cell_list, passenger_list, mu=None, gamma=.9, horizon=np.inf, box=False):
-        super(Taxi, self).__init__(p, rew, mu=mu, gamma=gamma, horizon=horizon)
+        super(TaxiEasy, self).__init__(p, rew, mu=mu, gamma=gamma, horizon=horizon)
         self.box = box
         self.cell_list = cell_list
         self.passenger_list = passenger_list
@@ -19,52 +19,38 @@ class Taxi(FiniteMDP):
             # state =[my_position, [passenger_positions], goal_position, [passenger_states]]
             self.observation_space = spaces.Box(low=np.zeros(1 + len(goals) + 2 * len(passenger_list)),
                                                 high=np.ones(1 + len(goals) + 2 * len(passenger_list)))
-            # env._step = env.step
-            # env._reset = env.reset
-            #
-            #
-            #
-            # def step(a):
-            #     s, reward, absorbing, info = env._step(a)
-            #     state = index_to_box(s)
-            #     return np.array(state), reward, absorbing, info
-            #
-            # def reset(s=None):
-            #     s = env._reset(s)
-            #     state = index_to_box(s)
-            #     return np.array(state)
-            #
-            # env.step = step
-            # env.reset = reset
+
+        self.current_passenger_state = np.zeros(len(passenger_list))
+        self.rewards = (1, 3, 15)
 
     def step(self, action):
-        s, reward, absorbing, info = super(Taxi, self).step(action)
+        old_passenger_state = self.current_passenger_state.copy()
+        s, reward, absorbing, info = super(TaxiEasy, self).step(action)
         state = self.index_to_box(s)
 
+        if not (old_passenger_state == self.current_passenger_state).all():
+            reward = self.rewards[int(np.sum(self.current_passenger_state))-1]
         return np.array(state), reward, absorbing, info
 
     def reset(self, s=None):
-        s = super(Taxi, self).reset(s)
+        s = super(TaxiEasy, self).reset(s)
         state = self.index_to_box(s)
         return np.array(state)
 
     def index_to_box(self, s):
         pos = s % len(self.cell_list)
         st = self.cell_list[pos[0]]
-        current_passenger_state = np.zeros(len(self.passenger_list))
 
         idx = s // len(self.cell_list)
-        current_passenger_state[:] = self.passenger_states[idx]
+        self.current_passenger_state[:] = self.passenger_states[idx]
         state = np.array(pos.tolist() + np.array(self.passenger_indexes).flatten().tolist() + \
-                         np.array(self.goal_indexes).flatten().tolist() + current_passenger_state.flatten().tolist())
-        if (current_passenger_state != 0).any():
-            pass
+                         np.array(self.goal_indexes).flatten().tolist() + self.current_passenger_state.flatten().tolist())
         # normalize indexes
         state[:-len(self.passenger_list)] /= len(self.cell_list)
         return state
 
 
-def generate_taxi(grid, prob=.9, rew=(0, 1, 3, 15), gamma=.99, horizon=np.inf, box=False):
+def generate_taxi_easy(grid, prob=.9, rew=(1, 3, 15), gamma=.99, horizon=np.inf, box=False):
     """
     This Taxi generator requires a .txt file to specify the shape of the grid
     world and the cells. There are five types of cells: 'S' is the starting
@@ -97,14 +83,14 @@ def generate_taxi(grid, prob=.9, rew=(0, 1, 3, 15), gamma=.99, horizon=np.inf, b
 
     grid_map, cell_list, passenger_list = parse_grid(grid)
 
-    assert len(rew) == len(np.argwhere(np.array(grid_map) == 'F')) + 1
+    assert len(rew) == len(np.argwhere(np.array(grid_map) == 'F'))
 
     p = compute_probabilities(grid_map, cell_list, passenger_list, prob)
     r = compute_reward(grid_map, cell_list, passenger_list, rew)
     mu = compute_mu(grid_map, cell_list, passenger_list)
 
-    return Taxi(p=p, mu=mu, rew=r, horizon=horizon, gamma=gamma, box=box, grid_map=grid_map,
-                passenger_list=passenger_list, cell_list=cell_list)
+    return TaxiEasy(p=p, mu=mu, rew=r, horizon=horizon, gamma=gamma, box=box, grid_map=grid_map,
+                    passenger_list=passenger_list, cell_list=cell_list)
     # env = FiniteMDP(p, r, mu, gamma, horizon)
     #
     # if box:
@@ -297,7 +283,7 @@ def compute_reward(grid_map, cell_list, passenger_list, rew):
     g = np.array(grid_map)
     c = np.array(cell_list)
     n_states = len(cell_list) * 2 ** len(passenger_list)
-    r = np.zeros((n_states, 4, n_states))
+    r = - np.ones((n_states, 4, n_states))
     directions = [[-1, 0], [1, 0], [0, -1], [0, 1]]
     passenger_states = cartesian([[0, 1]] * len(passenger_list))
 
@@ -311,7 +297,7 @@ def compute_reward(grid_map, cell_list, passenger_list, rew):
                     j_idx = j = np.where((c == goal).all(axis=1))[0] + len(
                         cell_list) * i
 
-                    r[i_idx, a, j_idx] = rew[np.sum(passenger_states[i])]
+                    r[i_idx, a, j_idx] = 0
 
     return r
 

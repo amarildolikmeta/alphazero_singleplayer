@@ -24,7 +24,7 @@ class EnvEvalWrapper(object):
 
 
 DEBUG = False
-DEBUG_TAXI = True
+DEBUG_TAXI = False
 
 USE_TQDM = False
 
@@ -122,7 +122,6 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
     pi_loss = []
     V_loss = []
-    overall_return = []
 
     avgs = []
     stds = []
@@ -133,6 +132,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
         if DEBUG_TAXI:
             visualizer.reset()
+
+        # Policy evaluation step
 
         if eval_freq > 0 and ep % eval_freq == 0:  # and ep > 0
             print('--------------------------------\nEvaluating policy for {} episodes!\n'.format(eval_episodes))
@@ -247,9 +248,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 visualizer.visualize_taxi(olds, olda)
 
             R += r
-            if True:
-                print("Reward!", r)
-                rets.append(r)
+            if DEBUG_TAXI:
+                print("Reward:", r)
             t_total += n_mcts  # total number of environment steps (counts the mcts steps)
 
             ep_steps = st + 1
@@ -275,10 +275,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         if DEBUG or True:
             print('Finished episode {} in {} steps, total return: {}, total time: {} sec'.format(ep, ep_steps,
                                                                                                  np.round(R, 2),
-                                                                                                 np.round((
-                                                                                                                      time.time() - start),
+                                                                                                 np.round((time.time() - start),
                                                                                                           1)))
-            print(rets)
         plt.figure()
         plt.plot(online_scores)
         plt.grid = True

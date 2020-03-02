@@ -30,6 +30,7 @@ register(
 colors = ['r', 'b', 'g', 'orange', 'c', 'k', 'purple', 'y']
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
 
+
 def save_parameters(params, game):
     mydir = os.path.join(
         os.getcwd(), "logs", game,
@@ -56,6 +57,7 @@ def save_parameters(params, game):
         d.write(json.dumps(params))
 
     return mydir, os.path.join(mydir, "numpy_dumps")
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -86,14 +88,14 @@ if __name__ == '__main__':
     parser.add_argument('--n_hidden_units', type=int, default=16, help='Number of units per hidden layers in NN')
     parser.add_argument('--n_epochs', type=int, default=10, help='Number of epochs of training for the NN')
 
-
     args = parser.parse_args()
     start_time = time.time()
     time_str = str(start_time)
     out_dir = 'logs/' + args.game + '/' + time_str + '/'
+
+
     # if not os.path.exists(out_dir):
     #     os.makedirs(out_dir)
-
 
     def pre_process():
         from gym.envs.registration import register
@@ -135,34 +137,33 @@ if __name__ == '__main__':
     else:
         exps = []
         game_params = {}
-        if args.game == 'Taxi':
+        if args.game == 'Taxi' or args.game == 'TaxiEasy':
             game_params['grid'] = 'grid.txt'
             game_params['box'] = True
             # TODO modify this to return to original taxi problem
-            game_params['easy_mode'] = True
         for i in range(args.n_experiments):
             out_dir_i = out_dir + str(i) + '/'
             episode_returns, timepoints, a_best, \
-                seed_best, R_best, offline_scores = agent(game=args.game,
-                                                          n_ep=args.n_ep,
-                                                          n_mcts=args.n_mcts,
-                                                          max_ep_len=args.max_ep_len,
-                                                          lr=args.lr,
-                                                          c=args.c,
-                                                          gamma=args.gamma,
-                                                          data_size=args.data_size,
-                                                          batch_size=args.batch_size,
-                                                          temp=args.temp,
-                                                          n_hidden_layers=args.n_hidden_layers,
-                                                          n_hidden_units=args.n_hidden_units,
-                                                          stochastic=args.stochastic,
-                                                          alpha=args.alpha,
-                                                          numpy_dump_dir=out_dir_i,
-                                                          visualize=args.visualize,
-                                                          eval_freq=args.eval_freq,
-                                                          eval_episodes=args.eval_episodes,
-                                                          pre_process=None, game_params=game_params,
-                                                          n_epochs=args.n_epochs)
+            seed_best, R_best, offline_scores = agent(game=args.game,
+                                                      n_ep=args.n_ep,
+                                                      n_mcts=args.n_mcts,
+                                                      max_ep_len=args.max_ep_len,
+                                                      lr=args.lr,
+                                                      c=args.c,
+                                                      gamma=args.gamma,
+                                                      data_size=args.data_size,
+                                                      batch_size=args.batch_size,
+                                                      temp=args.temp,
+                                                      n_hidden_layers=args.n_hidden_layers,
+                                                      n_hidden_units=args.n_hidden_units,
+                                                      stochastic=args.stochastic,
+                                                      alpha=args.alpha,
+                                                      numpy_dump_dir=out_dir_i,
+                                                      visualize=args.visualize,
+                                                      eval_freq=args.eval_freq,
+                                                      eval_episodes=args.eval_episodes,
+                                                      pre_process=None, game_params=game_params,
+                                                      n_epochs=args.n_epochs)
             exps.append(offline_scores)
             scores = np.stack(exps, axis=0)
             np.save(out_dir + "scores.npy", scores)
