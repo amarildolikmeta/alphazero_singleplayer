@@ -3,6 +3,7 @@ from sklearn.utils.extmath import cartesian
 import gym.spaces as spaces
 from envs.FiniteMDP import FiniteMDP
 
+
 class Taxi(FiniteMDP):
     def __init__(self, p, rew, grid_map, cell_list, passenger_list, mu=None, gamma=.9, horizon=np.inf, box=False):
         super(Taxi, self).__init__(p, rew, mu=mu, gamma=gamma, horizon=horizon)
@@ -15,7 +16,6 @@ class Taxi(FiniteMDP):
         goals = np.argwhere(np.array(grid_map) == 'G')
         self.goal_indexes = [np.where((np.array(cell_list) == goals[i]).all(axis=1))[0] for i in range(len(goals))]
         if box:
-
             # state =[my_position, [passenger_positions], goal_position, [passenger_states]]
             self.observation_space = spaces.Box(low=np.zeros(1 + len(goals) + 2 * len(passenger_list)),
                                                 high=np.ones(1 + len(goals) + 2 * len(passenger_list)))
@@ -40,6 +40,7 @@ class Taxi(FiniteMDP):
     def step(self, action):
         s, reward, absorbing, info = super(Taxi, self).step(action)
         state = self.index_to_box(s)
+
         return np.array(state), reward, absorbing, info
 
     def reset(self, s=None):
@@ -63,8 +64,7 @@ class Taxi(FiniteMDP):
         return state
 
 
-
-def generate_taxi(grid, prob=.9, rew=(0, 1, 3, 15), gamma=.99, horizon=np.inf,  box=False):
+def generate_taxi(grid, prob=.9, rew=(0, 1, 3, 15), gamma=.99, horizon=np.inf, box=False, easy_mode=False):
     """
     This Taxi generator requires a .txt file to specify the shape of the grid
     world and the cells. There are five types of cells: 'S' is the starting
@@ -94,12 +94,20 @@ def generate_taxi(grid, prob=.9, rew=(0, 1, 3, 15), gamma=.99, horizon=np.inf,  
         A FiniteMDP object built with the provided parameters.
 
     """
+
+    if easy_mode:
+        rew = (1, 3, 15, 0)
+
     grid_map, cell_list, passenger_list = parse_grid(grid)
 
     assert len(rew) == len(np.argwhere(np.array(grid_map) == 'F')) + 1
 
     p = compute_probabilities(grid_map, cell_list, passenger_list, prob)
-    r = compute_reward(grid_map, cell_list, passenger_list, rew)
+
+    if easy_mode:
+        r = compute_easy_reward(grid_map, cell_list, passenger_list, rew)
+    else:
+        r = compute_reward(grid_map, cell_list, passenger_list, rew)
     mu = compute_mu(grid_map, cell_list, passenger_list)
     return Taxi(p=p, mu=mu, rew=r, horizon=horizon, gamma=gamma, box=box, grid_map=grid_map,
                 passenger_list=passenger_list, cell_list=cell_list)
@@ -205,7 +213,7 @@ def compute_probabilities(grid_map, cell_list, passenger_list, prob):
     """
     g = np.array(grid_map)
     c = np.array(cell_list)
-    n_states = len(cell_list) * 2**len(passenger_list)
+    n_states = len(cell_list) * 2 ** len(passenger_list)
     p = np.zeros((n_states, 4, n_states))
     directions = [[-1, 0], [1, 0], [0, -1], [0, 1]]
     passenger_states = cartesian([[0, 1]] * len(passenger_list))
@@ -217,7 +225,7 @@ def compute_probabilities(grid_map, cell_list, passenger_list, prob):
         state = c[i % len(cell_list)]
 
         if g[tuple(state)] in ['.', 'S', 'F']:
-            if g[tuple(state)] in ['F']\
+            if g[tuple(state)] in ['F'] \
                     and state.tolist() not in collected_passengers.tolist():
                 continue
             for a in range(len(directions)):
@@ -227,16 +235,16 @@ def compute_probabilities(grid_map, cell_list, passenger_list, prob):
                 if j.size > 0:
                     assert j.size == 1
 
-                    if g[tuple(new_state)] == 'F' and new_state.tolist()\
+                    if g[tuple(new_state)] == 'F' and new_state.tolist() \
                             not in collected_passengers.tolist():
                         current_passenger_state = np.zeros(len(passenger_list))
                         current_passenger_idx = np.where(
                             (new_state == passenger_list).all(axis=1))[0]
                         current_passenger_state[current_passenger_idx] = 1
                         new_passenger_state = passenger_states[
-                            idx] + current_passenger_state
+                                                  idx] + current_passenger_state
                         new_idx = np.where((
-                            passenger_states == new_passenger_state).all(
+                                passenger_states == new_passenger_state).all(
                             axis=1))[0]
 
                         j += len(cell_list) * new_idx
@@ -254,7 +262,7 @@ def compute_probabilities(grid_map, cell_list, passenger_list, prob):
                     if k.size > 0:
                         assert k.size == 1
 
-                        if g[tuple(slip_state)] == 'F' and slip_state.tolist()\
+                        if g[tuple(slip_state)] == 'F' and slip_state.tolist() \
                                 not in collected_passengers.tolist():
                             current_passenger_state = np.zeros(
                                 len(passenger_list))
@@ -262,9 +270,9 @@ def compute_probabilities(grid_map, cell_list, passenger_list, prob):
                                 (slip_state == passenger_list).all(axis=1))[0]
                             current_passenger_state[current_passenger_idx] = 1
                             new_passenger_state = passenger_states[
-                                idx] + current_passenger_state
+                                                      idx] + current_passenger_state
                             new_idx = np.where((
-                                passenger_states == new_passenger_state).all(
+                                    passenger_states == new_passenger_state).all(
                                 axis=1))[0]
 
                             k += len(cell_list) * new_idx
@@ -294,7 +302,7 @@ def compute_reward(grid_map, cell_list, passenger_list, rew):
     """
     g = np.array(grid_map)
     c = np.array(cell_list)
-    n_states = len(cell_list) * 2**len(passenger_list)
+    n_states = len(cell_list) * 2 ** len(passenger_list)
     r = np.zeros((n_states, 4, n_states))
     directions = [[-1, 0], [1, 0], [0, -1], [0, 1]]
     passenger_states = cartesian([[0, 1]] * len(passenger_list))
@@ -314,6 +322,66 @@ def compute_reward(grid_map, cell_list, passenger_list, rew):
     return r
 
 
+def compute_easy_reward(grid_map, cell_list, passenger_list, rew):
+    """
+    Compute the reward matrix.
+
+    Args:
+        grid_map (list): list containing the grid structure;
+        cell_list (list): list of non-wall cells;
+        passenger_list (list): list of passenger cells;
+        rew (tuple): rewards obtained in goal states.
+
+    Returns:
+        The reward matrix.
+
+    """
+    g = np.array(grid_map)
+    c = np.array(cell_list)
+    n_states = len(cell_list) * 2 ** len(passenger_list)
+    r = - np.ones((n_states, 4, n_states))
+    directions = [[-1, 0], [1, 0], [0, -1], [0, 1]]
+    passenger_states = cartesian([[0, 1]] * len(passenger_list))
+
+    for goal in np.argwhere(g == 'G'):
+        for a in range(len(directions)):
+            prev_state = goal - directions[a]
+            if prev_state in c:
+                for i in range(len(passenger_states)):
+                    i_idx = np.where((c == prev_state).all(axis=1))[0] + len(
+                        cell_list) * i
+                    j_idx = j = np.where((c == goal).all(axis=1))[0] + len(
+                        cell_list) * i
+
+                    r[i_idx, a, j_idx] = 0
+
+    for k in range(len(passenger_list)):
+        passenger = np.array(passenger_list[k])
+
+        for a in range(len(directions)):
+            prev_state = passenger - directions[a]
+
+            if prev_state in c:
+
+                for i in range(len(passenger_states)):
+                    i_idx = np.where((c == prev_state).all(axis=1))[0] + len(
+                        cell_list) * i
+                    j_idx = j = np.where((c == passenger).all(axis=1))[0] + len(
+                        cell_list) * i
+
+                    r[i_idx, a, j_idx] = 10
+
+                    # If we already picked the passenger, we won't give any reward
+
+                    # if passenger_states[i][k] == 1:
+                    #     r[i_idx, a, j_idx] = 0
+                    # else:
+                    #     r[i_idx, a, j_idx] = rew[np.sum(passenger_states[i])]
+
+
+    return r
+
+
 def compute_mu(grid_map, cell_list, passenger_list):
     """
     Compute the initial states distribution.
@@ -329,7 +397,7 @@ def compute_mu(grid_map, cell_list, passenger_list):
     """
     g = np.array(grid_map)
     c = np.array(cell_list)
-    n_states = len(cell_list) * 2**len(passenger_list)
+    n_states = len(cell_list) * 2 ** len(passenger_list)
     mu = np.zeros(n_states)
     starts = np.argwhere(g == 'S')
 

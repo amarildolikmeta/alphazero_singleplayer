@@ -4,6 +4,10 @@
 One-player Alpha Zero
 @author: Thomas Moerland, Delft University of Technology
 """
+import errno
+import json
+from datetime import datetime
+
 from joblib import Parallel, delayed
 import numpy as np
 import argparse
@@ -25,6 +29,33 @@ register(
 #### Command line call, parsing and plotting ##
 colors = ['r', 'b', 'g', 'orange', 'c', 'k', 'purple', 'y']
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
+
+def save_parameters(params, game):
+    mydir = os.path.join(
+        os.getcwd(), "logs", game,
+        datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+    try:
+        os.makedirs(mydir)
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise  # This was not a "directory exist" error..
+
+    try:
+        os.makedirs(os.path.join(mydir, "plots"))
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise  # This was not a "directory exist" error..
+
+    try:
+        os.makedirs(os.path.join(mydir, "numpy_dumps"))
+    except OSError as e:
+        if e.errno != errno.EEXIST:
+            raise  # This was not a "directory exist" error..
+
+    with open(os.path.join(mydir, "parameters.txt"), 'w') as d:
+        d.write(json.dumps(params))
+
+    return mydir, os.path.join(mydir, "numpy_dumps")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -60,8 +91,8 @@ if __name__ == '__main__':
     start_time = time.time()
     time_str = str(start_time)
     out_dir = 'logs/' + args.game + '/' + time_str + '/'
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
+    # if not os.path.exists(out_dir):
+    #     os.makedirs(out_dir)
 
 
     def pre_process():
@@ -107,6 +138,8 @@ if __name__ == '__main__':
         if args.game == 'Taxi':
             game_params['grid'] = 'grid.txt'
             game_params['box'] = True
+            # TODO modify this to return to original taxi problem
+            game_params['easy_mode'] = True
         for i in range(args.n_experiments):
             out_dir_i = out_dir + str(i) + '/'
             episode_returns, timepoints, a_best, \
@@ -124,7 +157,7 @@ if __name__ == '__main__':
                                                           n_hidden_units=args.n_hidden_units,
                                                           stochastic=args.stochastic,
                                                           alpha=args.alpha,
-                                                          out_dir=out_dir_i,
+                                                          numpy_dump_dir=out_dir_i,
                                                           visualize=args.visualize,
                                                           eval_freq=args.eval_freq,
                                                           eval_episodes=args.eval_episodes,

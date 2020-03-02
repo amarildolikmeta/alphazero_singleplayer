@@ -29,11 +29,15 @@ class Model(object):
 
         self.joint_model = joint_networks
 
-        print(self.joint_model)
-
         self.model = None
         self.value_model = None
         self.policy_model = None
+
+
+        if self.state_discrete:
+            self.input_shape = (1,)
+        else:
+            self.input_shape = (1, self.state_dim[0])
 
         if joint_networks:
             self.model = self.build_joint_model(lr, n_hidden_layers, n_hidden_units, self.state_dim, self.action_dim, self.state_discrete)
@@ -70,13 +74,12 @@ class Model(object):
         return model
 
     def build_policy_network(self, lr, n_hidden_layers, n_hidden_units, state_dim, action_dim, state_discrete):
-        lr = 0.1
 
         if not state_discrete:
             inp = x = layers.Input(shape=state_dim, dtype="float32")
         else:
             # TODO Might be possible to use embedding here
-            inp = layers.Input(dtype="int32", shape=(1,))
+            inp = layers.Input(dtype="int32", shape=(1, state_dim))
             x = layers.Lambda(OneHot, arguments={"state_dim": state_dim})(inp)
             # self.x = tf.squeeze(tf.one_hot(self.inp, self.state_dim, axis=1), axis=2)
 
@@ -101,7 +104,7 @@ class Model(object):
             inp = x = layers.Input(shape=state_dim, dtype="float32")
         else:
             # TODO Might be possible to use embedding here
-            inp = layers.Input(dtype="int32", shape=(1,))
+            inp = layers.Input(dtype="int32", shape=(1, state_dim))
             x = layers.Lambda(OneHot, arguments={"state_dim": state_dim})(inp)
             # self.x = tf.squeeze(tf.one_hot(self.inp, self.state_dim, axis=1), axis=2)
 
@@ -132,7 +135,7 @@ class Model(object):
             return [pi_loss + v_loss, v_loss, pi_loss]
 
     def predict_V(self, s):
-        if len(s.shape) != self.state_dim:
+        if len(s.shape) != len(self.input_shape):
             s = s.reshape((-1,) + s.shape)
 
         if self.joint_model:
@@ -141,7 +144,7 @@ class Model(object):
             return self.value_model.predict(s)
 
     def predict_pi(self, s):
-        if len(s.shape) != self.state_dim:
+        if len(s.shape) != len(self.input_shape):
             s = s.reshape((-1,) + s.shape)
         if self.joint_model:
             return self.model.predict(s)[1]
