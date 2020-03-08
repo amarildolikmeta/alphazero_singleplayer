@@ -84,19 +84,19 @@ class Logger(object):
 
     def log_start(self, iteration, start_policy, start_value, start_targets):
         """Dump data about the starting game state over a txt file"""
-        
+
         with open(self.save_dir+"/targets.txt", mode="a") as dump:
             dump.write("---- Targets at iteration " + str(iteration) + " ----\n")
             for target in start_targets:
                 dump.write(str(target) + '\n')
 
             dump.write("---- Start policy ----\n")
-            for n in start_policy.squeeze():
+            for n in start_policy:
                 dump.write(str(n) + " ")
             dump.write("\n")
 
             dump.write("---- Start value ----\n")
-            for n in start_value.squeeze():
+            for n in start_value:
                 dump.write(str(n) + " ")
             dump.write("\n")
 
