@@ -97,15 +97,13 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     stds = []
 
     for ep in trange(n_ep) if USE_TQDM else range(n_ep):
-        ep_pi_loss = []
-        ep_V_loss = []
 
         if DEBUG_TAXI:
             visualizer.reset()
 
         # Policy evaluation step
 
-        if eval_freq > 0 and ep % eval_freq == 0 and False:  # and ep > 0
+        if eval_freq > 0 and ep % eval_freq == 0:  # and ep > 0
             print('--------------------------------\nEvaluating policy for {} episodes!\n'.format(eval_episodes))
             seed = np.random.randint(1e7)  # draw some Env seed
             Env.seed(seed)
@@ -182,7 +180,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         print("\nPerforming MCTS steps\n")
 
         ep_steps = 0
-        rets = []
+        start_targets = []
+
         for st in trange(max_ep_len) if USE_TQDM else range(max_ep_len):
 
             if not USE_TQDM:
@@ -196,8 +195,10 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 mcts.visualize()
             state, pi, V = mcts.return_results(temp)  # extract the root output
 
-            # if np.array_equal(start_s, state):
-            #     print("Pi target for starting state:", pi)
+            if np.array_equal(start_s, state):
+                if DEBUG:
+                    print("Pi target for starting state:", pi)
+                start_targets.append(pi)
             D.store((state, V, pi))
 
             # Make the true step
@@ -289,13 +290,16 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
         # model.save(out_dir + 'model')
 
-
-
         # Plot the loss over different episodes
         logger.plot_training_loss_over_time()
 
-        print("\nStart policy: ", model.predict_pi(start_s))
-        print("Start value:", model.predict_V(start_s))
+        pi_start = model.predict_pi(start_s)
+        V_start = model.predict_V(start_s)
+
+        print("\nStart policy: ", pi_start)
+        print("Start value:", V_start)
+
+        logger.log_start(ep, pi_start, V_start)
 
     # Return results
     return episode_returns, timepoints, a_best, seed_best, R_best, offline_scores

@@ -53,9 +53,12 @@ class Logger(object):
         print("--------------------------")
 
     def plot_evaluation_mean_and_variance(self, avgs, stds):
-        """Plot the mean and variance with a whiskers plot"""
+        """Plot the mean and variance with a whiskers plot
+        @type avgs: list
+        @type stds: list
+        """
         plt.figure()
-        plt.errorbar([10 * i for i in range(1, len(avgs) + 1)], avgs, stds, linestyle='None', marker='^', capsize=3)
+        plt.errorbar([10 * i for i in range(len(avgs))], avgs, stds, linestyle='None', marker='^', capsize=3)
         plt.xlabel("Step of evaluation")
         plt.ylabel("Return")
         plt.title("Mean and variance for return in policy evaluation")
@@ -78,6 +81,22 @@ class Logger(object):
         if not self.is_remote:
             plt.show()
         plt.close()
+
+    def log_start(self, iteration, start_policy, start_value, start_targets):
+        with open(self.save_dir+"/targets.txt", mode="a") as dump:
+            dump.write("---- Targets at iteration " + str(iteration) + " ----\n")
+            for target in start_targets:
+                dump.write(str(target) + '\n')
+
+            dump.write("---- Start policy ----\n")
+            for n in start_policy.squeeze():
+                dump.write(str(n) + " ")
+            dump.write("\n")
+
+            dump.write("---- Start value ----\n")
+            for n in start_value.squeeze():
+                dump.write(str(n) + " ")
+            dump.write("\n")
 
     @staticmethod
     def save_parameters(params, game):
