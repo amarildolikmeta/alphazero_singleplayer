@@ -16,10 +16,8 @@ class TaxiVisualizer(object):
         self.goal_number = len(self.goals)
         self.rows = self.desc.shape[0]
         self.cols = self.desc.shape[1]
-
         self.cells = np.argwhere(self.desc != '#')
         self.size = len(self.cells)
-
         self.prev_state = 0
         super().__init__()
 
