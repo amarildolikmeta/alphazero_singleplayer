@@ -83,6 +83,8 @@ class Logger(object):
         plt.close()
 
     def log_start(self, iteration, start_policy, start_value, start_targets):
+        """Dump data about the starting game state over a txt file"""
+        
         with open(self.save_dir+"/targets.txt", mode="a") as dump:
             dump.write("---- Targets at iteration " + str(iteration) + " ----\n")
             for target in start_targets:
@@ -97,6 +99,8 @@ class Logger(object):
             for n in start_value.squeeze():
                 dump.write(str(n) + " ")
             dump.write("\n")
+
+            dump.close()
 
     @staticmethod
     def save_parameters(params, game):

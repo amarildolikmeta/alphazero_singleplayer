@@ -299,7 +299,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         print("\nStart policy: ", pi_start)
         print("Start value:", V_start)
 
-        logger.log_start(ep, pi_start, V_start)
+        logger.log_start(ep, pi_start, V_start, start_targets)
 
     # Return results
     return episode_returns, timepoints, a_best, seed_best, R_best, offline_scores
