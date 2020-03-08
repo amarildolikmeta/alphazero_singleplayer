@@ -17,7 +17,7 @@ from mcts_dpw import MCTSStochastic
 from policies.eval_policy import eval_policy
 
 import matplotlib.pyplot as plt
-
+from utils.logging.logger import Logger
 
 class EnvEvalWrapper(object):
     pass
@@ -28,37 +28,11 @@ DEBUG_TAXI = False
 
 USE_TQDM = False
 
+REMOTE = False
+
 import errno
 import os
 from datetime import datetime
-
-
-def save_parameters(params, game):
-    mydir = os.path.join(
-        os.getcwd(), "logs", game,
-        datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
-    try:
-        os.makedirs(mydir)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise  # This was not a "directory exist" error..
-
-    try:
-        os.makedirs(os.path.join(mydir, "plots"))
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise  # This was not a "directory exist" error..
-
-    try:
-        os.makedirs(os.path.join(mydir, "numpy_dumps"))
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise  # This was not a "directory exist" error..
-
-    with open(os.path.join(mydir, "parameters.txt"), 'w') as d:
-        d.write(json.dumps(params))
-
-    return mydir, os.path.join(mydir, "numpy_dumps")
 
 
 #### Agent ##
@@ -73,7 +47,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                       "eval_freq": eval_freq, "eval_episodes": eval_episodes, "alpha": alpha, "n_epochs": n_epochs,
                       "out_dir": numpy_dump_dir, "pre_process": pre_process, "visualize": visualize, "game_params": game_params}
 
-    save_dir, numpy_dump_dir = save_parameters(parameter_list, game)
+    logger = Logger(parameter_list, game, remote=REMOTE)
 
     if DEBUG_TAXI:
         from utils.visualization.taxi import TaxiVisualizer
@@ -92,7 +66,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     if pre_process is not None:
         pre_process()
 
-    # tf.reset_default_graph()
+    numpy_dump_dir = logger.numpy_dumps_dir
 
     if not os.path.exists(numpy_dump_dir):
         os.makedirs(numpy_dump_dir)
@@ -119,10 +93,6 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     R_best = -np.Inf
 
     # Variables for storing values to be plotted
-
-    pi_loss = []
-    V_loss = []
-
     avgs = []
     stds = []
 
@@ -135,7 +105,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
         # Policy evaluation step
 
-        if eval_freq > 0 and ep % eval_freq == 0:  # and ep > 0
+        if eval_freq > 0 and ep % eval_freq == 0 and False:  # and ep > 0
             print('--------------------------------\nEvaluating policy for {} episodes!\n'.format(eval_episodes))
             seed = np.random.randint(1e7)  # draw some Env seed
             Env.seed(seed)
@@ -186,18 +156,12 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             #     print("WTF 2")
             np.save(numpy_dump_dir + '/offline_scores.npy', offline_scores)
 
+            # Store and plot data
+
             avgs.append(np.mean(rews))
             stds.append(np.std(rews))
 
-            # Plot the mean and variance with a whiskers plot
-            plt.figure()
-            plt.errorbar([10 * i for i in range(1, len(avgs) + 1)], avgs, stds, linestyle='None', marker='^', capsize=3)
-            plt.xlabel("Step of evaluation")
-            plt.ylabel("Return")
-            plt.title("Mean and variance for return in policy evaluation")
-            # plt.show()
-            plt.savefig(save_dir + "/plots/meanvariance.png")
-            plt.close()
+            logger.plot_evaluation_mean_and_variance(avgs, stds)
 
         start = time.time()
         s = start_s = Env.reset()
@@ -217,7 +181,6 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         # TODO parallelize here, very slow
         print("\nPerforming MCTS steps\n")
 
-        prev = None
         ep_steps = 0
         rets = []
         for st in trange(max_ep_len) if USE_TQDM else range(max_ep_len):
@@ -277,15 +240,9 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                                                                                                  np.round(R, 2),
                                                                                                  np.round((time.time() - start),
                                                                                                           1)))
-        plt.figure()
-        plt.plot(online_scores)
-        plt.grid = True
-        plt.title("Return over policy improvement episodes")
-        plt.xlabel("Episode")
-        plt.ylabel("Return")
-        plt.ylim = 3.0
-        plt.savefig(save_dir + "/plots/return.png")
-        plt.close()
+        # Plot the online return over training episodes
+
+        logger.plot_online_return(online_scores)
 
         if R > R_best:
             a_best = a_store
@@ -295,69 +252,50 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         print()
 
         # Train
-        # D.reshuffle()
         try:
             print("\nTraining network")
             ep_V_loss = []
             ep_pi_loss = []
+
             for _ in range(n_epochs):
+                # Reshuffle the dataset at each epoch
                 D.reshuffle()
+
+                batch_V_loss = []
+                batch_pi_loss = []
+
+                # Batch training
                 for sb, Vb, pib in D:
+
                     if DEBUG:
                         print("sb:", sb)
                         print("Vb:", Vb)
                         print("pib:", pib)
+
                     loss = model.train(sb, Vb, pib)
-                    if ep % eval_freq == 0 or True:
-                        ep_V_loss.append(loss[1])
-                        ep_pi_loss.append(loss[2])
+
+                    batch_V_loss.append(loss[1])
+                    batch_pi_loss.append(loss[2])
+
+                ep_V_loss.append(mean(batch_V_loss))
+                ep_pi_loss.append(mean(batch_pi_loss))
 
             # Plot the loss over training epochs
 
-            plt.figure()
-            plt.plot(ep_V_loss, label="V_loss")
-            plt.plot(ep_pi_loss, label="pi_loss")
-            plt.grid = True
-            plt.title("Training loss")
-            plt.xlabel("Epoch")
-            plt.ylabel("Loss")
-            plt.legend()
-            plt.savefig(save_dir + "/plots//train_" + str(ep) + ".png")
-            # plt.show()
-            plt.close()
+            logger.plot_loss(ep, ep_V_loss, ep_pi_loss)
 
         except Exception as e:
-            print("Something wrong while training")
+            print("Something wrong while training:", e)
 
         # model.save(out_dir + 'model')
 
-        ep_V_loss = mean(ep_V_loss)
-        ep_pi_loss = mean(ep_pi_loss)
-        print()
-        print("Episode", ep)
-        print("pi_loss:", ep_pi_loss)
-        print("V_loss:", ep_V_loss)
-        V_loss.append(ep_V_loss)
-        pi_loss.append(ep_pi_loss)
+
 
         # Plot the loss over different episodes
-
-        plt.figure()
-        plt.plot(V_loss, label="V_loss")
-        plt.plot(pi_loss, label="pi_loss")
-        plt.grid = True
-        plt.title("Loss over policy improvement episodes")
-        plt.xlabel("Episode")
-        plt.ylabel("Loss")
-        plt.ylim = 3.0
-        plt.legend()
-        plt.savefig(save_dir + "/plots/overall.png")
-        # plt.show()
-        plt.close()
+        logger.plot_training_loss_over_time()
 
         print("\nStart policy: ", model.predict_pi(start_s))
         print("Start value:", model.predict_V(start_s))
-        print()
 
     # Return results
-    return episode_returns, timepoints, a_best, seed_best, R_best, offline_scores, V_loss, pi_loss
+    return episode_returns, timepoints, a_best, seed_best, R_best, offline_scores
