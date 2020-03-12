@@ -52,22 +52,22 @@ class Model(object):
         else:
             # TODO Might be possible to use embedding here
             inp = layers.Input(dtype="int32", shape=(1,))
-            x = layers.Lambda(OneHot, arguments={"state_dim": state_dim})(inp)
+            x = layers.Lambda(OneHot, arguments={"state_dim": state_dim}, activity_regularizer=keras.regularizers.l2(0.0001))(inp)
             # self.x = tf.squeeze(tf.one_hot(self.inp, self.state_dim, axis=1), axis=2)
 
         # Feedforward: Can be modified to any representation function, e.g. convolutions, residual networks, etc
         for i in range(n_hidden_layers):
-            x = (layers.Dense(n_hidden_units, activation=tf.nn.elu))(x)
+            x = (layers.Dense(n_hidden_units, activation=tf.nn.elu, activity_regularizer=keras.regularizers.l2(0.0001)))(x)
 
         # Output
 
         log_pi_hat = layers.Dense(action_dim, activation=None)(x)
-        pi_hat = layers.Softmax()(log_pi_hat)  # policy head
-        V_hat = layers.Dense(1, activation=None)(x)  # value head
+        pi_hat = layers.Softmax(activity_regularizer=keras.regularizers.l2(0.0001))(log_pi_hat)  # policy head
+        V_hat = layers.Dense(1, activation=None, activity_regularizer=keras.regularizers.l2(0.0001))(x)  # value head
 
         model = tf.keras.Model(inputs=inp, outputs=[V_hat, pi_hat])
 
-        model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr),
+        model.compile(optimizer=keras.optimizers.SGD(learning_rate=lr, momentum=0.9),
                       loss=[keras.losses.mean_squared_error, keras.losses.categorical_crossentropy],
                       loss_weights=[1.0, 1.0])
 
@@ -80,21 +80,21 @@ class Model(object):
         else:
             # TODO Might be possible to use embedding here
             inp = layers.Input(dtype="int32", shape=(1, state_dim))
-            x = layers.Lambda(OneHot, arguments={"state_dim": state_dim})(inp)
+            x = layers.Lambda(OneHot, arguments={"state_dim": state_dim}, activity_regularizer=keras.regularizers.l2(0.0001))(inp)
             # self.x = tf.squeeze(tf.one_hot(self.inp, self.state_dim, axis=1), axis=2)
 
         # Feedforward: Can be modified to any representation function, e.g. convolutions, residual networks, etc
         for i in range(n_hidden_layers):
-            x = (layers.Dense(n_hidden_units, activation=tf.nn.elu))(x)
+            x = layers.Dense(n_hidden_units, activation=tf.nn.elu, activity_regularizer=keras.regularizers.l2(0.0001))(x)
 
         # Output
 
-        log_pi_hat = layers.Dense(action_dim, activation=None)(x)
-        pi_hat = layers.Softmax()(log_pi_hat)  # policy head
+        log_pi_hat = layers.Dense(action_dim, activation=None, activity_regularizer=keras.regularizers.l2(0.0001))(x)
+        pi_hat = layers.Softmax(activity_regularizer=keras.regularizers.l2(0.0001))(log_pi_hat)  # policy head
 
         model = tf.keras.Model(inputs=inp, outputs=pi_hat)
 
-        model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr),
+        model.compile(optimizer=keras.optimizers.SGD(learning_rate=lr, momentum=0.9),
                       loss=keras.losses.categorical_crossentropy)
 
         return model
@@ -118,7 +118,7 @@ class Model(object):
 
         model = tf.keras.Model(inputs=inp, outputs=V_hat)
 
-        model.compile(optimizer=keras.optimizers.Adam(learning_rate=lr),
+        model.compile(optimizer=keras.optimizers.SGD(learning_rate=lr, momentum=0.9),
                       loss=keras.losses.mean_squared_error)
 
         return model

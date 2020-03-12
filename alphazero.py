@@ -30,38 +30,10 @@ register(
 colors = ['r', 'b', 'g', 'orange', 'c', 'k', 'purple', 'y']
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
 
-
-def save_parameters(params, game):
-    mydir = os.path.join(
-        os.getcwd(), "logs", game,
-        datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
-    try:
-        os.makedirs(mydir)
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise  # This was not a "directory exist" error..
-
-    try:
-        os.makedirs(os.path.join(mydir, "plots"))
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise  # This was not a "directory exist" error..
-
-    try:
-        os.makedirs(os.path.join(mydir, "numpy_dumps"))
-    except OSError as e:
-        if e.errno != errno.EEXIST:
-            raise  # This was not a "directory exist" error..
-
-    with open(os.path.join(mydir, "parameters.txt"), 'w') as d:
-        d.write(json.dumps(params))
-
-    return mydir, os.path.join(mydir, "numpy_dumps")
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--game', default='Blackjack_pi-v0', help='Training environment')
+    parser.add_argument('--grid', type=str, default="grid.txt", help='TXT file specfying the game grid')
     parser.add_argument('--n_ep', type=int, default=1000, help='Number of episodes')
     parser.add_argument('--n_mcts', type=int, default=20, help='Number of MCTS traces per step')
     parser.add_argument('--max_ep_len', type=int, default=50, help='Maximum number of steps per episode')
@@ -92,10 +64,6 @@ if __name__ == '__main__':
     start_time = time.time()
     time_str = str(start_time)
     out_dir = 'logs/' + args.game + '/' + time_str + '/'
-
-
-    # if not os.path.exists(out_dir):
-    #     os.makedirs(out_dir)
 
     def pre_process():
         from gym.envs.registration import register
@@ -137,10 +105,12 @@ if __name__ == '__main__':
     else:
         exps = []
         game_params = {}
+
         if args.game == 'Taxi' or args.game == 'TaxiEasy':
-            game_params['grid'] = 'grid.txt'
+            game_params['grid'] = args.grid
             game_params['box'] = True
             # TODO modify this to return to original taxi problem
+
         for i in range(args.n_experiments):
             out_dir_i = out_dir + str(i) + '/'
             episode_returns, timepoints, a_best, \

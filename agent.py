@@ -3,8 +3,6 @@ import json
 from statistics import mean
 
 import numpy as np
-import tensorflow as tf
-import os
 import time
 
 from tqdm import trange
@@ -16,8 +14,8 @@ from mcts import MCTS
 from mcts_dpw import MCTSStochastic
 from policies.eval_policy import eval_policy
 
-import matplotlib.pyplot as plt
 from utils.logging.logger import Logger
+
 
 class EnvEvalWrapper(object):
     pass
@@ -25,33 +23,32 @@ class EnvEvalWrapper(object):
 
 DEBUG = False
 DEBUG_TAXI = False
-
+MCTS_ONLY = True
 USE_TQDM = False
 
 REMOTE = False
 
-import errno
 import os
-from datetime import datetime
 
-
-#### Agent ##
+#### Agent ####
 def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, temp, n_hidden_layers, n_hidden_units,
-          stochastic=False, eval_freq=-1, eval_episodes=100, alpha=0.6, n_epochs=100, numpy_dump_dir='../', pre_process=None,
+          stochastic=False, eval_freq=-1, eval_episodes=100, alpha=0.6, n_epochs=100, numpy_dump_dir='../',
+          pre_process=None,
           visualize=False, game_params={}):
     visualizer = None
 
     parameter_list = {"game": game, "n_ep": n_ep, "n_mcts": n_mcts, "max_ep_len": max_ep_len, "lr": lr, "c": c,
                       "gamma": gamma, "data_size": data_size, "batch_size": batch_size, "temp": temp,
-                      "n_hidden_layers": n_hidden_layers, "n_hidden_units": n_hidden_units,"stochastic": stochastic,
+                      "n_hidden_layers": n_hidden_layers, "n_hidden_units": n_hidden_units, "stochastic": stochastic,
                       "eval_freq": eval_freq, "eval_episodes": eval_episodes, "alpha": alpha, "n_epochs": n_epochs,
-                      "out_dir": numpy_dump_dir, "pre_process": pre_process, "visualize": visualize, "game_params": game_params}
+                      "out_dir": numpy_dump_dir, "pre_process": pre_process, "visualize": visualize,
+                      "game_params": game_params}
 
     logger = Logger(parameter_list, game, remote=REMOTE)
 
     if DEBUG_TAXI:
         from utils.visualization.taxi import TaxiVisualizer
-        with open("grid2.txt", 'r') as f:
+        with open(game_params["grid"]) as f:
             m = f.readlines()
             matrix = []
             for r in m:
@@ -61,6 +58,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 matrix.append(row)
             visualizer = TaxiVisualizer(matrix)
             f.close()
+            exit()
 
     ''' Outer training loop '''
     if pre_process is not None:
@@ -70,17 +68,18 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
     if not os.path.exists(numpy_dump_dir):
         os.makedirs(numpy_dump_dir)
+
     episode_returns = []  # storage
     timepoints = []
+
     # Environments
     Env = make_game(game, game_params)
     is_atari = is_atari_game(Env)
     mcts_env = make_game(game, game_params) if is_atari else None
     online_scores = []
     offline_scores = []
-    mcts_params = dict(
-        gamma=gamma
-    )
+    mcts_params = dict(gamma=gamma)
+
     if stochastic:
         mcts_params['alpha'] = alpha
         mcts_maker = MCTSStochastic
@@ -101,7 +100,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         if DEBUG_TAXI:
             visualizer.reset()
 
-        # Policy evaluation step
+        ##### Policy evaluation step #####
 
         if eval_freq > 0 and ep % eval_freq == 0:  # and ep > 0
             print('--------------------------------\nEvaluating policy for {} episodes!\n'.format(eval_episodes))
@@ -125,8 +124,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 return s
 
             def forward(a, s, r):
-                # env_wrapper.mcts.forward(a, s, r)
-                pass
+                if MCTS_ONLY:
+                    env_wrapper.mcts.forward(a, s, r)
 
             env_wrapper.reset = reset_env
             env_wrapper.step = lambda x: Env.step(x)
@@ -137,11 +136,16 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             def pi_wrapper(ob):
                 if not is_atari:
                     mcts_env = None
-                # env_wrapper.mcts.search(n_mcts=n_mcts, c=c, Env=Env, mcts_env=mcts_env)
-                # state, pi, V = env_wrapper.mcts.return_results(temp=0)
-                pi_w = model.predict_pi(s).flatten()
-                env_wrapper.curr_probs.append(pi_w)
-                a_w = np.argmax(pi_w)
+
+                if MCTS_ONLY:
+                    env_wrapper.mcts.search(n_mcts=n_mcts, c=c, Env=Env, mcts_env=mcts_env)
+                    state, pi, V = env_wrapper.mcts.return_results(temp=0)
+                    env_wrapper.curr_probs.append(pi)
+                    a_w = np.argmax(pi)
+                else:
+                    pi_w = model.predict_pi(s).flatten()
+                    env_wrapper.curr_probs.append(pi_w)
+                    a_w = np.argmax(pi_w)
                 return a_w
 
             rews, lens = eval_policy(pi_wrapper, env_wrapper, n_episodes=eval_episodes, verbose=False
@@ -171,7 +175,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             mcts_env.reset()
             mcts_env.seed(seed)
 
-        if ep % eval_freq == 0:
+        if eval_freq > 0 and ep % eval_freq == 0:
             print("\nCollecting %d episodes" % eval_freq)
         mcts = mcts_maker(root_index=s, root=None, model=model, na=model.action_dim,
                           **mcts_params)  # the object responsible for MCTS searches
@@ -182,6 +186,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         ep_steps = 0
         start_targets = []
 
+        ##### Policy improvement step #####
+
         for st in trange(max_ep_len) if USE_TQDM else range(max_ep_len):
 
             if not USE_TQDM:
@@ -191,14 +197,17 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             if not is_atari:
                 mcts_env = None
             mcts.search(n_mcts=n_mcts, c=c, Env=Env, mcts_env=mcts_env)  # perform a forward search
+
             if visualize:
                 mcts.visualize()
+
             state, pi, V = mcts.return_results(temp)  # extract the root output
 
+            # Save targets for starting state to debug
             if np.array_equal(start_s, state):
                 if DEBUG:
                     print("Pi target for starting state:", pi)
-                start_targets.append(pi)
+                start_targets.append((V, pi))
             D.store((state, V, pi))
 
             # Make the true step
@@ -207,24 +216,20 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
             s1, r, terminal, _ = Env.step(a)
 
+            # Perform command line visualization if necessary
             if DEBUG_TAXI:
                 olds, olda = copy.deepcopy(s1), copy.deepcopy(a)
                 visualizer.visualize_taxi(olds, olda)
+                print("Reward:", r)
 
             R += r
-            if DEBUG_TAXI:
-                print("Reward:", r)
             t_total += n_mcts  # total number of environment steps (counts the mcts steps)
-
             ep_steps = st + 1
 
             if terminal:
-                # TODO remove this
-                # if r > 0:
-                #     print("Terminal state reward: ", r)
-                break
+                break  # Stop the episode if we encounter a terminal state
             else:
-                mcts.forward(a, s1, r)
+                mcts.forward(a, s1, r)  # Otherwise proceed
 
         # Finished episode
         if DEBUG:
@@ -239,7 +244,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         if DEBUG or True:
             print('Finished episode {} in {} steps, total return: {}, total time: {} sec'.format(ep, ep_steps,
                                                                                                  np.round(R, 2),
-                                                                                                 np.round((time.time() - start),
+                                                                                                 np.round((
+                                                                                                                      time.time() - start),
                                                                                                           1)))
         # Plot the online return over training episodes
 

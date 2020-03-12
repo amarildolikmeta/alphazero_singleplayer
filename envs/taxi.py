@@ -64,7 +64,7 @@ class Taxi(FiniteMDP):
         return state
 
 
-def generate_taxi(grid, prob=.9, rew=(0, 1, 3, 15), gamma=.99, horizon=np.inf, box=False):
+def generate_taxi(grid, prob=.9, rew=(0, 1/15, 3/15, 15/15), gamma=.99, horizon=np.inf, box=False):
     """
     This Taxi generator requires a .txt file to specify the shape of the grid
     world and the cells. There are five types of cells: 'S' is the starting
