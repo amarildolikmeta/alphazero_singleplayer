@@ -23,7 +23,7 @@ class EnvEvalWrapper(object):
 
 DEBUG = False
 DEBUG_TAXI = False
-MCTS_ONLY = True
+MCTS_ONLY = False
 USE_TQDM = False
 
 REMOTE = False

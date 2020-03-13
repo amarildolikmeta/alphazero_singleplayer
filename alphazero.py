@@ -51,6 +51,7 @@ if __name__ == '__main__':
     parser.add_argument('--stochastic', action='store_true')
     parser.add_argument('--alpha_test', action='store_true')
     parser.add_argument('--visualize', action='store_true')
+    parser.add_argument('--gpu', action='store_true')
     parser.add_argument('--eval_freq', type=int, default=20, help='Evaluation_frequency')
     parser.add_argument('--eval_episodes', type=int, default=50, help='Episodes of evaluation')
     parser.add_argument('--delta_alpha', type=float, default=0.2, help='progressive widening parameter')
@@ -75,6 +76,9 @@ if __name__ == '__main__':
         except:
             pass
 
+
+    if not args.gpu:
+        os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
     fun_args = [args.game, args.n_ep, args.n_mcts, args.max_ep_len, args.lr, args.c, args.gamma,
                 args.data_size, args.batch_size, args.temp, args.n_hidden_layers, args.n_hidden_units,
