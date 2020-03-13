@@ -10,8 +10,7 @@ from tqdm import trange
 from helpers import is_atari_game, store_safely, Database
 from rl.make_game import make_game
 from model_tf2 import Model
-from mcts import MCTS
-from mcts_dpw import MCTSStochastic
+
 from policies.eval_policy import eval_policy
 
 from utils.logging.logger import Logger
@@ -20,15 +19,21 @@ from utils.logging.logger import Logger
 class EnvEvalWrapper(object):
     pass
 
-
 DEBUG = False
 DEBUG_TAXI = False
-MCTS_ONLY = False
+PURE_MCTS = True
 USE_TQDM = False
 
 REMOTE = False
 
 import os
+
+if not PURE_MCTS:
+    from mcts import MCTS
+    from mcts_dpw import MCTSStochastic
+else:
+    from pure_mcts import MCTS
+    from pure_mcts_dpw import MCTSStochastic
 
 #### Agent ####
 def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, temp, n_hidden_layers, n_hidden_units,
@@ -87,7 +92,9 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         mcts_maker = MCTS
 
     D = Database(max_size=data_size, batch_size=batch_size)
+    # TODO extract dimensions to avoid allocating model
     model = Model(Env=Env, lr=lr, n_hidden_layers=n_hidden_layers, n_hidden_units=n_hidden_units, joint_networks=True)
+
     t_total = 0  # total steps
     R_best = -np.Inf
 
@@ -124,7 +131,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 return s
 
             def forward(a, s, r):
-                if MCTS_ONLY:
+                if PURE_MCTS:
                     env_wrapper.mcts.forward(a, s, r)
 
             env_wrapper.reset = reset_env
@@ -137,7 +144,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 if not is_atari:
                     mcts_env = None
 
-                if MCTS_ONLY:
+                if PURE_MCTS:
                     env_wrapper.mcts.search(n_mcts=n_mcts, c=c, Env=Env, mcts_env=mcts_env)
                     state, pi, V = env_wrapper.mcts.return_results(temp=0)
                     env_wrapper.curr_probs.append(pi)
