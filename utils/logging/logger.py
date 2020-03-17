@@ -1,6 +1,7 @@
 import errno
 import json
 import os
+import pickle
 from datetime import datetime
 from statistics import mean
 
@@ -8,7 +9,7 @@ from matplotlib import pyplot as plt
 
 class Logger(object):
     def __init__(self, params, game, remote=True):
-        self.save_dir, self.numpy_dumps_dir = self.save_parameters(params, game)
+        self.save_dir, self.numpy_dumps_dir, self.pickled_dir = self.save_parameters(params, game)
         self.is_remote = remote
         self.training_V_loss = []
         self.training_pi_loss = []
@@ -125,7 +126,13 @@ class Logger(object):
             if e.errno != errno.EEXIST:
                 raise  # This was not a "directory exist" error..
 
+        try:
+            os.makedirs(os.path.join(mydir, "pickled"))
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise  # This was not a "directory exist" error..
+
         with open(os.path.join(mydir, "parameters.txt"), 'w') as d:
             d.write(json.dumps(params))
 
-        return mydir, os.path.join(mydir, "numpy_dumps")
+        return mydir, os.path.join(mydir, "numpy_dumps"), os.path.join(mydir, "pickled")

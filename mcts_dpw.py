@@ -44,6 +44,7 @@ class StochasticState(State):
     ''' StochasticState object '''
 
     def __init__(self, index, r, terminal, parent_action, na, model, signature):
+        super().__init__(index, r, terminal, parent_action, na, model)
         self.index = index  # state
         self.r = r  # reward upon arriving in this state
         self.terminal = terminal  # whether the domain terminated in this state

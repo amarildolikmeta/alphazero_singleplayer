@@ -1,5 +1,5 @@
 import argparse
-from datetime import time
+import os
 
 import numpy as np
 import hyperopt as hp
@@ -8,21 +8,32 @@ from agent import agent
 
 from functools import partial
 
-parameter_space = {"lr": hp.hp.qloguniform('lr', np.log(0.0001), np.log(0.1)),
-                   "temp": hp.hp.quniform('temp', 0.01, 0.1, 0.005)}
+parameter_space = {"temp": hp.hp.quniform('temp', 0.05, 0.5, 0.05),
+                   # "lr": hp.hp.qloguniform('lr', np.log(0.0001), np.log(0.1)),
+                   "c": hp.hp.quniform('c', 0, 2, 0.1),
+                   "alpha": hp.hp.quniform('alpha', 0.01, 0.99, 0.01)}
+
+import pickle
 
 
 def objective(params, keywords):
 
+    print(params)
+
+    # keywords["eval_freq"] = 1
+    # keywords["n_ep"] = 1
     for k in params:
         keywords[k] = params[k]
 
-    _, _, offline_scores = agent(**keywords)
+    _, _, _, _, _, offline_scores = agent(**keywords)
     means = []
 
     # Take all the average returns for evaluation
     for score in offline_scores:
         means.append(score[2])
+
+    print("Mean return:", -np.mean(means))
+    print("Standard deviation:", np.std(means))
 
     return -np.mean(means)
 
@@ -30,6 +41,7 @@ def objective(params, keywords):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--game', default='Blackjack_pi-v0', help='Training environment')
+    parser.add_argument('--grid', type=str, default="grid.txt", help='TXT file specfying the game grid')
     parser.add_argument('--n_ep', type=int, default=1000, help='Number of episodes')
     parser.add_argument('--n_mcts', type=int, default=20, help='Number of MCTS traces per step')
     parser.add_argument('--max_ep_len', type=int, default=50, help='Maximum number of steps per episode')
@@ -47,6 +59,7 @@ if __name__ == '__main__':
     parser.add_argument('--stochastic', action='store_true')
     parser.add_argument('--alpha_test', action='store_true')
     parser.add_argument('--visualize', action='store_true')
+    parser.add_argument('--gpu', action='store_true')
     parser.add_argument('--eval_freq', type=int, default=20, help='Evaluation_frequency')
     parser.add_argument('--eval_episodes', type=int, default=50, help='Episodes of evaluation')
     parser.add_argument('--delta_alpha', type=float, default=0.2, help='progressive widening parameter')
@@ -57,46 +70,49 @@ if __name__ == '__main__':
     parser.add_argument('--n_epochs', type=int, default=10, help='Number of epochs of training for the NN')
 
     args = parser.parse_args()
-    start_time = time.time()
-    time_str = str(start_time)
-    out_dir = 'logs/' + args.game + '/' + time_str + '/'
-
+    out_dir = ""
     # if not os.path.exists(out_dir):
     #     os.makedirs(out_dir)
 
-    exps = []
+    if not args.gpu:
+        os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
     game_params = {}
     if args.game == 'Taxi' or args.game == 'TaxiEasy':
-        game_params['grid'] = 'grid.txt'
+        game_params['grid'] = args.grid
         game_params['box'] = True
         # TODO modify this to return to original taxi problem
-    for i in range(args.n_experiments):
-        out_dir_i = out_dir + str(i) + '/'
 
-        keys = {"game": args.game,
-                "n_ep": args.n_ep,
-                "n_mcts": args.n_mcts,
-                "max_ep_len": args.max_ep_len,
-                "lr": args.lr,
-                "c": args.c,
-                "gamma": args.gamma,
-                "data_size": args.data_size,
-                "batch_size": args.batch_size,
-                "temp": args.temp,
-                "n_hidden_layers": args.n_hidden_layers,
-                "n_hidden_units": args.n_hidden_units,
-                "stochastic": args.stochastic,
-                "alpha": args.alpha,
-                "numpy_dump_dir": out_dir_i,
-                "visualize": args.visualize,
-                "eval_freq": args.eval_freq,
-                "eval_episodes": args.eval_episodes,
-                "pre_process": None,
-                "game_params": game_params,
-                "n_epochs": args.n_epochs}
+    keys = {"game": args.game,
+            "n_ep": args.n_ep,
+            "n_mcts": args.n_mcts,
+            "max_ep_len": args.max_ep_len,
+            "lr": args.lr,
+            "c": args.c,
+            "gamma": args.gamma,
+            "data_size": args.data_size,
+            "batch_size": args.batch_size,
+            "temp": args.temp,
+            "n_hidden_layers": args.n_hidden_layers,
+            "n_hidden_units": args.n_hidden_units,
+            "stochastic": args.stochastic,
+            "alpha": args.alpha,
+            "numpy_dump_dir": out_dir,
+            "visualize": args.visualize,
+            "eval_freq": args.eval_freq,
+            "eval_episodes": args.eval_episodes,
+            "pre_process": None,
+            "game_params": game_params,
+            "n_epochs": args.n_epochs}
 
-        trials = hp.Trials()
+    trials = hp.Trials()
 
-        best = hp.fmin(fn=partial(objective, keys=keys), algo=hp.tpe.suggest, max_evals=10, space=parameter_space,
-                       trials=trials)
-        print(hp.space_eval(parameter_space, best))
+    old = {'alpha': 0.49, 'c': 1.6, 'temp': 0.05}
+
+    best = hp.fmin(fn=partial(objective, keywords=keys), algo=hp.tpe.suggest, max_evals=100, space=parameter_space,
+                   trials=trials, points_to_evaluate=old)
+    print(hp.space_eval(parameter_space, best))
+
+    with open("trials.pickle", "w") as dumpfile:
+        pickle.dump(trials, dumpfile)
+        dumpfile.close()

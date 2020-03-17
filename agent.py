@@ -24,7 +24,7 @@ DEBUG_TAXI = False
 PURE_MCTS = True
 USE_TQDM = False
 
-REMOTE = False
+REMOTE = True
 
 import os
 
@@ -97,6 +97,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
     t_total = 0  # total steps
     R_best = -np.Inf
+    a_best = None
+    seed_best = None
 
     # Variables for storing values to be plotted
     avgs = []
@@ -148,11 +150,13 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                     env_wrapper.mcts.search(n_mcts=n_mcts, c=c, Env=Env, mcts_env=mcts_env)
                     state, pi, V = env_wrapper.mcts.return_results(temp=0)
                     env_wrapper.curr_probs.append(pi)
-                    a_w = np.argmax(pi)
+                    max_p = np.max(pi)
+                    a_w = np.random.choice(np.argwhere(pi == max_p)[0])
                 else:
                     pi_w = model.predict_pi(s).flatten()
                     env_wrapper.curr_probs.append(pi_w)
-                    a_w = np.argmax(pi_w)
+                    max_p = np.max(pi_w)
+                    a_w = np.random.choice(np.argwhere(pi_w == max_p))
                 return a_w
 
             rews, lens = eval_policy(pi_wrapper, env_wrapper, n_episodes=eval_episodes, verbose=False
@@ -195,124 +199,127 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
         ##### Policy improvement step #####
 
-        for st in trange(max_ep_len) if USE_TQDM else range(max_ep_len):
+        if not PURE_MCTS:
+            for st in trange(max_ep_len) if USE_TQDM else range(max_ep_len):
 
-            if not USE_TQDM:
-                print('Step ' + str(st + 1) + ' of ' + str(max_ep_len), end='\r')
+                if not USE_TQDM:
+                    print('Step ' + str(st + 1) + ' of ' + str(max_ep_len), end='\r')
 
-            # MCTS step
-            if not is_atari:
-                mcts_env = None
-            mcts.search(n_mcts=n_mcts, c=c, Env=Env, mcts_env=mcts_env)  # perform a forward search
+                # MCTS step
+                if not is_atari:
+                    mcts_env = None
+                mcts.search(n_mcts=n_mcts, c=c, Env=Env, mcts_env=mcts_env)  # perform a forward search
 
-            if visualize:
-                mcts.visualize()
+                if visualize:
+                    mcts.visualize()
 
-            state, pi, V = mcts.return_results(temp)  # extract the root output
+                state, pi, V = mcts.return_results(temp)  # extract the root output
 
-            # Save targets for starting state to debug
-            if np.array_equal(start_s, state):
-                if DEBUG:
-                    print("Pi target for starting state:", pi)
-                start_targets.append((V, pi))
-            D.store((state, V, pi))
-
-            # Make the true step
-            a = np.random.choice(len(pi), p=pi)
-            a_store.append(a)
-
-            s1, r, terminal, _ = Env.step(a)
-
-            # Perform command line visualization if necessary
-            if DEBUG_TAXI:
-                olds, olda = copy.deepcopy(s1), copy.deepcopy(a)
-                visualizer.visualize_taxi(olds, olda)
-                print("Reward:", r)
-
-            R += r
-            t_total += n_mcts  # total number of environment steps (counts the mcts steps)
-            ep_steps = st + 1
-
-            if terminal:
-                break  # Stop the episode if we encounter a terminal state
-            else:
-                mcts.forward(a, s1, r)  # Otherwise proceed
-
-        # Finished episode
-        if DEBUG:
-            print("Train episode return:", R)
-            print("Train episode actions:", a_store)
-        episode_returns.append(R)  # store the total episode return
-        online_scores.append(R)
-        timepoints.append(t_total)  # store the timestep count of the episode return
-        store_safely(numpy_dump_dir, '/result', {'R': episode_returns, 't': timepoints})
-        np.save(numpy_dump_dir + '/online_scores.npy', online_scores)
-
-        if DEBUG or True:
-            print('Finished episode {} in {} steps, total return: {}, total time: {} sec'.format(ep, ep_steps,
-                                                                                                 np.round(R, 2),
-                                                                                                 np.round((
-                                                                                                                      time.time() - start),
-                                                                                                          1)))
-        # Plot the online return over training episodes
-
-        logger.plot_online_return(online_scores)
-
-        if R > R_best:
-            a_best = a_store
-            seed_best = seed
-            R_best = R
-
-        print()
-
-        # Train
-        try:
-            print("\nTraining network")
-            ep_V_loss = []
-            ep_pi_loss = []
-
-            for _ in range(n_epochs):
-                # Reshuffle the dataset at each epoch
-                D.reshuffle()
-
-                batch_V_loss = []
-                batch_pi_loss = []
-
-                # Batch training
-                for sb, Vb, pib in D:
-
+                # Save targets for starting state to debug
+                if np.array_equal(start_s, state):
                     if DEBUG:
-                        print("sb:", sb)
-                        print("Vb:", Vb)
-                        print("pib:", pib)
+                        print("Pi target for starting state:", pi)
+                    start_targets.append((V, pi))
+                D.store((state, V, pi))
 
-                    loss = model.train(sb, Vb, pib)
+                # Make the true step
+                a = np.random.choice(len(pi), p=pi)
+                a_store.append(a)
 
-                    batch_V_loss.append(loss[1])
-                    batch_pi_loss.append(loss[2])
+                s1, r, terminal, _ = Env.step(a)
 
-                ep_V_loss.append(mean(batch_V_loss))
-                ep_pi_loss.append(mean(batch_pi_loss))
+                # Perform command line visualization if necessary
+                if DEBUG_TAXI:
+                    olds, olda = copy.deepcopy(s1), copy.deepcopy(a)
+                    visualizer.visualize_taxi(olds, olda)
+                    print("Reward:", r)
 
-            # Plot the loss over training epochs
+                R += r
+                t_total += n_mcts  # total number of environment steps (counts the mcts steps)
+                ep_steps = st + 1
 
-            logger.plot_loss(ep, ep_V_loss, ep_pi_loss)
+                if terminal:
+                    break  # Stop the episode if we encounter a terminal state
+                else:
+                    mcts.forward(a, s1, r)  # Otherwise proceed
 
-        except Exception as e:
-            print("Something wrong while training:", e)
+            # Finished episode
+            if DEBUG:
+                print("Train episode return:", R)
+                print("Train episode actions:", a_store)
+            episode_returns.append(R)  # store the total episode return
+            online_scores.append(R)
+            timepoints.append(t_total)  # store the timestep count of the episode return
+            store_safely(numpy_dump_dir, '/result', {'R': episode_returns, 't': timepoints})
+            np.save(numpy_dump_dir + '/online_scores.npy', online_scores)
 
-        # model.save(out_dir + 'model')
+            if DEBUG or True:
+                print('Finished episode {} in {} steps, total return: {}, total time: {} sec'.format(ep, ep_steps,
+                                                                                                     np.round(R, 2),
+                                                                                                     np.round((
+                                                                                                                          time.time() - start),
+                                                                                                              1)))
+            # Plot the online return over training episodes
 
-        # Plot the loss over different episodes
-        logger.plot_training_loss_over_time()
+            logger.plot_online_return(online_scores)
 
-        pi_start = model.predict_pi(start_s)
-        V_start = model.predict_V(start_s)
+            if R > R_best:
+                a_best = a_store
+                seed_best = seed
+                R_best = R
 
-        print("\nStart policy: ", pi_start)
-        print("Start value:", V_start)
+            print()
 
-        logger.log_start(ep, pi_start, V_start, start_targets)
+            # Train only if the model has to be used
+            if not PURE_MCTS:
+                # Train
+                try:
+                    print("\nTraining network")
+                    ep_V_loss = []
+                    ep_pi_loss = []
+
+                    for _ in range(n_epochs):
+                        # Reshuffle the dataset at each epoch
+                        D.reshuffle()
+
+                        batch_V_loss = []
+                        batch_pi_loss = []
+
+                        # Batch training
+                        for sb, Vb, pib in D:
+
+                            if DEBUG:
+                                print("sb:", sb)
+                                print("Vb:", Vb)
+                                print("pib:", pib)
+
+                            loss = model.train(sb, Vb, pib)
+
+                            batch_V_loss.append(loss[1])
+                            batch_pi_loss.append(loss[2])
+
+                        ep_V_loss.append(mean(batch_V_loss))
+                        ep_pi_loss.append(mean(batch_pi_loss))
+
+                    # Plot the loss over training epochs
+
+                    logger.plot_loss(ep, ep_V_loss, ep_pi_loss)
+
+                except Exception as e:
+                    print("Something wrong while training:", e)
+
+                # model.save(out_dir + 'model')
+
+                # Plot the loss over different episodes
+                logger.plot_training_loss_over_time()
+
+                pi_start = model.predict_pi(start_s)
+                V_start = model.predict_V(start_s)
+
+                print("\nStart policy: ", pi_start)
+                print("Start value:", V_start)
+
+                logger.log_start(ep, pi_start, V_start, start_targets)
 
     # Return results
     return episode_returns, timepoints, a_best, seed_best, R_best, offline_scores
