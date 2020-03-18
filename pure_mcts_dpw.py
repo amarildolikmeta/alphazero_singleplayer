@@ -119,7 +119,7 @@ class MCTSStochastic(MCTS):
 
             # Back-up
             R = state.V
-            state.update(R)
+            state.update()
             while state.parent_action is not None:  # loop back-up until root is reached
                 if not state.terminal:
                     R = state.r + self.gamma * R
@@ -128,7 +128,7 @@ class MCTSStochastic(MCTS):
                 action = state.parent_action
                 action.update(R)
                 state = action.parent_state
-                state.update(R)
+                state.update()
 
     def return_results(self, temp):
         ''' Process the output at the root node '''

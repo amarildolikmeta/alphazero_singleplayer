@@ -45,11 +45,10 @@ class State(object):
         if env is None:
             print("Warning, no environment was provided, initializing to 0 the value of the state!")
         if terminal or env is None:
-            self.V = r
-            self.W = r
+            self.V = 0
         else:
-            self.V = self.W = self.evaluate(copy.deepcopy(env))
-        self.n = 1
+            self.V = self.evaluate(copy.deepcopy(env))
+        self.n = 0
 
         self.child_actions = [Action(a, parent_state=self, Q_init=self.V) for a in range(na)]
 
@@ -72,11 +71,9 @@ class State(object):
         winner = argmax(UCT)
         return self.child_actions[winner]
 
-    def update(self, reward):
+    def update(self):
         ''' update count on backward pass '''
         self.n += 1
-        self.W += reward
-        self.V = self.W/self.n
 
     def evaluate(self, env):
         """Run a random exploration from the state up to hitting a terminal state"""
@@ -131,7 +128,7 @@ class MCTS(object):
 
             # Back-up
             R = state.V
-            state.update(R)
+            state.update()
             while state.parent_action is not None:  # loop back-up until root is reached
                 if not state.terminal:
                     R = state.r + self.gamma * R
@@ -140,7 +137,7 @@ class MCTS(object):
                 action = state.parent_action
                 action.update(R)
                 state = action.parent_state
-                state.update(R)
+                state.update()
 
     def return_results(self, temp):
         ''' Process the output at the root node '''

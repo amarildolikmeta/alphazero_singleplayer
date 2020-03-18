@@ -9,8 +9,8 @@ def eval_policy(pi,  env, n_episodes=100, add_terminal=False, verbose=True, inte
     rewards = []
     lens = []
     print()
-    for i in range(n_episodes):
-        print('Evaluated ' + str(i) + ' of ' + str(n_episodes), end='\r')
+    for i in trange(n_episodes):
+        # print('Evaluated ' + str(i) + ' of ' + str(n_episodes), end='\r')
         start = time.time()
         s = env.reset()
         t = 0

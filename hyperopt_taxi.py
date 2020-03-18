@@ -11,7 +11,7 @@ from functools import partial
 parameter_space = {"temp": hp.hp.quniform('temp', 0.05, 0.5, 0.05),
                    # "lr": hp.hp.qloguniform('lr', np.log(0.0001), np.log(0.1)),
                    "c": hp.hp.quniform('c', 0, 2, 0.1),
-                   "alpha": hp.hp.quniform('alpha', 0.01, 0.99, 0.01)}
+                   "alpha": hp.hp.quniform('alpha', 0, 0.99, 0.01)}
 
 import pickle
 
@@ -107,7 +107,7 @@ if __name__ == '__main__':
 
     trials = hp.Trials()
 
-    old = {'alpha': 0.49, 'c': 1.6, 'temp': 0.05}
+    old = [{'alpha': 0.49, 'c': 1.6, 'temp': 0.05}, {'alpha': 0.99, 'c': 0.5, 'temp': 0.15}]
 
     best = hp.fmin(fn=partial(objective, keywords=keys), algo=hp.tpe.suggest, max_evals=50, space=parameter_space,
                    trials=trials, points_to_evaluate=old)
