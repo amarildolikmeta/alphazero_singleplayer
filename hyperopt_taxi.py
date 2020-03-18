@@ -109,10 +109,10 @@ if __name__ == '__main__':
 
     old = {'alpha': 0.49, 'c': 1.6, 'temp': 0.05}
 
-    best = hp.fmin(fn=partial(objective, keywords=keys), algo=hp.tpe.suggest, max_evals=100, space=parameter_space,
+    best = hp.fmin(fn=partial(objective, keywords=keys), algo=hp.tpe.suggest, max_evals=50, space=parameter_space,
                    trials=trials, points_to_evaluate=old)
     print(hp.space_eval(parameter_space, best))
 
-    with open("trials.pickle", "w") as dumpfile:
+    with open("trials.pickle", "wb") as dumpfile:
         pickle.dump(trials, dumpfile)
         dumpfile.close()

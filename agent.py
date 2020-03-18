@@ -148,7 +148,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
                 if PURE_MCTS:
                     env_wrapper.mcts.search(n_mcts=n_mcts, c=c, Env=Env, mcts_env=mcts_env)
-                    state, pi, V = env_wrapper.mcts.return_results(temp=0)
+                    state, pi, V = env_wrapper.mcts.return_results(temp=temp)  # TODO put 0 if the network is enabled
                     env_wrapper.curr_probs.append(pi)
                     max_p = np.max(pi)
                     a_w = np.random.choice(np.argwhere(pi == max_p)[0])
