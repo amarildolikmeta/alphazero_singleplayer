@@ -16,8 +16,8 @@ class StochasticAction(Action):
         self.n_children = 0
         self.state_indeces = {}
 
-    def add_child_state(self, s1, r, terminal, signature):
-        child_state = StochasticState(s1, r, terminal, self, self.parent_state.na, signature)
+    def add_child_state(self, s1, r, terminal, signature, env=None):
+        child_state = StochasticState(s1, r, terminal, self, self.parent_state.na, signature, env=env)
         self.child_states.append(child_state)
         s1_hash = s1.tostring()
         self.state_indeces[s1_hash] = self.n_children
@@ -43,19 +43,13 @@ class StochasticAction(Action):
 class StochasticState(State):
     ''' StochasticState object '''
 
-    def __init__(self, index, r, terminal, parent_action, na, signature):
-        self.index = index  # state
-        self.r = r  # reward upon arriving in this state
-        self.terminal = terminal  # whether the domain terminated in this state
-        self.parent_action = parent_action
-        self.n = 0
+    def __init__(self, index, r, terminal, parent_action, na, signature, env=None):
+        super().__init__(index, r, terminal, parent_action, na, env=env)
         self.signature = signature
-        self.V = 0
-        self.W = 0
-        # Child actions
-        self.na = na
         # self.priors = model.predict_pi(index).flatten()
         self.child_actions = [StochasticAction(a, parent_state=self, Q_init=self.V) for a in range(na)]
+
+
 
 
 class MCTSStochastic(MCTS):
@@ -79,7 +73,7 @@ class MCTSStochastic(MCTS):
         if self.root is None:
             # initialize new root
             self.root = StochasticState(self.root_index, r=0.0, terminal=False, parent_action=None, na=self.na,
-                                        signature=Env.get_signature())
+                                        signature=Env.get_signature(), env=mcts_env)
         else:
             self.root.parent_action = None  # continue from current root
         if self.root.terminal:
@@ -113,7 +107,7 @@ class MCTSStochastic(MCTS):
                     else:
                         # if action.index == 0 and len(action.child_states) > 0:
                         #     print("Error")
-                        state = action.add_child_state(s1, r, t, mcts_env.get_signature())  # expand
+                        state = action.add_child_state(s1, r, t, mcts_env.get_signature(), env=mcts_env)  # expand
                         break
                 else:
                     state = action.sample_state()

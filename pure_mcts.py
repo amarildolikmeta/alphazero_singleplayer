@@ -5,6 +5,7 @@ from igraph import Graph, EdgeSeq, Edge
 import plotly.graph_objects as go
 import plotly.io as pio
 import json
+import random
 
 ##### MCTS functions #####
 
@@ -18,8 +19,8 @@ class Action(object):
         self.n = 0
         self.Q = Q_init
 
-    def add_child_state(self, s1, r, terminal):
-        self.child_state = State(s1, r, terminal, self, self.parent_state.na)
+    def add_child_state(self, s1, r, terminal, env=None):
+        self.child_state = State(s1, r, terminal, self, self.parent_state.na, env=env)
         return self.child_state
 
     def update(self, R):
@@ -31,18 +32,27 @@ class Action(object):
 class State(object):
     ''' State object '''
 
-    def __init__(self, index, r, terminal, parent_action, na):
+    def __init__(self, index, r, terminal, parent_action, na, env=None):
         ''' Initialize a new state '''
         self.index = index  # state
         self.r = r  # reward upon arriving in this state
         self.terminal = terminal  # whether the domain terminated in this state
         self.parent_action = parent_action
-        self.n = 0
-        self.W = 0
-        self.V = 0
+
         # Child actions
         self.na = na
+
+        if env is None:
+            print("Warning, no environment was provided, initializing to 0 the value of the state!")
+        if terminal or env is None:
+            self.V = r
+            self.W = r
+        else:
+            self.V = self.W = self.evaluate(copy.deepcopy(env))
+        self.n = 1
+
         self.child_actions = [Action(a, parent_state=self, Q_init=self.V) for a in range(na)]
+
 
     def to_json(self):
         inf = {}
@@ -68,6 +78,14 @@ class State(object):
         self.W += reward
         self.V = self.W/self.n
 
+    def evaluate(self, env):
+        """Run a random exploration from the state up to hitting a terminal state"""
+        done = False
+        while not done:
+            a = np.random.choice(np.arange(self.na))
+            _, r, done, _ = env.step(a)
+            if done:
+                return r
 
 class MCTS(object):
     ''' MCTS object '''
@@ -84,7 +102,7 @@ class MCTS(object):
         ''' Perform the MCTS search from the root '''
         if self.root is None:
             # initialize new root
-            self.root = State(self.root_index, r=0.0, terminal=False, parent_action=None, na=self.na)
+            self.root = State(self.root_index, r=0.0, terminal=False, parent_action=None, na=self.na, env=mcts_env)
         else:
             self.root.parent_action = None  # continue from current root
         if self.root.terminal:
@@ -108,7 +126,7 @@ class MCTS(object):
                     state = action.child_state  # select
                     continue
                 else:
-                    state = action.add_child_state(s1, r, t)  # expand
+                    state = action.add_child_state(s1, r, t, env=mcts_env)  # expand
                     break
 
             # Back-up
