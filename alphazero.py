@@ -40,6 +40,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=0.01
                         , help='Learning rate')
     parser.add_argument('--c', type=float, default=1.5, help='UCT constant')
+    parser.add_argument('--cdpw', type=float, default=1, help='DPW constant')
     parser.add_argument('--temp', type=float, default=1.0,
                         help='Temperature in normalization of counts to policy target')
     parser.add_argument('--gamma', type=float, default=1.0, help='Discount parameter')

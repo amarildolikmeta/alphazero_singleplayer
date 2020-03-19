@@ -1,5 +1,4 @@
 import copy
-import json
 from statistics import mean
 
 import numpy as np
@@ -9,15 +8,12 @@ from tqdm import trange
 
 from helpers import is_atari_game, store_safely, Database
 from rl.make_game import make_game
-from model_tf2 import Model
+from model_tf2 import ModelWrapper
 
-from policies.eval_policy import eval_policy
+from policies.eval_policy import eval_policy, parallelize_eval_policy
 
 from utils.logging.logger import Logger
-
-
-class EnvEvalWrapper(object):
-    pass
+from utils.env_wrapper import Wrapper
 
 DEBUG = False
 DEBUG_TAXI = False
@@ -37,9 +33,10 @@ else:
 
 #### Agent ####
 def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, temp, n_hidden_layers, n_hidden_units,
-          stochastic=False, eval_freq=-1, eval_episodes=100, alpha=0.6, n_epochs=100, numpy_dump_dir='../',
+          stochastic=False, eval_freq=-1, eval_episodes=100, alpha=0.6, n_epochs=100, c_dpw=1, numpy_dump_dir='../',
           pre_process=None,
-          visualize=False, game_params={}):
+          visualize=False, game_params={},
+          parallelize_evaluation=True):
     visualizer = None
 
     parameter_list = {"game": game, "n_ep": n_ep, "n_mcts": n_mcts, "max_ep_len": max_ep_len, "lr": lr, "c": c,
@@ -93,7 +90,9 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
     D = Database(max_size=data_size, batch_size=batch_size)
     # TODO extract dimensions to avoid allocating model
-    model = Model(Env=Env, lr=lr, n_hidden_layers=n_hidden_layers, n_hidden_units=n_hidden_units, joint_networks=True)
+    model_params={"Env": Env, "lr": lr, "n_hidden_layers": n_hidden_layers, "n_hidden_units": n_hidden_units, "joint_networks": True}
+    model_wrapper = ModelWrapper(**model_params)
+    model_wrapper.instantiate_model()
 
     t_total = 0  # total steps
     R_best = -np.Inf
@@ -117,50 +116,29 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             Env.seed(seed)
             s = Env.reset()
 
-            mcts = mcts_maker(root_index=s, root=None, model=model, na=model.action_dim, **mcts_params)
-            env_wrapper = EnvEvalWrapper()
-            env_wrapper.mcts = mcts
-            starting_states = []
+            if parallelize_evaluation:
+                penv = None
+                pgame = {"game_maker": make_game,
+                         "game": game,
+                         "game_params": game_params}
 
-            def reset_env():
-                s = Env.reset()
-                env_wrapper.mcts = mcts_maker(root_index=s, root=None, model=model,
-                                              na=model.action_dim, **mcts_params)
-                starting_states.append(s)
-                if env_wrapper.curr_probs is not None:
-                    env_wrapper.episode_probabilities.append(env_wrapper.curr_probs)
-                env_wrapper.curr_probs = []
-                return s
+            else:
+                penv = Env
+                pgame = None
 
-            def forward(a, s, r):
-                if PURE_MCTS:
-                    env_wrapper.mcts.forward(a, s, r)
+            model_file = os.path.join(logger.save_dir, "model.h5")
 
-            env_wrapper.reset = reset_env
-            env_wrapper.step = lambda x: Env.step(x)
-            env_wrapper.forward = forward
-            env_wrapper.episode_probabilities = []
-            env_wrapper.curr_probs = None
+            model_wrapper.save(model_file)
 
-            def pi_wrapper(ob):
-                if not is_atari:
-                    mcts_env = None
+            env_wrapper = Wrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, mcts_env, c_dpw, temp, Env=penv, game_maker=pgame, mcts_only=PURE_MCTS)
+            # pi_wrapper = PolicyEvalWrapper(env_wrapper, is_atari, n_mcts, mcts_env, c_dpw, temp, mcts_only=PURE_MCTS).pi_wrapper
 
-                if PURE_MCTS:
-                    env_wrapper.mcts.search(n_mcts=n_mcts, c=c, Env=Env, mcts_env=mcts_env)
-                    state, pi, V = env_wrapper.mcts.return_results(temp=temp)  # TODO put 0 if the network is enabled
-                    env_wrapper.curr_probs.append(pi)
-                    max_p = np.max(pi)
-                    a_w = np.random.choice(np.argwhere(pi == max_p)[0])
-                else:
-                    pi_w = model.predict_pi(s).flatten()
-                    env_wrapper.curr_probs.append(pi_w)
-                    max_p = np.max(pi_w)
-                    a_w = np.random.choice(np.argwhere(pi_w == max_p))
-                return a_w
-
-            rews, lens = eval_policy(pi_wrapper, env_wrapper, n_episodes=eval_episodes, verbose=False
+            if parallelize_evaluation:
+                rews, lens = parallelize_eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False
                                      , max_len=max_ep_len)
+            else:
+                rews, lens = eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False
+                                                     , max_len=max_ep_len)
             offline_scores.append([np.min(rews), np.max(rews), np.mean(rews), np.std(rews),
                                    len(rews), np.mean(lens)])
             # if len(rews) < eval_episodes or len(rews) == 0:
@@ -188,7 +166,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
         if eval_freq > 0 and ep % eval_freq == 0:
             print("\nCollecting %d episodes" % eval_freq)
-        mcts = mcts_maker(root_index=s, root=None, model=model, na=model.action_dim,
+        mcts = mcts_maker(root_index=s, root=None, model=model_wrapper, na=model_wrapper.action_dim,
                           **mcts_params)  # the object responsible for MCTS searches
 
         # TODO parallelize here, very slow
@@ -293,7 +271,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                                 print("Vb:", Vb)
                                 print("pib:", pib)
 
-                            loss = model.train(sb, Vb, pib)
+                            loss = model_wrapper.train(sb, Vb, pib)
 
                             batch_V_loss.append(loss[1])
                             batch_pi_loss.append(loss[2])
@@ -313,8 +291,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 # Plot the loss over different episodes
                 logger.plot_training_loss_over_time()
 
-                pi_start = model.predict_pi(start_s)
-                V_start = model.predict_V(start_s)
+                pi_start = model_wrapper.predict_pi(start_s)
+                V_start = model_wrapper.predict_V(start_s)
 
                 print("\nStart policy: ", pi_start)
                 print("Start value:", V_start)
