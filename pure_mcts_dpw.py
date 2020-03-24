@@ -1,10 +1,11 @@
 import numpy as np
 import copy
 from helpers import (argmax, is_atari_game, copy_atari_state, restore_atari_state, stable_normalizer)
-from mcts import MCTS, Action, State
+from pure_mcts import MCTS, Action, State
 from igraph import Graph, EdgeSeq
 import plotly.graph_objects as go
 import plotly.io as pio
+
 
 class StochasticAction(Action):
     ''' StochasticAction object '''
@@ -15,8 +16,8 @@ class StochasticAction(Action):
         self.n_children = 0
         self.state_indeces = {}
 
-    def add_child_state(self, s1, r, terminal, model, signature):
-        child_state = StochasticState(s1, r, terminal, self, self.parent_state.na, model, signature)
+    def add_child_state(self, s1, r, terminal, signature, env=None):
+        child_state = StochasticState(s1, r, terminal, self, self.parent_state.na, signature, env=env)
         self.child_states.append(child_state)
         s1_hash = s1.tostring()
         self.state_indeces[s1_hash] = self.n_children
@@ -39,32 +40,23 @@ class StochasticAction(Action):
         return self.child_states[np.random.choice(a=self.n_children, p=p)]
 
 
-
 class StochasticState(State):
     ''' StochasticState object '''
 
-    def __init__(self, index, r, terminal, parent_action, na, model, signature):
-        super().__init__(index, r, terminal, parent_action, na, model)
-        self.index = index  # state
-        self.r = r  # reward upon arriving in this state
-        self.terminal = terminal  # whether the domain terminated in this state
-        self.parent_action = parent_action
-        self.n = 0
-        self.model = model
+    def __init__(self, index, r, terminal, parent_action, na, signature, env=None):
+        super().__init__(index, r, terminal, parent_action, na, env=env)
         self.signature = signature
-        self.evaluate()
-        # Child actions
-        self.na = na
-        self.priors = model.predict_pi(index).flatten()
+        # self.priors = model.predict_pi(index).flatten()
         self.child_actions = [StochasticAction(a, parent_state=self, Q_init=self.V) for a in range(na)]
+
 
 
 
 class MCTSStochastic(MCTS):
     ''' MCTS object '''
 
-    def __init__(self, root, root_index, model, na, gamma, alpha=0.6):
-        super(MCTSStochastic, self).__init__(root, root_index, model, na, gamma)
+    def __init__(self, root, root_index, na, gamma, alpha=0.6, model=None):
+        super(MCTSStochastic, self).__init__(root, root_index, na, gamma)
         self.alpha = alpha
 
     def search(self, n_mcts, c, Env, mcts_env):
@@ -81,12 +73,11 @@ class MCTSStochastic(MCTS):
         if self.root is None:
             # initialize new root
             self.root = StochasticState(self.root_index, r=0.0, terminal=False, parent_action=None, na=self.na,
-                                        model=self.model, signature=Env.get_signature())
+                                        signature=Env.get_signature(), env=mcts_env)
         else:
             self.root.parent_action = None  # continue from current root
         if self.root.terminal:
             raise (ValueError("Can't do tree search from a terminal state"))
-
 
         for i in range(n_mcts):
             state = self.root  # reset to root for new trace
@@ -111,12 +102,12 @@ class MCTSStochastic(MCTS):
                     # if action.index == 0 and not np.array_equal(s1.flatten(), action.parent_state.index.flatten()):
                     #     print("WTF")
                     if action.get_state_ind(s1) != -1:
-                        state = action.child_states[action.get_state_ind(s1)]# select
+                        state = action.child_states[action.get_state_ind(s1)]  # select
                         state.r = r
                     else:
                         # if action.index == 0 and len(action.child_states) > 0:
                         #     print("Error")
-                        state = action.add_child_state(s1, r, t, self.model, mcts_env.get_signature())  # expand
+                        state = action.add_child_state(s1, r, t, mcts_env.get_signature(), env=mcts_env)  # expand
                         break
                 else:
                     state = action.sample_state()
@@ -146,8 +137,8 @@ class MCTSStochastic(MCTS):
 
         pi_target = stable_normalizer(counts, temp)
         V_target = np.sum((counts / np.sum(counts)) * Q)[None]
-        #V_target = np.max((counts / np.sum(counts)) * Q)[None]
-        #V_target = np.max(Q)[None]
+        # V_target = np.max((counts / np.sum(counts)) * Q)[None]
+        # V_target = np.max(Q)[None]
         return self.root.index.flatten(), pi_target, V_target
 
     def forward(self, a, s1, r):
@@ -163,10 +154,11 @@ class MCTSStochastic(MCTS):
         else:
             self.root = None
         self.root_index = s1
+
     def inorderTraversal(self, root, g, vertex_index, parent_index, v_label, a_label):
         if root:
             g.add_vertex(vertex_index)
-            #v_label.append(str(root.index))
+            # v_label.append(str(root.index))
             v_label.append(root.to_json())
             if root.parent_action:
                 g.add_edge(parent_index, vertex_index)
@@ -179,8 +171,8 @@ class MCTSStochastic(MCTS):
         return vertex_index
 
     def print_index(self):
-            print(self.count)
-            self.count += 1
+        print(self.count)
+        self.count += 1
 
     def print_tree(self, root):
         self.print_index()

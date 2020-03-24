@@ -1,2 +1,2 @@
 #!/bin/bash
-python alphazero.py --game=Taxi --stochastic --gamma=0.95 --max_ep_len=200 --n_hidden_layers=3 --n_hidden_units=32 --eval_freq=10 --n_epochs=100 --temp=0.5 --lr=0.1
+python alphazero.py --game=Taxi --grid=grid.txt --stochastic --gamma=0.95 --max_ep_len=200 --n_hidden_layers=3 --n_hidden_units=16 --eval_freq=20 --n_epochs=50 --lr=0.1 --batch_size=2048 --temp=0.4 --c=1.2 --n_ep=200 --eval_episodes=10 --n_mcts=50
