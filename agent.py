@@ -17,27 +17,25 @@ from utils.env_wrapper import Wrapper
 
 DEBUG = False
 DEBUG_TAXI = False
-PURE_MCTS = True
-USE_TQDM = False
+USE_TQDM = True
 
-REMOTE = True
+REMOTE = False
 
 import os
 
-if not PURE_MCTS:
-    from mcts import MCTS
-    from mcts_dpw import MCTSStochastic
-else:
-    from pure_mcts import MCTS
-    from pure_mcts_dpw import MCTSStochastic
 
 #### Agent ####
 def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, temp, n_hidden_layers, n_hidden_units,
           stochastic=False, eval_freq=-1, eval_episodes=100, alpha=0.6, n_epochs=100, c_dpw=1, numpy_dump_dir='../',
-          pre_process=None,
-          visualize=False, game_params={},
-          parallelize_evaluation=True):
+          pre_process=None, visualize=False, game_params={}, parallelize_evaluation=False, mcts_only=False):
     visualizer = None
+
+    if not mcts_only:
+        from mcts import MCTS
+        from mcts_dpw import MCTSStochastic
+    else:
+        from pure_mcts import MCTS
+        from pure_mcts_dpw import MCTSStochastic
 
     parameter_list = {"game": game, "n_ep": n_ep, "n_mcts": n_mcts, "max_ep_len": max_ep_len, "lr": lr, "c": c,
                       "gamma": gamma, "data_size": data_size, "batch_size": batch_size, "temp": temp,
@@ -103,7 +101,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     avgs = []
     stds = []
 
-    for ep in trange(n_ep) if USE_TQDM else range(n_ep):
+    for ep in range(n_ep):
 
         if DEBUG_TAXI:
             visualizer.reset()
@@ -111,7 +109,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         ##### Policy evaluation step #####
 
         if eval_freq > 0 and ep % eval_freq == 0:  # and ep > 0
-            print('--------------------------------\nEvaluating policy for {} episodes!\n'.format(eval_episodes))
+            print('--------------------------------\nEvaluating policy for {} episodes!'.format(eval_episodes))
             seed = np.random.randint(1e7)  # draw some Env seed
             Env.seed(seed)
             s = Env.reset()
@@ -130,7 +128,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
             model_wrapper.save(model_file)
 
-            env_wrapper = Wrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, mcts_env, c_dpw, temp, Env=penv, game_maker=pgame, mcts_only=PURE_MCTS)
+            env_wrapper = Wrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, mcts_env, c_dpw, temp, Env=penv, game_maker=pgame, mcts_only=mcts_only)
             # pi_wrapper = PolicyEvalWrapper(env_wrapper, is_atari, n_mcts, mcts_env, c_dpw, temp, mcts_only=PURE_MCTS).pi_wrapper
 
             if parallelize_evaluation:
@@ -177,7 +175,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
         ##### Policy improvement step #####
 
-        if not PURE_MCTS:
+        if not mcts_only:
             for st in trange(max_ep_len) if USE_TQDM else range(max_ep_len):
 
                 if not USE_TQDM:
@@ -249,7 +247,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             print()
 
             # Train only if the model has to be used
-            if not PURE_MCTS:
+            if not mcts_only:
                 # Train
                 try:
                     print("\nTraining network")

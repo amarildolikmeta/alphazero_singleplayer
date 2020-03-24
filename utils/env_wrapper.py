@@ -45,7 +45,7 @@ class Wrapper(object):
             pi_w = self.get_model().predict_pi(s).flatten()
             self.curr_probs.append(pi_w)
             max_p = np.max(pi_w)
-            a_w = np.random.choice(np.argwhere(pi_w == max_p))
+            a_w = np.random.choice(np.argwhere(pi_w == max_p)[0])
         return a_w
 
     def get_env(self):

@@ -104,7 +104,10 @@ if __name__ == '__main__':
             "eval_episodes": args.eval_episodes,
             "pre_process": None,
             "game_params": game_params,
-            "n_epochs": args.n_epochs}
+            "n_epochs": args.n_epochs,
+            "parallelize_evaluation": args.parallel,
+            "mcts_only": args.mcts_only
+    }
 
     trials = hp.Trials()
 
