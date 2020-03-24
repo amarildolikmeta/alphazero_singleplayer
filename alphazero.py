@@ -37,9 +37,9 @@ if __name__ == '__main__':
     parser.add_argument('--n_ep', type=int, default=1000, help='Number of episodes')
     parser.add_argument('--n_mcts', type=int, default=20, help='Number of MCTS traces per step')
     parser.add_argument('--max_ep_len', type=int, default=50, help='Maximum number of steps per episode')
-    parser.add_argument('--lr', type=float, default=0.01
-                        , help='Learning rate')
+    parser.add_argument('--lr', type=float, default=0.01, help='Learning rate')
     parser.add_argument('--c', type=float, default=1.5, help='UCT constant')
+    parser.add_argument('--cdpw', type=float, default=1, help='DPW constant')
     parser.add_argument('--temp', type=float, default=1.0,
                         help='Temperature in normalization of counts to policy target')
     parser.add_argument('--gamma', type=float, default=1.0, help='Discount parameter')
@@ -60,6 +60,8 @@ if __name__ == '__main__':
     parser.add_argument('--n_hidden_layers', type=int, default=2, help='Number of hidden layers in NN')
     parser.add_argument('--n_hidden_units', type=int, default=16, help='Number of units per hidden layers in NN')
     parser.add_argument('--n_epochs', type=int, default=10, help='Number of epochs of training for the NN')
+    parser.add_argument('--parallel', action='store_true')
+    parser.add_argument('--mcts_only', action='store_true')
 
     args = parser.parse_args()
     start_time = time.time()
@@ -137,7 +139,9 @@ if __name__ == '__main__':
                                                       eval_freq=args.eval_freq,
                                                       eval_episodes=args.eval_episodes,
                                                       pre_process=None, game_params=game_params,
-                                                      n_epochs=args.n_epochs)
+                                                      n_epochs=args.n_epochs,
+                                                      parallelize_evaluation=args.parallel,
+                                                      mcts_only=args.mcts_only)
             exps.append(offline_scores)
             scores = np.stack(exps, axis=0)
             np.save(out_dir + "scores.npy", scores)

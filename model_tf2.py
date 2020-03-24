@@ -15,7 +15,7 @@ def OneHot(inputs, state_dim=None):
 
 
 #### Neural Networks ##
-class Model(object):
+class ModelWrapper(object):
 
     def __init__(self, Env, lr, n_hidden_layers, n_hidden_units, joint_networks=False):
         # Check the Gym environment
@@ -33,18 +33,22 @@ class Model(object):
         self.value_model = None
         self.policy_model = None
 
+        self.lr = lr
+        self.n_hidden_layers = n_hidden_layers
+        self.n_hidden_units = n_hidden_units
 
         if self.state_discrete:
             self.input_shape = (1,)
         else:
             self.input_shape = (1, self.state_dim[0])
 
-        if joint_networks:
-            self.model = self.build_joint_model(lr, n_hidden_layers, n_hidden_units, self.state_dim, self.action_dim, self.state_discrete)
+    def instantiate_model(self):
+        if self.joint_model:
+            self.model = self.build_joint_model(self.lr, self.n_hidden_layers, self.n_hidden_units, self.state_dim, self.action_dim, self.state_discrete)
 
         else:
-            self.policy_model = self.build_policy_network(lr, n_hidden_layers, n_hidden_units, self.state_dim, self.action_dim, self.state_discrete)
-            self.value_model = self.build_value_network(lr, n_hidden_layers, n_hidden_units, self.state_dim, self.state_discrete)
+            self.policy_model = self.build_policy_network(self.lr, self.n_hidden_layers, self.n_hidden_units, self.state_dim, self.action_dim, self.state_discrete)
+            self.value_model = self.build_value_network(self.lr, self.n_hidden_layers, self.n_hidden_units, self.state_dim, self.state_discrete)
 
     def build_joint_model(self, lr, n_hidden_layers, n_hidden_units, state_dim, action_dim, state_discrete):
         if not state_discrete:
@@ -124,7 +128,7 @@ class Model(object):
         return model
 
     def train(self, sb, Vb, pib):
-
+        assert self.model is not None, "Model has not been loaded or instatiated yet!"
         if self.joint_model:
             targets = (Vb, pib)
             return self.model.train_on_batch(sb, y=targets)
@@ -135,6 +139,7 @@ class Model(object):
             return [pi_loss + v_loss, v_loss, pi_loss]
 
     def predict_V(self, s):
+        assert self.model is not None, "Model has not been loaded or instatiated yet!"
         if len(s.shape) != len(self.input_shape):
             s = s.reshape((-1,) + s.shape)
 
@@ -144,6 +149,7 @@ class Model(object):
             return self.value_model.predict(s)
 
     def predict_pi(self, s):
+        assert self.model is not None, "Model has not been loaded or instatiated yet!"
         if len(s.shape) != len(self.input_shape):
             s = s.reshape((-1,) + s.shape)
         if self.joint_model:
@@ -151,15 +157,14 @@ class Model(object):
         else:
             return self.policy_model.predict(s)
 
-    def save(self, save_path, variables=None):
+    def save(self, save_path):
+        assert self.model is not None, "Model has not been loaded or instatiated yet!"
         if not self.joint_model:
             raise NotImplementedError
         dirname = os.path.dirname(save_path)
         if any(dirname):
             os.makedirs(dirname, exist_ok=True)
-        pickle.dump(self.model, open(save_path, 'wb'))
+        self.model.save(save_path)
 
-    def load(self, load_path, variables=None):
-        if not self.joint_model:
-            raise NotImplementedError
-        self.model = pickle.load(open(load_path, 'rb'))
+    def load(self, load_path):
+        self.model = keras.models.load_model(load_path)

@@ -1,6 +1,8 @@
 import numpy as np
 from sklearn.utils.extmath import cartesian
 import gym.spaces as spaces
+from tqdm import trange
+
 from envs.FiniteMDP import FiniteMDP
 
 
@@ -342,10 +344,11 @@ def compute_mu(grid_map, cell_list, passenger_list):
 
 if __name__ == '__main__':
 
-    mdp = generate_taxi('../grid.txt', box=True, easy_mode=True)
+    import random
+    mdp = generate_taxi('../grid.txt', box=True)
     from utils.visualization.taxi import TaxiVisualizer
 
-    with open("../grid.txt", 'r') as f:
+    with open("../grid3.txt", 'r') as f:
         m = f.readlines()
         matrix = []
         for r in m:
@@ -353,17 +356,23 @@ if __name__ == '__main__':
             for ch in r.strip('\n'):
                 row.append(ch)
             matrix.append(row)
-        visualizer = TaxiVisualizer(matrix)
+        #visualizer = TaxiVisualizer(matrix)
         f.close()
 
-    n_episodes = 10
-    for ep in range(n_episodes):
+    R = []
+    n_episodes = 10000
+    for ep in trange(n_episodes):
         done = False
         s = mdp.reset()
-        visualizer.reset()
+        #visualizer.reset()
         t = 0
         while not done:
-            a = int(input())
+            a = random.choice([0,1,2,3])
             s, r, done, _ = mdp.step(a)
-            visualizer.visualize_taxi(s,a)
+            if done:
+                R.append(r)
+            #visualizer.visualize_taxi(s,a)
             t += 1
+
+    print("Average return:", np.mean(np.array(R)))
+

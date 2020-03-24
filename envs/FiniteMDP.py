@@ -5,7 +5,7 @@ from gym.utils import seeding
 from gym import spaces as gym_spaces
 
 
-class FiniteMDP:
+class FiniteMDP(object):
     """
     Finite Markov Decision Process.
 
