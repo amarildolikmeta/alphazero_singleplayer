@@ -8,9 +8,9 @@ from statistics import mean
 from matplotlib import pyplot as plt
 
 class Logger(object):
-    def __init__(self, params, game, remote=True):
+    def __init__(self, params, game, show=False):
         self.save_dir, self.numpy_dumps_dir, self.pickled_dir = self.save_parameters(params, game)
-        self.is_remote = remote
+        self.is_remote = not show
         self.training_V_loss = []
         self.training_pi_loss = []
 

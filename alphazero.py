@@ -62,6 +62,7 @@ if __name__ == '__main__':
     parser.add_argument('--n_epochs', type=int, default=10, help='Number of epochs of training for the NN')
     parser.add_argument('--parallel', action='store_true')
     parser.add_argument('--mcts_only', action='store_true')
+    parser.add_argument('--show_plots', action='store_true')
 
     args = parser.parse_args()
     start_time = time.time()

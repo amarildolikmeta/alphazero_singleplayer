@@ -19,15 +19,15 @@ DEBUG = False
 DEBUG_TAXI = False
 USE_TQDM = True
 
-REMOTE = False
-
 import os
 
 
 #### Agent ####
 def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, temp, n_hidden_layers, n_hidden_units,
           stochastic=False, eval_freq=-1, eval_episodes=100, alpha=0.6, n_epochs=100, c_dpw=1, numpy_dump_dir='../',
-          pre_process=None, visualize=False, game_params={}, parallelize_evaluation=False, mcts_only=False):
+          pre_process=None, visualize=False, game_params={}, parallelize_evaluation=False, mcts_only=False,
+          show_plots=False):
+
     visualizer = None
 
     if not mcts_only:
@@ -37,6 +37,9 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         from pure_mcts import MCTS
         from pure_mcts_dpw import MCTSStochastic
 
+    if parallelize_evaluation:
+        print("The evaluation will be parallel")
+
     parameter_list = {"game": game, "n_ep": n_ep, "n_mcts": n_mcts, "max_ep_len": max_ep_len, "lr": lr, "c": c,
                       "gamma": gamma, "data_size": data_size, "batch_size": batch_size, "temp": temp,
                       "n_hidden_layers": n_hidden_layers, "n_hidden_units": n_hidden_units, "stochastic": stochastic,
@@ -44,7 +47,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                       "out_dir": numpy_dump_dir, "pre_process": pre_process, "visualize": visualize,
                       "game_params": game_params}
 
-    logger = Logger(parameter_list, game, remote=REMOTE)
+    logger = Logger(parameter_list, game, show=show_plots)
 
     if DEBUG_TAXI:
         from utils.visualization.taxi import TaxiVisualizer
@@ -86,9 +89,14 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     else:
         mcts_maker = MCTS
 
-    D = Database(max_size=data_size, batch_size=batch_size)
+    db = Database(max_size=data_size, batch_size=batch_size)
     # TODO extract dimensions to avoid allocating model
-    model_params={"Env": Env, "lr": lr, "n_hidden_layers": n_hidden_layers, "n_hidden_units": n_hidden_units, "joint_networks": True}
+    model_params = {"Env": Env,
+                    "lr": lr,
+                    "n_hidden_layers": n_hidden_layers,
+                    "n_hidden_units": n_hidden_units,
+                    "joint_networks": True}
+
     model_wrapper = ModelWrapper(**model_params)
     model_wrapper.instantiate_model()
 
@@ -128,15 +136,16 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
             model_wrapper.save(model_file)
 
-            env_wrapper = Wrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, mcts_env, c_dpw, temp, Env=penv, game_maker=pgame, mcts_only=mcts_only)
+            env_wrapper = Wrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, mcts_env,
+                                  c_dpw, temp, Env=penv, game_maker=pgame, mcts_only=mcts_only)
             # pi_wrapper = PolicyEvalWrapper(env_wrapper, is_atari, n_mcts, mcts_env, c_dpw, temp, mcts_only=PURE_MCTS).pi_wrapper
 
             if parallelize_evaluation:
                 rews, lens = parallelize_eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False
-                                     , max_len=max_ep_len)
+                                                     , max_len=max_ep_len)
             else:
                 rews, lens = eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False
-                                                     , max_len=max_ep_len)
+                                         , max_len=max_ep_len)
             offline_scores.append([np.min(rews), np.max(rews), np.mean(rews), np.std(rews),
                                    len(rews), np.mean(lens)])
             # if len(rews) < eval_episodes or len(rews) == 0:
@@ -176,10 +185,11 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         ##### Policy improvement step #####
 
         if not mcts_only:
-            for st in trange(max_ep_len) if USE_TQDM else range(max_ep_len):
+            for st in range(max_ep_len):
 
-                if not USE_TQDM:
-                    print('Step ' + str(st + 1) + ' of ' + str(max_ep_len), end='\r')
+                print_step = max_ep_len//10
+                if st % print_step == 0:
+                    print('Step ' + str(st + 1) + ' of ' + str(max_ep_len))
 
                 # MCTS step
                 if not is_atari:
@@ -196,7 +206,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                     if DEBUG:
                         print("Pi target for starting state:", pi)
                     start_targets.append((V, pi))
-                D.store((state, V, pi))
+                db.store((state, V, pi))
 
                 # Make the true step
                 a = np.random.choice(len(pi), p=pi)
@@ -233,8 +243,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 print('Finished episode {} in {} steps, total return: {}, total time: {} sec'.format(ep, ep_steps,
                                                                                                      np.round(R, 2),
                                                                                                      np.round((
-                                                                                                                          time.time() - start),
-                                                                                                              1)))
+                                                                                                             time.time() - start),
+                                                                                                         1)))
             # Plot the online return over training episodes
 
             logger.plot_online_return(online_scores)
@@ -256,13 +266,13 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
                     for _ in range(n_epochs):
                         # Reshuffle the dataset at each epoch
-                        D.reshuffle()
+                        db.reshuffle()
 
                         batch_V_loss = []
                         batch_pi_loss = []
 
                         # Batch training
-                        for sb, Vb, pib in D:
+                        for sb, Vb, pib in db:
 
                             if DEBUG:
                                 print("sb:", sb)
