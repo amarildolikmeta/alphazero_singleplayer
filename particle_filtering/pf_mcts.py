@@ -1,14 +1,37 @@
-import numpy as np
 import copy
-from helpers import (argmax, is_atari_game, copy_atari_state, restore_atari_state, stable_normalizer)
-from igraph import Graph, EdgeSeq, Edge
-import plotly.graph_objects as go
-import plotly.io as pio
+
+from helpers import stable_normalizer, copy_atari_state, restore_atari_state
+from rl.make_game import make_game, is_atari_game
+import numpy as np
+import multiprocessing
 import json
-import random
 
-##### MCTS functions #####
+def random_rollout(actions, env):
+    done = False
+    while not done:
+        action = np.random.choice(actions)
+        s, r, done, _ = env.step(action)
+        if done:
+            return r
 
+def generate_particle(env, state, action, seed):
+    env = copy.deepcopy(env)
+    env.reset(state)
+    env.seed = seed
+    s, r, done, _ = env.step(action)
+    return Particle(s, seed, r, done)
+
+class Particle(object):
+    def __init__(self, state, seed, reward, terminal):
+        self.state = state
+        self.seed = seed
+        self.reward = reward
+        self.terminal = terminal
+
+    def step(self, envs):
+        envs = copy.deepcopy(envs)
+
+    
 class Action(object):
     ''' Action object '''
 
@@ -18,9 +41,13 @@ class Action(object):
         self.W = 0.0
         self.n = 0
         self.Q = Q_init
+        self.child_state = None
 
-    def add_child_state(self, s1, r, terminal, env=None):
-        self.child_state = State(s1, r, terminal, self, self.parent_state.na, env=env)
+    def add_child_state(self, s1, r, terminal, envs=None):
+        new_particles = []
+        for p in s1.particles:
+
+        self.child_state = State(s1, r, terminal, self, self.parent_state.na, envs)
         return self.child_state
 
     def update(self, R):
@@ -32,59 +59,53 @@ class Action(object):
 class State(object):
     ''' State object '''
 
-    def __init__(self, index, r, terminal, parent_action, na, env=None):
+    def __init__(self, index, r, terminal, parent_action, na, envs, particles):
         ''' Initialize a new state '''
         self.index = index  # state
         self.r = r  # reward upon arriving in this state
         self.terminal = terminal  # whether the domain terminated in this state
         self.parent_action = parent_action
+        self.particles = particles
 
         # Child actions
         self.na = na
 
-        if env is None:
+        if envs is None:
             print("Warning, no environment was provided, initializing to 0 the value of the state!")
-        if terminal or env is None:
+        if terminal or envs is None:
             self.V = 0
         else:
-            self.V = self.evaluate(copy.deepcopy(env))
+            self.V = self.evaluate(copy.deepcopy(envs))
         self.n = 0
 
         self.child_actions = [Action(a, parent_state=self, Q_init=self.V) for a in range(na)]
 
-
     def to_json(self):
-        inf = {}
-        inf["state"] = str(self.index)
-        inf["V"] = str(self.V)
-        inf["n"] = self.n
-        inf["terminal"] = self.terminal
-        # inf["priors"] = str(self.priors)
-        inf["r"] = self.r
-        return json.dumps(inf)
+        raise NotImplementedError
 
     def select(self, c=1.5):
-        ''' Select one of the child actions based on UCT rule '''
+        """ Select one of the child actions based on UCT rule """
         # TODO check here
         UCT = np.array(
             [child_action.Q + c * (np.sqrt(self.n + 1) / (child_action.n + 1)) for child_action in self.child_actions])
-        winner = argmax(UCT)
+        winner = np.argmax(UCT)
         return self.child_actions[winner]
 
     def update(self):
-        ''' update count on backward pass '''
+        """ update count on backward pass """
         self.n += 1
 
-    def evaluate(self, env):
-        """Run a random exploration from the state up to hitting a terminal state"""
-        done = False
-        while not done:
-            a = np.random.choice(np.arange(self.na))
-            _, r, done, _ = env.step(a)
-            if done:
-                return r
+    def evaluate(self, envs):
+        actions = np.arange(self.na, dtype=int)
 
-class MCTS(object):
+        p = multiprocessing.Pool(multiprocessing.cpu_count())
+
+        results = p.starmap(random_rollout, [(actions, envs[i]) for i in range(len(envs))])
+        p.close()
+
+        return np.mean(results)
+    
+class PFMCTS(object):
     ''' MCTS object '''
 
     def __init__(self, root, root_index, na, gamma, dpw=False, alpha=0.6, model=None):
@@ -161,68 +182,7 @@ class MCTS(object):
             self.root = self.root.child_actions[a].child_state
 
     def visualize(self):
-        g = Graph()
-        v_label = []
-        a_label = []
-        nr_vertices = self.inorderTraversal(self.root, g, 0, 0, v_label, a_label)
-        lay = g.layout_reingold_tilford(mode="in", root=[0])
-        position = {k: lay[k] for k in range(nr_vertices)}
-        Y = [lay[k][1] for k in range(nr_vertices)]
-        M = max(Y)
-        E = [e.tuple for e in g.es]  # list of edges
-
-        L = len(position)
-        Xn = [position[k][0] for k in range(L)]
-        Yn = [2 * M - position[k][1] for k in range(L)]
-        Xe = []
-        Ye = []
-        label_xs = []
-        label_ys = []
-        for edge in E:
-            Xe += [position[edge[0]][0], position[edge[1]][0], None]
-            Ye += [2 * M - position[edge[0]][1], 2 * M - position[edge[1]][1], None]
-            label_xs.append((position[edge[0]][0] + position[edge[1]][0]) / 2)
-            label_ys.append((2 * M - position[edge[0]][1] + 2 * M - position[edge[1]][1]) / 2)
-
-        labels = v_label
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=Xe,
-                                 y=Ye,
-                                 mode='lines',
-                                 line=dict(color='rgb(210,210,210)', width=1),
-                                 hoverinfo='none'
-                                 ))
-        fig.add_trace(go.Scatter(x=Xn,
-                                 y=Yn,
-                                 mode='markers',
-                                 name='bla',
-                                 marker=dict(symbol='circle-dot',
-                                             size=18,
-                                             color='#6175c1',  # '#DB4551',
-                                             line=dict(color='rgb(50,50,50)', width=1)
-                                             ),
-                                 text=labels,
-                                 hoverinfo='text',
-                                 opacity=0.8
-                                 ))
-
-        axis = dict(showline=False,  # hide axis line, grid, ticklabels and  title
-                    zeroline=False,
-                    showgrid=False,
-                    showticklabels=False,
-                    )
-        fig.update_layout(title='Tree with Reingold-Tilford Layout',
-                          annotations=make_annotations(position, v_label, label_xs, label_ys, a_label,  M, position),
-                          font_size=12,
-                          showlegend=False,
-                          xaxis=axis,
-                          yaxis=axis,
-                          margin=dict(l=40, r=40, b=85, t=100),
-                          hovermode='closest',
-                          plot_bgcolor='rgb(248,248,248)'
-                          )
-        fig.show()
-        print("A")
+        raise NotImplementedError
 
 
     def inorderTraversal(self, root, g, vertex_index, parent_index, v_label, a_label):
@@ -241,36 +201,12 @@ class MCTS(object):
         return vertex_index
 
     def print_index(self):
-        print(self.count)
-        self.count += 1
+        raise NotImplementedError
 
     def print_tree(self, root):
-        self.print_index()
-        for i, a in enumerate(root.child_actions):
-            if hasattr(a, 'child_state'):
-                self.print_tree(a.child_state)
+        raise NotImplementedError
 
 def make_annotations(pos, labels, Xe, Ye, a_labels, M, position, font_size=10, font_color='rgb(250,250,250)'):
-    L=len(pos)
-    if len(labels) != L:
-        raise ValueError('The lists pos and text must have the same len')
-    annotations = []
-    for k in range(L):
-        annotations.append(
-            dict(
-                text=labels[k], # or replace labels with a different list for the text within the circle
-                x=pos[k][0]+2, y=2*M-position[k][1],
-                xref='x1', yref='y1',
-                font=dict(color=font_color, size=font_size),
-                showarrow=False)
-        )
-    for e in range(len(a_labels)):
-        annotations.append(
-            dict(
-                text=a_labels[e],  # or replace labels with a different list for the text within the circle
-                x=Xe[e], y=Ye[e],
-                xref='x1', yref='y1',
-                font=dict(color='rgb(0, 0, 0)', size=font_size),
-                showarrow=False)
-        )
-    return annotations
+    raise NotImplementedError
+
+
