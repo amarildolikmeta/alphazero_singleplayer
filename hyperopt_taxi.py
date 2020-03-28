@@ -69,6 +69,9 @@ if __name__ == '__main__':
     parser.add_argument('--n_hidden_layers', type=int, default=2, help='Number of hidden layers in NN')
     parser.add_argument('--n_hidden_units', type=int, default=16, help='Number of units per hidden layers in NN')
     parser.add_argument('--n_epochs', type=int, default=10, help='Number of epochs of training for the NN')
+    parser.add_argument('--parallel', action='store_true')
+    parser.add_argument('--mcts_only', action='store_true')
+    parser.add_argument('--show_plots', action='store_true')
 
     args = parser.parse_args()
     out_dir = ""
