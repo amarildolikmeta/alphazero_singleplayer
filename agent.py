@@ -4,8 +4,6 @@ from statistics import mean
 import numpy as np
 import time
 
-from tqdm import trange
-
 from helpers import is_atari_game, store_safely, Database
 from rl.make_game import make_game
 from model_tf2 import ModelWrapper
@@ -26,13 +24,18 @@ import os
 def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, temp, n_hidden_layers, n_hidden_units,
           stochastic=False, eval_freq=-1, eval_episodes=100, alpha=0.6, n_epochs=100, c_dpw=1, numpy_dump_dir='../',
           pre_process=None, visualize=False, game_params={}, parallelize_evaluation=False, mcts_only=False,
-          show_plots=False):
+          particle=False, show_plots=False):
 
     visualizer = None
+
+    if particle:
+        parallelize_evaluation = False  # Cannot run parallelized evaluation with particle filtering
 
     if not mcts_only:
         from mcts import MCTS
         from mcts_dpw import MCTSStochastic
+    elif particle:
+        from particle_filtering.pf_mcts import PFMCTS as MCTS
     else:
         from pure_mcts import MCTS
         from pure_mcts_dpw import MCTSStochastic
@@ -148,10 +151,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                                          , max_len=max_ep_len)
             offline_scores.append([np.min(rews), np.max(rews), np.mean(rews), np.std(rews),
                                    len(rews), np.mean(lens)])
-            # if len(rews) < eval_episodes or len(rews) == 0:
-            #     print("WTF")
-            # if np.std(rews) == 0.:
-            #     print("WTF 2")
+
             np.save(numpy_dump_dir + '/offline_scores.npy', offline_scores)
 
             # Store and plot data
