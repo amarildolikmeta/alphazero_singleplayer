@@ -72,6 +72,8 @@ if __name__ == '__main__':
     parser.add_argument('--parallel', action='store_true')
     parser.add_argument('--mcts_only', action='store_true')
     parser.add_argument('--show_plots', action='store_true')
+    parser.add_argument('--particles', type=int, default=0, help='Numbers of particles to approximate state distributions')
+
 
     args = parser.parse_args()
     out_dir = ""
@@ -109,7 +111,8 @@ if __name__ == '__main__':
             "game_params": game_params,
             "n_epochs": args.n_epochs,
             "parallelize_evaluation": args.parallel,
-            "mcts_only": args.mcts_only
+            "mcts_only": args.mcts_only,
+            "particles": args.particles
     }
 
     trials = hp.Trials()

@@ -63,7 +63,7 @@ if __name__ == '__main__':
     parser.add_argument('--parallel', action='store_true')
     parser.add_argument('--mcts_only', action='store_true')
     parser.add_argument('--show_plots', action='store_true')
-    parser.add_argument('--particle', action="store_true")
+    parser.add_argument('--particles', type=int, default=0, help='Numbers of particles to approximate state distributions')
 
     args = parser.parse_args()
     start_time = time.time()
@@ -144,7 +144,7 @@ if __name__ == '__main__':
                                                       n_epochs=args.n_epochs,
                                                       parallelize_evaluation=args.parallel,
                                                       mcts_only=args.mcts_only,
-                                                      particle=args.particle)
+                                                      particles=args.particles)
             exps.append(offline_scores)
             scores = np.stack(exps, axis=0)
             np.save(out_dir + "scores.npy", scores)

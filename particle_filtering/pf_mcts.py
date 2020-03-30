@@ -6,6 +6,8 @@ import numpy as np
 import multiprocessing
 import json
 
+MULTITHREADED = False
+
 
 def random_rollout(actions, env):
     """Rollout from the current state following a random policy up to hitting a terminal state"""
@@ -31,15 +33,16 @@ def generate_new_particle(env, action, particle):
 
     # Apply the selected action to the state encapsulated by the particle and store the new state and reward
     env = copy.deepcopy(env)
-    env.reset(particle.state)
+    env.set_signature(particle.state)
     env.seed = particle.seed
     s, r, done, _ = env.step(action)
 
-    return Particle(s, particle.seed, r, done)
+    return Particle(env.get_signature(), particle.seed, r, done)
 
 
 class Particle(object):
     """Class storing information about a particle"""
+
     def __init__(self, state, seed, reward, terminal):
         self.state = state
         self.seed = seed
@@ -56,14 +59,22 @@ class Action(object):
         self.W = 0.0
         self.n = 0
         self.Q = Q_init
-        self.child_state = None
+        # self.child_state = None
 
     def add_child_state(self, envs):
-        p = multiprocessing.Pool(multiprocessing.cpu_count())
+        if not MULTITHREADED:
+            new_particles = []
 
-        new_particles = p.starmap(generate_new_particle, [(envs[i], self.index) for i in range(len(envs))])
+            for i in range(len(envs)):
+                new_particles.append(generate_new_particle(envs[i], self.index, self.parent_state.particles[i]))
 
-        p.close()
+        else:
+            p = multiprocessing.Pool(multiprocessing.cpu_count())
+
+            new_particles = p.starmap(generate_new_particle,
+                                      [(envs[i], self.index, self.parent_state.particles[i]) for i in range(len(envs))])
+
+            p.close()
 
         self.child_state = State(parent_action=self,
                                  na=self.parent_state.na,
@@ -123,10 +134,15 @@ class State(object):
     def evaluate(self, envs):
         actions = np.arange(self.na, dtype=int)
 
-        p = multiprocessing.Pool(multiprocessing.cpu_count())
+        if not MULTITHREADED:
+            results = []
+            for i in range(len(envs)):
+                results.append(random_rollout(actions, envs[i]))
+        else:
+            p = multiprocessing.Pool(multiprocessing.cpu_count())
 
-        results = p.starmap(random_rollout, [(actions, envs[i]) for i in range(len(envs))])
-        p.close()
+            results = p.starmap(random_rollout, [(actions, envs[i]) for i in range(len(envs))])
+            p.close()
 
         return np.mean(results)
 
@@ -134,27 +150,31 @@ class State(object):
 class PFMCTS(object):
     ''' MCTS object '''
 
-    def __init__(self, root, root_index, na, gamma, model=None, n_particles=100):
+    def __init__(self, root, root_index, na, gamma, model=None, particles=100):
         self.root = root
         self.root_index = root_index
         self.na = na
         self.gamma = gamma
-        self.n_particles = n_particles
+        self.n_particles = particles
 
-    def search(self, n_mcts, c, Envs, mcts_envs):
+    def search(self, n_mcts, c, Env, mcts_env):
         """ Perform the MCTS search from the root """
+
+        Envs = [copy.deepcopy(Env) for i in range(self.n_particles)]
+
         if self.root is None:
             # initialize new root with many equal particles
-            particles = [Particle(state=self.root_index, seed=np.random.randint(1e7), reward=0, terminal=False)
+
+            particles = [Particle(state=Env.get_signature(), seed=np.random.randint(1e7), reward=0, terminal=False)
                          for _ in range(self.n_particles)]
-            self.root = State(parent_action=None, na=self.na, envs=None, particles=particles)
+            self.root = State(parent_action=None, na=self.na, envs=Envs, particles=particles)
         else:
             self.root.parent_action = None  # continue from current root
 
         if self.root.terminal:
             raise (ValueError("Can't do tree search from a terminal state"))
 
-        is_atari = is_atari_game(Envs[0])
+        is_atari = is_atari_game(Env)
         if is_atari:
             raise NotImplementedError
             snapshot = copy_atari_state(Env)  # for Atari: snapshot the root at the beginning
@@ -162,20 +182,25 @@ class PFMCTS(object):
         for i in range(n_mcts):
             state = self.root  # reset to root for new trace
             if not is_atari:
-                mcts_envs = copy.deepcopy(Envs)  # copy original Env to rollout from
+                mcts_envs = [copy.deepcopy(Env) for i in range(self.n_particles)]  # copy original Env to rollout from
             else:
                 raise NotImplementedError
-                restore_atari_state(mcts_envs, snapshot)
+                restore_atari_state(mcts_env, snapshot)
 
             while not state.terminal:
                 action = state.select(c=c)
 
-                # Do one step of the environment in parallel
-                p = multiprocessing.Pool(multiprocessing.cpu_count())
-                mcts_envs = p.starmap(parallel_step, [(envs[i], action.index) for i in range(len(mcts_envs))])
-                p.close()
+                if not MULTITHREADED:
+                    for i in range(len(mcts_envs)):
+                        mcts_envs[i].step(action.index)
 
-                s1, r, t, _ = mcts_env.step(action.index)
+                else:
+                    # Do one step of the environment in parallel
+                    p = multiprocessing.Pool(multiprocessing.cpu_count())
+                    mcts_envs = p.starmap(parallel_step, [(mcts_envs[i], action.index) for i in range(len(mcts_envs))])
+                    p.close()
+
+                # s1, r, t, _ = mcts_env.step(action.index)
                 if hasattr(action, 'child_state'):
                     state = action.child_state  # select
                     continue
@@ -202,7 +227,7 @@ class PFMCTS(object):
         Q = np.array([child_action.Q for child_action in self.root.child_actions])
         pi_target = stable_normalizer(counts, temp)
         V_target = np.sum((counts / np.sum(counts)) * Q)[None]
-        return self.root.index.flatten(), pi_target, V_target
+        return self.root.particles, pi_target, V_target
 
     def forward(self, a, s1, r):
         """ Move the root forward """

@@ -6,7 +6,7 @@ from model_tf2 import ModelWrapper
 class Wrapper(object):
     def __init__(self, root_index, mcts_maker, model_save_file, model_wrapper_params,
                  mcts_params, is_atari, n_mcts, mcts_env, c_dpw,
-                 temp,game_maker=None, Env=None, mcts_only=True):
+                 temp, game_maker=None, Env=None, mcts_only=True):
 
         assert game_maker is not None or Env is not None, "No environment or maker provided to the wrapper"
 
@@ -101,6 +101,7 @@ class Wrapper(object):
 
     def return_results(self, temp):
         return self.get_mcts().return_results(temp=temp)
+
 
 class PolicyEvalWrapper(object):
     def __init__(self, env_wrapper, is_atari, n_mcts, mcts_env, c_dpw, temp, mcts_only=True):

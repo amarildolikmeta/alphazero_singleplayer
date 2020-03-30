@@ -24,18 +24,20 @@ import os
 def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, temp, n_hidden_layers, n_hidden_units,
           stochastic=False, eval_freq=-1, eval_episodes=100, alpha=0.6, n_epochs=100, c_dpw=1, numpy_dump_dir='../',
           pre_process=None, visualize=False, game_params={}, parallelize_evaluation=False, mcts_only=False,
-          particle=False, show_plots=False):
+          particles=0, show_plots=False):
 
     visualizer = None
 
-    if particle:
-        parallelize_evaluation = False  # Cannot run parallelized evaluation with particle filtering
+    # if particles:
+    #     parallelize_evaluation = False  # Cannot run parallelized evaluation with particle filtering
 
     if not mcts_only:
+        print("Mcts")
         from mcts import MCTS
         from mcts_dpw import MCTSStochastic
-    elif particle:
-        from particle_filtering.pf_mcts import PFMCTS as MCTS
+    elif particles:
+        print("particles")
+        from particle_filtering.pf_mcts import PFMCTS
     else:
         from pure_mcts import MCTS
         from pure_mcts_dpw import MCTSStochastic
@@ -85,10 +87,14 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     online_scores = []
     offline_scores = []
     mcts_params = dict(gamma=gamma)
+    if particles:
+        mcts_params['particles'] = particles
 
     if stochastic:
         mcts_params['alpha'] = alpha
         mcts_maker = MCTSStochastic
+    elif particles:
+        mcts_maker = PFMCTS
     else:
         mcts_maker = MCTS
 
@@ -130,7 +136,6 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 pgame = {"game_maker": make_game,
                          "game": game,
                          "game_params": game_params}
-
             else:
                 penv = Env
                 pgame = None
@@ -140,7 +145,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             model_wrapper.save(model_file)
 
             env_wrapper = Wrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, mcts_env,
-                                  c_dpw, temp, Env=penv, game_maker=pgame, mcts_only=mcts_only)
+                              c_dpw, temp, Env=penv, game_maker=pgame, mcts_only=mcts_only)
             # pi_wrapper = PolicyEvalWrapper(env_wrapper, is_atari, n_mcts, mcts_env, c_dpw, temp, mcts_only=PURE_MCTS).pi_wrapper
 
             if parallelize_evaluation:
