@@ -6,6 +6,7 @@ from igraph import Graph, EdgeSeq
 import plotly.graph_objects as go
 import plotly.io as pio
 
+DESTROY = False
 
 class StochasticAction(Action):
     ''' StochasticAction object '''
@@ -144,7 +145,7 @@ class MCTSStochastic(MCTS):
     def forward(self, a, s1, r):
         ''' Move the root forward '''
         action = self.root.child_actions[a]
-        if action.n_children > 0:
+        if not DESTROY and action.n_children > 0:
             if action.get_state_ind(s1) == -1:
                 self.root = None
             else:

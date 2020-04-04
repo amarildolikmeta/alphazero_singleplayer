@@ -9,9 +9,15 @@ import json
 MULTITHREADED = False
 
 
-def random_rollout(actions, env):
+def random_rollout(particle, actions, env):
     """Rollout from the current state following a random policy up to hitting a terminal state"""
     done = False
+    if particle.terminal:
+        return particle.reward
+
+    env.set_signature(particle.state)
+    env.seed = particle.seed
+
     while not done:
         action = np.random.choice(actions)
         s, r, done, _ = env.step(action)
@@ -19,9 +25,12 @@ def random_rollout(actions, env):
             return r
 
 
-def parallel_step(env, action):
+def parallel_step(particle, env, action):
     """Perform a step on an environment, executing the given action"""
-    env.step(action)
+    if not particle.terminal:
+        env.set_signature(particle.state)
+        env.seed = particle.seed
+        env.step(action)
     return env
 
 
@@ -111,7 +120,7 @@ class State(object):
         if self.terminal or envs is None:
             self.V = 0
         else:
-            self.V = self.evaluate(copy.deepcopy(envs))
+            self.V = self.evaluate(particles, copy.deepcopy(envs))
         self.n = 0
 
         self.child_actions = [Action(a, parent_state=self, Q_init=self.V) for a in range(na)]
@@ -131,17 +140,18 @@ class State(object):
         """ update count on backward pass """
         self.n += 1
 
-    def evaluate(self, envs):
+    def evaluate(self, particles, envs):
         actions = np.arange(self.na, dtype=int)
 
         if not MULTITHREADED:
             results = []
-            for i in range(len(envs)):
-                results.append(random_rollout(actions, envs[i]))
+            for i in range(len(particles)):
+                results.append(random_rollout(particles[i], actions, envs[i]))
         else:
             p = multiprocessing.Pool(multiprocessing.cpu_count())
 
-            results = p.starmap(random_rollout, [(actions, envs[i]) for i in range(len(envs))])
+            results = p.starmap(random_rollout, [(particles[i], actions, envs[i]) for i in range(len(envs))])
+
             p.close()
 
         return np.mean(results)
@@ -171,6 +181,8 @@ class PFMCTS(object):
         else:
             self.root.parent_action = None  # continue from current root
 
+            particles = self.root.particles
+
         if self.root.terminal:
             raise (ValueError("Can't do tree search from a terminal state"))
 
@@ -190,21 +202,24 @@ class PFMCTS(object):
             while not state.terminal:
                 action = state.select(c=c)
 
-                if not MULTITHREADED:
-                    for i in range(len(mcts_envs)):
-                        mcts_envs[i].step(action.index)
-
-                else:
-                    # Do one step of the environment in parallel
-                    p = multiprocessing.Pool(multiprocessing.cpu_count())
-                    mcts_envs = p.starmap(parallel_step, [(mcts_envs[i], action.index) for i in range(len(mcts_envs))])
-                    p.close()
-
                 # s1, r, t, _ = mcts_env.step(action.index)
                 if hasattr(action, 'child_state'):
                     state = action.child_state  # select
                     continue
                 else:
+                    # if not MULTITHREADED:
+                    #     for i in range(len(mcts_envs)):
+                    #         mcts_envs[i].seed = particles[i].seed
+                    #         mcts_envs[i].set_signature(particles[i].state)
+                    #         mcts_envs[i].step(action.index)
+                    #
+                    # else:
+                    #     # Do one step of the environment in parallel
+                    #     p = multiprocessing.Pool(multiprocessing.cpu_count())
+                    #     mcts_envs = p.starmap(parallel_step,
+                    #                           [(particles[i], mcts_envs[i], action.index) for i in range(len(mcts_envs))])
+                    #     p.close()
+
                     state = action.add_child_state(mcts_envs)  # expand
                     break
 

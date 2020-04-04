@@ -181,15 +181,15 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         mcts = mcts_maker(root_index=s, root=None, model=model_wrapper, na=model_wrapper.action_dim,
                           **mcts_params)  # the object responsible for MCTS searches
 
-        # TODO parallelize here, very slow
-        print("\nPerforming MCTS steps\n")
-
-        ep_steps = 0
-        start_targets = []
-
-        ##### Policy improvement step #####
-
         if not mcts_only:
+            print("\nPerforming MCTS steps\n")
+
+            ep_steps = 0
+            start_targets = []
+
+            ##### Policy improvement step #####
+
+
             for st in range(max_ep_len):
 
                 print_step = max_ep_len//10

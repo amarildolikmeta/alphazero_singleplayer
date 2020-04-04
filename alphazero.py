@@ -145,9 +145,11 @@ if __name__ == '__main__':
                                                       parallelize_evaluation=args.parallel,
                                                       mcts_only=args.mcts_only,
                                                       particles=args.particles)
-            exps.append(offline_scores)
-            scores = np.stack(exps, axis=0)
-            np.save(out_dir + "scores.npy", scores)
+
+            # TODO FIX THIS
+            # exps.append(offline_scores)
+            # scores = np.stack(exps, axis=0)
+            # np.save(out_dir + "scores.npy", scores)
 
         # Finished training: Visualize
         # fig, ax = plt.subplots(1, figsize=[7, 5])

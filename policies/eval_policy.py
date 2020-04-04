@@ -11,6 +11,7 @@ def test(add_terminal, env, i, interactive, max_len, pi, verbose):
 
 
 def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, interactive=False, max_len=np.inf):
+    start = time.time()
     rewards = []
     lens = []
 
@@ -31,6 +32,7 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
     if verbose or True:
         print("Average Return = {0} +- {1}".format(avg, std))
     wrapper.reset()
+    print("Time to perform evaluation episodes:", time.time() - start, "s")
     return rewards, lens
 
 
