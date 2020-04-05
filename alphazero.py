@@ -61,6 +61,8 @@ if __name__ == '__main__':
     parser.add_argument('--n_hidden_units', type=int, default=16, help='Number of units per hidden layers in NN')
     parser.add_argument('--n_epochs', type=int, default=10, help='Number of epochs of training for the NN')
     parser.add_argument('--parallel', action='store_true')
+    parser.add_argument('--use_sampler', action='store_true')
+    parser.add_argument('--n_workers', type=int, default=4, help='Number of parallel workers')
     parser.add_argument('--mcts_only', action='store_true')
     parser.add_argument('--show_plots', action='store_true')
     parser.add_argument('--particles', type=int, default=0, help='Numbers of particles to approximate state distributions')
@@ -144,7 +146,9 @@ if __name__ == '__main__':
                                                       n_epochs=args.n_epochs,
                                                       parallelize_evaluation=args.parallel,
                                                       mcts_only=args.mcts_only,
-                                                      particles=args.particles)
+                                                      particles=args.particles,
+                                                      n_workers=args.n_workers,
+                                                      use_sampler=args.use_sampler)
 
             # TODO FIX THIS
             # exps.append(offline_scores)

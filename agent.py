@@ -1,17 +1,14 @@
 import copy
 from statistics import mean
-
 import numpy as np
 import time
-
 from helpers import is_atari_game, store_safely, Database
 from rl.make_game import make_game
 from model_tf2 import ModelWrapper
-
 from policies.eval_policy import eval_policy, parallelize_eval_policy
-
 from utils.logging.logger import Logger
 from utils.env_wrapper import Wrapper
+from particle_filtering.parallel_sampler import ParallelSampler
 
 DEBUG = False
 DEBUG_TAXI = False
@@ -24,7 +21,7 @@ import os
 def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, temp, n_hidden_layers, n_hidden_units,
           stochastic=False, eval_freq=-1, eval_episodes=100, alpha=0.6, n_epochs=100, c_dpw=1, numpy_dump_dir='../',
           pre_process=None, visualize=False, game_params={}, parallelize_evaluation=False, mcts_only=False,
-          particles=0, show_plots=False):
+          particles=0, show_plots=False, n_workers=1, use_sampler=False):
 
     visualizer = None
 
@@ -32,11 +29,9 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     #     parallelize_evaluation = False  # Cannot run parallelized evaluation with particle filtering
 
     if not mcts_only:
-        print("Mcts")
         from mcts import MCTS
         from mcts_dpw import MCTSStochastic
     elif particles:
-        print("particles")
         from particle_filtering.pf_mcts import PFMCTS
     else:
         from pure_mcts import MCTS
@@ -50,7 +45,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                       "n_hidden_layers": n_hidden_layers, "n_hidden_units": n_hidden_units, "stochastic": stochastic,
                       "eval_freq": eval_freq, "eval_episodes": eval_episodes, "alpha": alpha, "n_epochs": n_epochs,
                       "out_dir": numpy_dump_dir, "pre_process": pre_process, "visualize": visualize,
-                      "game_params": game_params}
+                      "game_params": game_params, "n_workers": n_workers, "use_sampler": use_sampler}
 
     logger = Logger(parameter_list, game, show=show_plots)
 
@@ -82,6 +77,18 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
     # Environments
     Env = make_game(game, game_params)
+    num_actions = Env.action_space.n
+    sampler = None
+    if use_sampler:
+        def make_pi(action_space):
+            def pi(s):
+                return np.random.randint(low=0, high=action_space.n)
+            return pi
+        def make_env():
+            return make_game(game, game_params)
+        sampler = ParallelSampler(make_pi=make_pi, make_env=make_env, n_particles=particles,
+                                  n_workers=n_workers, seed=10)
+
     is_atari = is_atari_game(Env)
     mcts_env = make_game(game, game_params) if is_atari else None
     online_scores = []
@@ -89,7 +96,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     mcts_params = dict(gamma=gamma)
     if particles:
         mcts_params['particles'] = particles
-
+        mcts_params['sampler'] = sampler
     if stochastic:
         mcts_params['alpha'] = alpha
         mcts_maker = MCTSStochastic
@@ -107,7 +114,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                     "joint_networks": True}
 
     model_wrapper = ModelWrapper(**model_params)
-    model_wrapper.instantiate_model()
+    #model_wrapper.instantiate_model()
 
     t_total = 0  # total steps
     R_best = -np.Inf
@@ -142,7 +149,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
             model_file = os.path.join(logger.save_dir, "model.h5")
 
-            model_wrapper.save(model_file)
+            #model_wrapper.save(model_file)
+            #model_wrapper.save(model_file)
 
             env_wrapper = Wrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, mcts_env,
                               c_dpw, temp, Env=penv, game_maker=pgame, mcts_only=mcts_only)
@@ -313,4 +321,6 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 logger.log_start(ep, pi_start, V_start, start_targets)
 
     # Return results
+    if use_sampler:
+        sampler.close()
     return episode_returns, timepoints, a_best, seed_best, R_best, offline_scores

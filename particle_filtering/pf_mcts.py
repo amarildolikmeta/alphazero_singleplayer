@@ -9,7 +9,7 @@ import json
 MULTITHREADED = False
 
 
-def random_rollout(particle, actions, env):
+def random_rollout(particle, actions, env, max_depth=200):
     """Rollout from the current state following a random policy up to hitting a terminal state"""
     done = False
     if particle.terminal:
@@ -17,12 +17,14 @@ def random_rollout(particle, actions, env):
 
     env.set_signature(particle.state)
     env.seed = particle.seed
-
-    while not done:
+    t = 0
+    ret = 0
+    while t < max_depth and not done:
         action = np.random.choice(actions)
         s, r, done, _ = env.step(action)
-        if done:
-            return r
+        t += 1
+        ret += r
+    return ret
 
 
 def parallel_step(particle, env, action):
@@ -45,7 +47,6 @@ def generate_new_particle(env, action, particle):
     env.set_signature(particle.state)
     env.seed = particle.seed
     s, r, done, _ = env.step(action)
-
     return Particle(env.get_signature(), particle.seed, r, done)
 
 
@@ -70,8 +71,14 @@ class Action(object):
         self.Q = Q_init
         # self.child_state = None
 
-    def add_child_state(self, envs):
-        if not MULTITHREADED:
+    def add_child_state(self, state, envs, sampler=None, max_depth=200):
+        if sampler:
+
+            new_states = sampler.generate_next_particles(self.parent_state.particles, self.index)
+            new_particles = []
+            for p in new_states:
+                new_particles.append(Particle(p[0], p[1], p[2], p[3]))
+        elif not MULTITHREADED:
             new_particles = []
 
             for i in range(len(envs)):
@@ -88,7 +95,10 @@ class Action(object):
         self.child_state = State(parent_action=self,
                                  na=self.parent_state.na,
                                  envs=envs,
-                                 particles=new_particles)
+                                 particles=new_particles,
+                                 sampler=sampler,
+                                 root=False,
+                                 max_depth=max_depth)
         return self.child_state
 
     def update(self, R):
@@ -100,7 +110,7 @@ class Action(object):
 class State(object):
     """ State object """
 
-    def __init__(self, parent_action, na, envs, particles):
+    def __init__(self, parent_action, na, envs, particles, sampler=None, root=False, max_depth=200):
         """ Initialize a new state """
         self.r = np.mean([particle.reward for particle in particles])  # The reward is the mean of the particles' reward
         self.terminal = True  # whether the domain terminated in this state
@@ -108,6 +118,8 @@ class State(object):
         # A state is terminal only if all of its particles are terminal
         for p in particles:
             self.terminal = self.terminal and p.terminal
+            if not self.terminal:
+                break
 
         self.parent_action = parent_action
         self.particles = particles
@@ -115,12 +127,16 @@ class State(object):
         # Child actions
         self.na = na
 
-        if envs is None:
+
+        if self.terminal or root:
+            self.V = 0
+        elif sampler is not None:
+            self.V = np.mean(sampler.evaluate(particles, max_depth))
+        elif envs is None:
             print("Warning, no environment was provided, initializing to 0 the value of the state!")
-        if self.terminal or envs is None:
             self.V = 0
         else:
-            self.V = self.evaluate(particles, copy.deepcopy(envs))
+            self.V = self.evaluate(particles, copy.deepcopy(envs), max_depth)
         self.n = 0
 
         self.child_actions = [Action(a, parent_state=self, Q_init=self.V) for a in range(na)]
@@ -140,17 +156,17 @@ class State(object):
         """ update count on backward pass """
         self.n += 1
 
-    def evaluate(self, particles, envs):
+    def evaluate(self, particles, envs, max_depth=200):
         actions = np.arange(self.na, dtype=int)
 
         if not MULTITHREADED:
             results = []
             for i in range(len(particles)):
-                results.append(random_rollout(particles[i], actions, envs[i]))
+                results.append(random_rollout(particles[i], actions, envs[i], max_depth))
         else:
             p = multiprocessing.Pool(multiprocessing.cpu_count())
 
-            results = p.starmap(random_rollout, [(particles[i], actions, envs[i]) for i in range(len(envs))])
+            results = p.starmap(random_rollout, [(particles[i], actions, envs[i], max_depth) for i in range(len(envs))])
 
             p.close()
 
@@ -160,24 +176,27 @@ class State(object):
 class PFMCTS(object):
     ''' MCTS object '''
 
-    def __init__(self, root, root_index, na, gamma, model=None, particles=100):
+    def __init__(self, root, root_index, na, gamma, model=None, particles=100, sampler = None):
         self.root = root
         self.root_index = root_index
         self.na = na
         self.gamma = gamma
         self.n_particles = particles
+        self.sampler = sampler
 
-    def search(self, n_mcts, c, Env, mcts_env):
+    def search(self, n_mcts, c, Env, mcts_env, max_depth=200):
         """ Perform the MCTS search from the root """
-
-        Envs = [copy.deepcopy(Env) for i in range(self.n_particles)]
+        Envs = None
+        if not self.sampler:
+            Envs = [copy.deepcopy(Env) for i in range(self.n_particles)]
 
         if self.root is None:
             # initialize new root with many equal particles
 
             particles = [Particle(state=Env.get_signature(), seed=np.random.randint(1e7), reward=0, terminal=False)
                          for _ in range(self.n_particles)]
-            self.root = State(parent_action=None, na=self.na, envs=Envs, particles=particles)
+            self.root = State(parent_action=None, na=self.na, envs=Envs, particles=particles, sampler=self.sampler,
+                              root=True)
         else:
             self.root.parent_action = None  # continue from current root
 
@@ -194,14 +213,16 @@ class PFMCTS(object):
         for i in range(n_mcts):
             state = self.root  # reset to root for new trace
             if not is_atari:
-                mcts_envs = [copy.deepcopy(Env) for i in range(self.n_particles)]  # copy original Env to rollout from
+                mcts_envs = None
+                if not self.sampler:
+                    mcts_envs = [copy.deepcopy(Env) for i in range(self.n_particles)]  # copy original Env to rollout from
             else:
                 raise NotImplementedError
                 restore_atari_state(mcts_env, snapshot)
-
+            st = 0
             while not state.terminal:
                 action = state.select(c=c)
-
+                st += 1
                 # s1, r, t, _ = mcts_env.step(action.index)
                 if hasattr(action, 'child_state'):
                     state = action.child_state  # select
@@ -220,7 +241,7 @@ class PFMCTS(object):
                     #                           [(particles[i], mcts_envs[i], action.index) for i in range(len(mcts_envs))])
                     #     p.close()
 
-                    state = action.add_child_state(mcts_envs)  # expand
+                    state = action.add_child_state(state, mcts_envs, self.sampler, max_depth - st)  # expand
                     break
 
             # Back-up

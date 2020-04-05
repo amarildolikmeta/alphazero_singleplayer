@@ -43,7 +43,7 @@ class StochasticAction(Action):
 class StochasticState(State):
     ''' StochasticState object '''
 
-    def __init__(self, index, r, terminal, parent_action, na, model, signature):
+    def __init__(self, index, r, terminal, parent_action, na, model, signature, max_depth=200):
         super().__init__(index, r, terminal, parent_action, na, model)
         self.index = index  # state
         self.r = r  # reward upon arriving in this state
@@ -67,7 +67,7 @@ class MCTSStochastic(MCTS):
         super(MCTSStochastic, self).__init__(root, root_index, model, na, gamma)
         self.alpha = alpha
 
-    def search(self, n_mcts, c, Env, mcts_env):
+    def search(self, n_mcts, c, Env, mcts_env, max_depth=200):
         ''' Perform the MCTS search from the root '''
         is_atari = is_atari_game(Env)
         if is_atari:
@@ -81,7 +81,7 @@ class MCTSStochastic(MCTS):
         if self.root is None:
             # initialize new root
             self.root = StochasticState(self.root_index, r=0.0, terminal=False, parent_action=None, na=self.na,
-                                        model=self.model, signature=Env.get_signature())
+                                        model=self.model, signature=Env.get_signature(), max_depth=max_depth)
         else:
             self.root.parent_action = None  # continue from current root
         if self.root.terminal:
