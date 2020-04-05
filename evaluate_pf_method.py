@@ -119,10 +119,15 @@ if __name__ == '__main__':
         if args.game == 'Taxi' or args.game == 'TaxiEasy':
             game_params['grid'] = args.grid
             game_params['box'] = True
-            # TODO modify this to return to original taxi problem
 
-        for i in range(args.n_experiments):
-            particles = [5, 10, 25, 50, 100, 250, 500]
+        particles = [5, 10, 25, 50, 100, 250, 500]
+
+        means = []
+        stds = []
+
+        for i in range(len(particles)):
+            print()
+            print("Number of particles:", particles[i])
             out_dir_i = out_dir + str(i) + '/'
             episode_returns, timepoints, a_best, \
             seed_best, R_best, offline_scores = agent(game=args.game,
@@ -147,9 +152,12 @@ if __name__ == '__main__':
                                                       n_epochs=args.n_epochs,
                                                       parallelize_evaluation=args.parallel,
                                                       mcts_only=args.mcts_only,
-                                                      particles=args.particles,
+                                                      particles=particles[i],
                                                       n_workers=args.n_workers,
                                                       use_sampler=args.use_sampler)
+
+            means.append(offline_scores[0][2])
+            stds.append(offline_scores[0][3])
 
             # TODO FIX THIS
             # exps.append(offline_scores)
@@ -157,6 +165,15 @@ if __name__ == '__main__':
             # np.save(out_dir + "scores.npy", scores)
 
         # Finished training: Visualize
+
+        plt.figure()
+        plt.errorbar(particles, means, stds, linestyle='None', marker='^', capsize=3)
+        plt.xlabel("Number of particles")
+        plt.ylabel("Return")
+        plt.title("Mean and variance for number of particles")
+        plt.savefig(os.path.join(os.path.curdir, "logs/pf_evaluation.png"))
+        plt.close()
+
         # fig, ax = plt.subplots(1, figsize=[7, 5])
         # total_eps = len(episode_returns)
         # episode_returns = smooth(episode_returns, args.window, mode='valid')

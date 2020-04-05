@@ -1,3 +1,4 @@
+import random
 import numpy as np
 
 from model_tf2 import ModelWrapper
@@ -77,7 +78,8 @@ class Wrapper(object):
             game = self.game_maker["game"]
             game_params = self.game_maker["game_params"]
             self.Env = builder(game, game_params)
-            seed = np.random.randint(1e7)  # draw some Env seed
+            seed = random.randint(0, 1e7)  # draw some Env seed
+            print("Random seed:", seed)
             self.Env.seed(seed)
             self.Env.reset()
 

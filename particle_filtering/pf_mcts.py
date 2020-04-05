@@ -199,7 +199,6 @@ class PFMCTS(object):
                               root=True)
         else:
             self.root.parent_action = None  # continue from current root
-
             particles = self.root.particles
 
         if self.root.terminal:
@@ -228,19 +227,6 @@ class PFMCTS(object):
                     state = action.child_state  # select
                     continue
                 else:
-                    # if not MULTITHREADED:
-                    #     for i in range(len(mcts_envs)):
-                    #         mcts_envs[i].seed = particles[i].seed
-                    #         mcts_envs[i].set_signature(particles[i].state)
-                    #         mcts_envs[i].step(action.index)
-                    #
-                    # else:
-                    #     # Do one step of the environment in parallel
-                    #     p = multiprocessing.Pool(multiprocessing.cpu_count())
-                    #     mcts_envs = p.starmap(parallel_step,
-                    #                           [(particles[i], mcts_envs[i], action.index) for i in range(len(mcts_envs))])
-                    #     p.close()
-
                     state = action.add_child_state(state, mcts_envs, self.sampler, max_depth - st)  # expand
                     break
 

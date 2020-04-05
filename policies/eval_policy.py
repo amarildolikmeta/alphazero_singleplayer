@@ -15,7 +15,7 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
     rewards = []
     lens = []
 
-    p = multiprocessing.Pool(multiprocessing.cpu_count())
+    p = multiprocessing.Pool(min(n_episodes, multiprocessing.cpu_count()))
     # results = p.starmap(test, [(env) for i in range(n_episodes)])
 
     results = p.starmap(evaluate, [(add_terminal, copy.deepcopy(wrapper), i, interactive, max_len, verbose) for i in range(n_episodes)])

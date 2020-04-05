@@ -174,28 +174,29 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
             logger.plot_evaluation_mean_and_variance(avgs, stds)
 
-        start = time.time()
-        s = start_s = Env.reset()
-        R = 0.0  # Total return counter
-        a_store = []
-        seed = np.random.randint(1e7)  # draw some Env seed
-        Env.seed(seed)
-        if is_atari:
-            mcts_env.reset()
-            mcts_env.seed(seed)
-
-        if eval_freq > 0 and ep % eval_freq == 0:
-            print("\nCollecting %d episodes" % eval_freq)
-        mcts = mcts_maker(root_index=s, root=None, model=model_wrapper, na=model_wrapper.action_dim,
-                          **mcts_params)  # the object responsible for MCTS searches
+        ##### Policy improvement step #####
 
         if not mcts_only:
+
+            start = time.time()
+            s = start_s = Env.reset()
+            R = 0.0  # Total return counter
+            a_store = []
+            seed = np.random.randint(1e7)  # draw some Env seed
+            Env.seed(seed)
+            if is_atari:
+                mcts_env.reset()
+                mcts_env.seed(seed)
+
+            if eval_freq > 0 and ep % eval_freq == 0:
+                print("\nCollecting %d episodes" % eval_freq)
+            mcts = mcts_maker(root_index=s, root=None, model=model_wrapper, na=model_wrapper.action_dim,
+                              **mcts_params)  # the object responsible for MCTS searches
+
             print("\nPerforming MCTS steps\n")
 
             ep_steps = 0
             start_targets = []
-
-            ##### Policy improvement step #####
 
 
             for st in range(max_ep_len):

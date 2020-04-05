@@ -53,13 +53,17 @@ class Logger(object):
         print("V_loss:", ep_V_loss)
         print("--------------------------")
 
-    def plot_evaluation_mean_and_variance(self, avgs, stds):
+    def plot_evaluation_mean_and_variance(self, avgs, stds, indexes=None):
         """Plot the mean and variance with a whiskers plot
         @type avgs: list
         @type stds: list
+        @type indexes: list
         """
+        if not indexes:
+            indexes = [10 * i for i in range(len(avgs))]
+
         plt.figure()
-        plt.errorbar([10 * i for i in range(len(avgs))], avgs, stds, linestyle='None', marker='^', capsize=3)
+        plt.errorbar(indexes, avgs, stds, linestyle='None', marker='^', capsize=3)
         plt.xlabel("Step of evaluation")
         plt.ylabel("Return")
         plt.title("Mean and variance for return in policy evaluation")
