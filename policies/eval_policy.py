@@ -14,8 +14,9 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
     start = time.time()
     rewards = []
     lens = []
+    final_states = []
 
-    p = multiprocessing.Pool(multiprocessing.cpu_count())
+    p = multiprocessing.Pool(min(n_episodes, multiprocessing.cpu_count()))
     # results = p.starmap(test, [(env) for i in range(n_episodes)])
 
     results = p.starmap(evaluate, [(add_terminal, copy.deepcopy(wrapper), i, interactive, max_len, verbose) for i in range(n_episodes)])
@@ -23,6 +24,7 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
     for r in results:
         rewards.append(r[0])
         lens.append(r[1])
+        final_states.append(r[2])
 
     # p.join()
     p.close()
@@ -33,20 +35,22 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
         print("Average Return = {0} +- {1}".format(avg, std))
     wrapper.reset()
     print("Time to perform evaluation episodes:", time.time() - start, "s")
-    return rewards, lens
+    return rewards, lens, final_states
 
 
 def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, interactive=False, max_len=np.inf):
     rewards = []
     lens = []
+    final_states = []
     print()
     for i in trange(n_episodes) if USE_TQDM else range(n_episodes):
         if not USE_TQDM:
             print('Evaluated ' + str(i) + ' of ' + str(n_episodes), end='\r')
 
-        rew, t = evaluate(add_terminal, wrapper, i, interactive, max_len, verbose)
+        rew, t, final_state = evaluate(add_terminal, wrapper, i, interactive, max_len, verbose)
         rewards.append(rew)
         lens.append(t)
+        final_states.append(final_state)
 
     avg = np.mean(rewards)
     std = np.std(rewards)
@@ -64,7 +68,7 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose):
     rew = 0
     while t <= max_len:
         s = np.concatenate([s, [0]]) if add_terminal else s
-        a = wrapper.pi_wrapper(s)
+        a = wrapper.pi_wrapper(s, max_depth=max_len-t)
         ns, r, done, inf = wrapper.step(a)
         s = ns
         if interactive:
@@ -77,7 +81,10 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose):
             break
         else:
             wrapper.forward(a, s, r)
+
     if verbose:
         # print(acts)
         print("Episode {0}: Return = {1}, Duration = {2}, Time = {3} s".format(i, rew, t, time.time() - start))
-    return rew, t
+
+    signature = wrapper.get_env().index_to_box(wrapper.get_env().get_signature()['state'])
+    return rew, t, signature

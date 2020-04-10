@@ -17,8 +17,9 @@ class StochasticAction(Action):
         self.n_children = 0
         self.state_indeces = {}
 
-    def add_child_state(self, s1, r, terminal, signature, env=None):
-        child_state = StochasticState(s1, r, terminal, self, self.parent_state.na, signature, env=env)
+    def add_child_state(self, s1, r, terminal, signature, env=None, max_state=200):
+        child_state = StochasticState(s1, r, terminal, self, self.parent_state.na, signature, env=env,
+                                      max_state=max_state)
         self.child_states.append(child_state)
         s1_hash = s1.tostring()
         self.state_indeces[s1_hash] = self.n_children
@@ -44,8 +45,8 @@ class StochasticAction(Action):
 class StochasticState(State):
     ''' StochasticState object '''
 
-    def __init__(self, index, r, terminal, parent_action, na, signature, env=None):
-        super().__init__(index, r, terminal, parent_action, na, env=env)
+    def __init__(self, index, r, terminal, parent_action, na, signature, env=None, max_depth=200):
+        super().__init__(index, r, terminal, parent_action, na, env=env, max_depth=max_depth)
         self.signature = signature
         # self.priors = model.predict_pi(index).flatten()
         self.child_actions = [StochasticAction(a, parent_state=self, Q_init=self.V) for a in range(na)]
@@ -60,7 +61,7 @@ class MCTSStochastic(MCTS):
         super(MCTSStochastic, self).__init__(root, root_index, na, gamma)
         self.alpha = alpha
 
-    def search(self, n_mcts, c, Env, mcts_env):
+    def search(self, n_mcts, c, Env, mcts_env, max_depth=200):
         ''' Perform the MCTS search from the root '''
         is_atari = is_atari_game(Env)
         if is_atari:
@@ -91,12 +92,14 @@ class MCTSStochastic(MCTS):
             # if not np.array_equal(obs1, obs2):
             #     print("HOLDUP")
             mcts_env.seed()
+            st = 0
             while not state.terminal:
                 # obs = mcts_env._get_obs().flatten()
                 # flattened_State = state.index.flatten()
                 # if not np.array_equal(flattened_State, obs):
                 #     print("WHATTTTTT")
                 action = state.select(c=c)
+                st += 1
                 k = np.ceil(c * action.n ** self.alpha)
                 if k >= action.n_children:
                     s1, r, t, _ = mcts_env.step(action.index)
@@ -108,7 +111,8 @@ class MCTSStochastic(MCTS):
                     else:
                         # if action.index == 0 and len(action.child_states) > 0:
                         #     print("Error")
-                        state = action.add_child_state(s1, r, t, mcts_env.get_signature(), env=mcts_env)  # expand
+                        state = action.add_child_state(s1, r, t, mcts_env.get_signature(), env=mcts_env,
+                                                       max_depth=max_depth - st)  # expand
                         break
                 else:
                     state = action.sample_state()

@@ -19,8 +19,8 @@ class Action(object):
         self.n = 0
         self.Q = Q_init
 
-    def add_child_state(self, s1, r, terminal, env=None):
-        self.child_state = State(s1, r, terminal, self, self.parent_state.na, env=env)
+    def add_child_state(self, s1, r, terminal, env=None, max_depth=200):
+        self.child_state = State(s1, r, terminal, self, self.parent_state.na, env=env, max_depth=max_depth)
         return self.child_state
 
     def update(self, R):
@@ -32,7 +32,7 @@ class Action(object):
 class State(object):
     ''' State object '''
 
-    def __init__(self, index, r, terminal, parent_action, na, env=None):
+    def __init__(self, index, r, terminal, parent_action, na, env=None, max_depth=200):
         ''' Initialize a new state '''
         self.index = index  # state
         self.r = r  # reward upon arriving in this state
@@ -47,7 +47,7 @@ class State(object):
         if terminal or env is None:
             self.V = 0
         else:
-            self.V = self.evaluate(copy.deepcopy(env))
+            self.V = self.evaluate(copy.deepcopy(env), max_depth=max_depth)
         self.n = 0
 
         self.child_actions = [Action(a, parent_state=self, Q_init=self.V) for a in range(na)]
@@ -75,14 +75,17 @@ class State(object):
         ''' update count on backward pass '''
         self.n += 1
 
-    def evaluate(self, env):
+    def evaluate(self, env, max_depth=200):
         """Run a random exploration from the state up to hitting a terminal state"""
         done = False
-        while not done:
+        t = 0
+        ret = 0
+        while t < max_depth and not done:
             a = np.random.choice(np.arange(self.na))
             _, r, done, _ = env.step(a)
-            if done:
-                return r
+            ret += r
+            t += 1
+        return ret
 
 class MCTS(object):
     ''' MCTS object '''
@@ -95,7 +98,7 @@ class MCTS(object):
         self.dpw = dpw
         self.alpha = alpha
 
-    def search(self, n_mcts, c, Env, mcts_env):
+    def search(self, n_mcts, c, Env, mcts_env, max_depth=200):
         ''' Perform the MCTS search from the root '''
         if self.root is None:
             # initialize new root
@@ -115,15 +118,16 @@ class MCTS(object):
                 mcts_env = copy.deepcopy(Env)  # copy original Env to rollout from
             else:
                 restore_atari_state(mcts_env, snapshot)
-
+            st = 0
             while not state.terminal:
                 action = state.select(c=c)
+                st += 1
                 s1, r, t, _ = mcts_env.step(action.index)
                 if hasattr(action, 'child_state'):
                     state = action.child_state  # select
                     continue
                 else:
-                    state = action.add_child_state(s1, r, t, env=mcts_env)  # expand
+                    state = action.add_child_state(s1, r, t, env=mcts_env, max_depth=max_depth-st)  # expand
                     break
 
             # Back-up

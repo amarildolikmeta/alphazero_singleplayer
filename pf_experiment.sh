@@ -1,2 +1,2 @@
 #!/bin/bash
-python alphazero.py --particles=5 --parallel --game=Taxi --grid=grid3.txt --alpha=0.44 --gamma=0.95 --max_ep_len=200 --n_hidden_layers=3 --n_hidden_units=16 --eval_freq=20 --n_epochs=50 --lr=0.1 --batch_size=2048 --temp=0.15 --c=1.2 --n_ep=1 --eval_episodes=10 --n_mcts=50 --mcts_only --n_experiments=1
+python alphazero.py --particles=5 --parallel --game=Taxi --grid=grid3.txt --alpha=0.44 --gamma=0.95 --max_ep_len=70 --n_hidden_layers=3 --n_hidden_units=16 --eval_freq=20 --n_epochs=50 --lr=0.1 --batch_size=2048 --temp=0.15 --c=1.2 --n_ep=1 --eval_episodes=10 --n_mcts=50 --mcts_only --n_experiments=1

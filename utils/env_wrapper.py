@@ -1,3 +1,4 @@
+import random
 import numpy as np
 
 from model_tf2 import ModelWrapper
@@ -23,7 +24,7 @@ class Wrapper(object):
         self.game_maker = game_maker
         self.model = None
         self.mcts = None
-
+        #self.action_dim = Env.action_space.n
         self.is_atari = is_atari
         self.n_mcts = n_mcts
         self.mcts_env = mcts_env
@@ -34,9 +35,9 @@ class Wrapper(object):
         if not self.is_atari:
             self.mcts_env = None
 
-    def pi_wrapper(self, s):
+    def pi_wrapper(self, s, max_depth):
         if self.mcts_only:
-            self.search(self.n_mcts, self.c_dpw, self.mcts_env)
+            self.search(self.n_mcts, self.c_dpw, self.mcts_env, max_depth)
             state, pi, V = self.return_results(self.temp)  # TODO put 0 if the network is enabled
             self.curr_probs.append(pi)
             max_p = np.max(pi)
@@ -55,8 +56,9 @@ class Wrapper(object):
 
     def get_model(self):
         if not self.model:
-            self.model = ModelWrapper(**self.model_wrapper_params)
-            self.model.load(self.model_file)
+            pass
+            #self.model = ModelWrapper(**self.model_wrapper_params)
+            #self.model.load(self.model_file)
         return self.model
 
     def get_mcts(self):
@@ -66,7 +68,7 @@ class Wrapper(object):
 
     def make_mcts(self):
         self.mcts = self.mcts_maker(root_index=self.root_index, root=None, model=self.get_model(),
-                                    na=self.get_model().action_dim, **self.mcts_params)
+                                    na=self.Env.action_space.n, **self.mcts_params)
 
     def make_env(self):
         if self.game_maker is None:
@@ -76,7 +78,8 @@ class Wrapper(object):
             game = self.game_maker["game"]
             game_params = self.game_maker["game_params"]
             self.Env = builder(game, game_params)
-            seed = np.random.randint(1e7)  # draw some Env seed
+            seed = random.randint(0, 1e7)  # draw some Env seed
+            # print("Random seed:", seed)
             self.Env.seed(seed)
             self.Env.reset()
 
@@ -96,11 +99,12 @@ class Wrapper(object):
     def step(self, a):
         return self.get_env().step(a)
 
-    def search(self, n_mcts, c_dpw, mcts_env):
-        self.get_mcts().search(n_mcts=n_mcts, c=c_dpw, Env=self.get_env(), mcts_env=mcts_env)
+    def search(self, n_mcts, c_dpw, mcts_env, max_depth=200):
+        self.get_mcts().search(n_mcts=n_mcts, c=c_dpw, Env=self.get_env(), mcts_env=mcts_env, max_depth=max_depth)
 
     def return_results(self, temp):
         return self.get_mcts().return_results(temp=temp)
+    
 
 
 class PolicyEvalWrapper(object):
