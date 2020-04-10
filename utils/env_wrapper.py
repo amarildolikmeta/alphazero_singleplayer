@@ -79,7 +79,7 @@ class Wrapper(object):
             game_params = self.game_maker["game_params"]
             self.Env = builder(game, game_params)
             seed = random.randint(0, 1e7)  # draw some Env seed
-            print("Random seed:", seed)
+            # print("Random seed:", seed)
             self.Env.seed(seed)
             self.Env.reset()
 
@@ -104,6 +104,7 @@ class Wrapper(object):
 
     def return_results(self, temp):
         return self.get_mcts().return_results(temp=temp)
+    
 
 
 class PolicyEvalWrapper(object):

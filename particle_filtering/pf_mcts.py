@@ -6,6 +6,8 @@ import numpy as np
 import multiprocessing
 import json
 
+import random
+
 MULTITHREADED = False
 
 
@@ -16,7 +18,7 @@ def random_rollout(particle, actions, env, max_depth=200):
         return particle.reward
 
     env.set_signature(particle.state)
-    env.seed = particle.seed
+    env.seed(particle.seed)
     t = 0
     ret = 0
     while t < max_depth and not done:
@@ -31,7 +33,7 @@ def parallel_step(particle, env, action):
     """Perform a step on an environment, executing the given action"""
     if not particle.terminal:
         env.set_signature(particle.state)
-        env.seed = particle.seed
+        env.seed(particle.seed)
         env.step(action)
     return env
 
@@ -45,7 +47,7 @@ def generate_new_particle(env, action, particle):
     # Apply the selected action to the state encapsulated by the particle and store the new state and reward
     env = copy.deepcopy(env)
     env.set_signature(particle.state)
-    env.seed = particle.seed
+    env.seed(particle.seed)
     s, r, done, _ = env.step(action)
     return Particle(env.get_signature(), particle.seed, r, done)
 
@@ -111,6 +113,8 @@ class State(object):
     """ State object """
 
     def __init__(self, parent_action, na, envs, particles, sampler=None, root=False, max_depth=200):
+
+
         """ Initialize a new state """
         self.r = np.mean([particle.reward for particle in particles])  # The reward is the mean of the particles' reward
         self.terminal = True  # whether the domain terminated in this state
@@ -188,12 +192,12 @@ class PFMCTS(object):
         """ Perform the MCTS search from the root """
         Envs = None
         if not self.sampler:
-            Envs = [copy.deepcopy(Env) for i in range(self.n_particles)]
+            Envs = [copy.deepcopy(Env) for _ in range(self.n_particles)]
 
         if self.root is None:
             # initialize new root with many equal particles
 
-            particles = [Particle(state=Env.get_signature(), seed=np.random.randint(1e7), reward=0, terminal=False)
+            particles = [Particle(state=Env.get_signature(), seed=random.randint(0, 1e7), reward=0, terminal=False)
                          for _ in range(self.n_particles)]
             self.root = State(parent_action=None, na=self.na, envs=Envs, particles=particles, sampler=self.sampler,
                               root=True)

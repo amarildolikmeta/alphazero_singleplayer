@@ -120,8 +120,13 @@ if __name__ == '__main__':
             game_params['grid'] = args.grid
             game_params['box'] = True
 
-        particles = [5, 10, 25, 50, 100, 250, 500]
+        # particles = [5, 10, 25, 50, 100, 250, 500]
 
+        particles = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+
+        returns = []
+        lens = []
+        final_states = []
         means = []
         stds = []
 
@@ -156,8 +161,15 @@ if __name__ == '__main__':
                                                       n_workers=args.n_workers,
                                                       use_sampler=args.use_sampler)
 
-            means.append(offline_scores[0][2])
-            stds.append(offline_scores[0][3])
+            evaluation_returns = offline_scores[0][0]
+            evaluation_lenghts = offline_scores[0][1]
+            evaluation_terminal_states = offline_scores[0][2]
+
+            means.append(np.mean(evaluation_returns))
+            stds.append(2 * np.std(evaluation_returns) / np.sqrt(len(evaluation_returns)))  # 95% confidence interval
+            returns.append(evaluation_returns)
+            lens.append(evaluation_lenghts)
+            final_states.append(evaluation_terminal_states)
 
             # TODO FIX THIS
             # exps.append(offline_scores)
@@ -173,6 +185,18 @@ if __name__ == '__main__':
         plt.title("Mean and variance for number of particles")
         plt.savefig(os.path.join(os.path.curdir, "logs/pf_evaluation.png"))
         plt.close()
+
+        print("Averages:", means)
+        print("Standard deviations:", stds)
+
+        with open("logs/stats.txt", 'w') as out:
+            for i in range(len(particles)):
+                out.write(str(particles[i]) + " particles\n")
+                out.write("Returns: " + str(returns[i])+"\n")
+                out.write("Mean: " + str(means[i]) + ", Std: " + str(stds[i]) + "\n")
+                out.write("Episode durations: " + str(lens[i]) + "\n")
+                out.write("Episode final states:\n" + str(final_states[i]) + "\n\n")
+
 
         # fig, ax = plt.subplots(1, figsize=[7, 5])
         # total_eps = len(episode_returns)
