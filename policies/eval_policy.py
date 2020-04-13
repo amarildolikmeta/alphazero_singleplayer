@@ -38,7 +38,8 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
     return rewards, lens, final_states
 
 
-def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, interactive=False, max_len=np.inf):
+def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, interactive=False, max_len=np.inf,
+                visualize=False):
     rewards = []
     lens = []
     final_states = []
@@ -47,7 +48,7 @@ def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, inter
         if not USE_TQDM:
             print('Evaluated ' + str(i) + ' of ' + str(n_episodes), end='\r')
 
-        rew, t, final_state = evaluate(add_terminal, wrapper, i, interactive, max_len, verbose)
+        rew, t, final_state = evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=visualize)
         rewards.append(rew)
         lens.append(t)
         final_states.append(final_state)
@@ -60,7 +61,7 @@ def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, inter
     return rewards, lens
 
 
-def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose):
+def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=False):
     start = time.time()
     s = wrapper.reset()
     # print("1")
@@ -68,7 +69,7 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose):
     rew = 0
     while t <= max_len:
         s = np.concatenate([s, [0]]) if add_terminal else s
-        a = wrapper.pi_wrapper(s, max_depth=max_len-t)
+        a = wrapper.pi_wrapper(s, max_depth=max_len-t, visualize=visualize)
         ns, r, done, inf = wrapper.step(a)
         s = ns
         if interactive:

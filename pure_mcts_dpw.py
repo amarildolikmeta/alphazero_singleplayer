@@ -17,9 +17,9 @@ class StochasticAction(Action):
         self.n_children = 0
         self.state_indeces = {}
 
-    def add_child_state(self, s1, r, terminal, signature, env=None, max_state=200):
+    def add_child_state(self, s1, r, terminal, signature, env=None, max_depth=200):
         child_state = StochasticState(s1, r, terminal, self, self.parent_state.na, signature, env=env,
-                                      max_state=max_state)
+                                      max_depth=max_depth)
         self.child_states.append(child_state)
         s1_hash = s1.tostring()
         self.state_indeces[s1_hash] = self.n_children
@@ -57,8 +57,8 @@ class StochasticState(State):
 class MCTSStochastic(MCTS):
     ''' MCTS object '''
 
-    def __init__(self, root, root_index, na, gamma, alpha=0.6, model=None):
-        super(MCTSStochastic, self).__init__(root, root_index, na, gamma)
+    def __init__(self, root, root_index, na, gamma, alpha=0.6, model=None, uct=False):
+        super(MCTSStochastic, self).__init__(root, root_index, na, gamma, uct=uct)
         self.alpha = alpha
 
     def search(self, n_mcts, c, Env, mcts_env, max_depth=200):
@@ -98,7 +98,7 @@ class MCTSStochastic(MCTS):
                 # flattened_State = state.index.flatten()
                 # if not np.array_equal(flattened_State, obs):
                 #     print("WHATTTTTT")
-                action = state.select(c=c)
+                action = state.select(c=c, uct=self.uct)
                 st += 1
                 k = np.ceil(c * action.n ** self.alpha)
                 if k >= action.n_children:

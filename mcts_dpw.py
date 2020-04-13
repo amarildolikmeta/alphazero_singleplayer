@@ -43,7 +43,7 @@ class StochasticAction(Action):
 class StochasticState(State):
     ''' StochasticState object '''
 
-    def __init__(self, index, r, terminal, parent_action, na, model, signature, max_depth=200):
+    def __init__(self, index, r, terminal, parent_action, na, model, signature):
         super().__init__(index, r, terminal, parent_action, na, model)
         self.index = index  # state
         self.r = r  # reward upon arriving in this state
@@ -63,8 +63,8 @@ class StochasticState(State):
 class MCTSStochastic(MCTS):
     ''' MCTS object '''
 
-    def __init__(self, root, root_index, model, na, gamma, alpha=0.6):
-        super(MCTSStochastic, self).__init__(root, root_index, model, na, gamma)
+    def __init__(self, root, root_index, model, na, gamma, alpha=0.6, uct=False):
+        super(MCTSStochastic, self).__init__(root, root_index, model, na, gamma, uct=uct)
         self.alpha = alpha
 
     def search(self, n_mcts, c, Env, mcts_env, max_depth=200):
@@ -104,7 +104,7 @@ class MCTSStochastic(MCTS):
                 # flattened_State = state.index.flatten()
                 # if not np.array_equal(flattened_State, obs):
                 #     print("WHATTTTTT")
-                action = state.select(c=c)
+                action = state.select(c=c, uct=self.uct)
                 k = np.ceil(c * action.n ** self.alpha)
                 if k >= action.n_children:
                     s1, r, t, _ = mcts_env.step(action.index)

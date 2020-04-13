@@ -1,12 +1,12 @@
 import copy
-
+from mcts import MCTS
 from helpers import stable_normalizer, copy_atari_state, restore_atari_state
 from rl.make_game import make_game, is_atari_game
 import numpy as np
 import multiprocessing
-import json
-
 import random
+import json
+from tqdm import trange
 
 MULTITHREADED = False
 
@@ -146,13 +146,27 @@ class State(object):
         self.child_actions = [Action(a, parent_state=self, Q_init=self.V) for a in range(na)]
 
     def to_json(self):
-        raise NotImplementedError
+        inf = {}
+        # inf["state"] = str(self.index)
+        inf["V"] = str(self.V)
+        inf["n"] = self.n
+        inf["terminal"] = self.terminal
+        # inf["priors"] = str(self.priors)
+        inf["r"] = self.r
+        return json.dumps(inf)
 
-    def select(self, c=1.5):
+    def select(self, c=1.5, uct=False):
         """ Select one of the child actions based on UCT rule """
         # TODO check here
-        UCT = np.array(
-            [child_action.Q + c * (np.sqrt(self.n + 1) / (child_action.n + 1)) for child_action in self.child_actions])
+        if uct:
+            UCT = np.array(
+                [child_action.Q + c * (np.sqrt(np.log(self.n + 1) / (child_action.n + 1e-5))) for child_action in
+                 self.child_actions])
+        else:
+            UCT = np.array(
+                [child_action.Q + c * (np.sqrt(self.n + 1) / (child_action.n + 1)) for child_action in
+                 self.child_actions])
+
         winner = np.argmax(UCT)
         return self.child_actions[winner]
 
@@ -177,16 +191,17 @@ class State(object):
         return np.mean(results)
 
 
-class PFMCTS(object):
+class PFMCTS(MCTS):
     ''' MCTS object '''
 
-    def __init__(self, root, root_index, na, gamma, model=None, particles=100, sampler = None):
+    def __init__(self, root, root_index, na, gamma, model=None, particles=100, sampler=None, uct=False):
         self.root = root
         self.root_index = root_index
         self.na = na
         self.gamma = gamma
         self.n_particles = particles
         self.sampler = sampler
+        self.uct = uct
 
     def search(self, n_mcts, c, Env, mcts_env, max_depth=200):
         """ Perform the MCTS search from the root """
@@ -200,7 +215,7 @@ class PFMCTS(object):
             particles = [Particle(state=Env.get_signature(), seed=random.randint(0, 1e7), reward=0, terminal=False)
                          for _ in range(self.n_particles)]
             self.root = State(parent_action=None, na=self.na, envs=Envs, particles=particles, sampler=self.sampler,
-                              root=True)
+                              root=True, max_depth=max_depth)
         else:
             self.root.parent_action = None  # continue from current root
             particles = self.root.particles
@@ -213,7 +228,7 @@ class PFMCTS(object):
             raise NotImplementedError
             snapshot = copy_atari_state(Env)  # for Atari: snapshot the root at the beginning
 
-        for i in range(n_mcts):
+        for i in trange(n_mcts):
             state = self.root  # reset to root for new trace
             if not is_atari:
                 mcts_envs = None
@@ -224,7 +239,7 @@ class PFMCTS(object):
                 restore_atari_state(mcts_env, snapshot)
             st = 0
             while not state.terminal:
-                action = state.select(c=c)
+                action = state.select(c=c, uct=self.uct)
                 st += 1
                 # s1, r, t, _ = mcts_env.step(action.index)
                 if hasattr(action, 'child_state'):
@@ -260,8 +275,8 @@ class PFMCTS(object):
         self.root = None
         self.root_index = s1
 
-    def visualize(self):
-        raise NotImplementedError
+    # def visualize(self):
+    #     raise NotImplementedError
 
     def inorderTraversal(self, root, g, vertex_index, parent_index, v_label, a_label):
         if root:
@@ -270,7 +285,7 @@ class PFMCTS(object):
             v_label.append(root.to_json())
             if root.parent_action:
                 g.add_edge(parent_index, vertex_index)
-                a_label.append(root.parent_action.index)
+                a_label.append(str(root.parent_action.index) + "(" + str(root.parent_action.n) + ")")
             par_index = vertex_index
             vertex_index += 1
             for i, a in enumerate(root.child_actions):
@@ -279,7 +294,8 @@ class PFMCTS(object):
         return vertex_index
 
     def print_index(self):
-        raise NotImplementedError
+        print(self.count)
+        self.count += 1
 
     def print_tree(self, root):
         raise NotImplementedError

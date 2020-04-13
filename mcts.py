@@ -56,12 +56,16 @@ class State():
         inf["r"] = self.r
         return json.dumps(inf)
 
-    def select(self, c=1.5):
+    def select(self, c=1.5, uct=False):
         ''' Select one of the child actions based on UCT rule '''
-
-        UCT = np.array(
-            [child_action.Q + prior * c * (np.sqrt(self.n + 1) / (child_action.n + 1)) for child_action, prior in
-             zip(self.child_actions, self.priors)])
+        if uct:
+            UCT = np.array(
+                [child_action.Q + c * (np.sqrt(np.log(self.n + 1e-5) / (child_action.n + 1))) for child_action in
+                 self.child_actions])
+        else:
+            UCT = np.array(
+                [child_action.Q + c * (np.sqrt(self.n + 1) / (child_action.n + 1)) for child_action in
+                 self.child_actions])
         winner = argmax(UCT)
         return self.child_actions[winner]
 
@@ -77,7 +81,7 @@ class State():
 class MCTS():
     ''' MCTS object '''
 
-    def __init__(self, root, root_index, model, na, gamma, dpw=False, alpha=0.6):
+    def __init__(self, root, root_index, model, na, gamma, dpw=False, alpha=0.6, uct=False):
         self.root = None
         self.root_index = root_index
         self.model = model
@@ -85,6 +89,7 @@ class MCTS():
         self.gamma = gamma
         self.dpw = dpw
         self.alpha = alpha
+        self.uct = uct
 
     def search(self, n_mcts, c, Env, mcts_env):
         ''' Perform the MCTS search from the root '''
@@ -108,7 +113,7 @@ class MCTS():
                 restore_atari_state(mcts_env, snapshot)
 
             while not state.terminal:
-                action = state.select(c=c)
+                action = state.select(c=c, uct=self.uct)
                 s1, r, t, _ = mcts_env.step(action.index)
                 if hasattr(action, 'child_state'):
                     state = action.child_state  # select

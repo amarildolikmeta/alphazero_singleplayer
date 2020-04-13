@@ -35,9 +35,11 @@ class Wrapper(object):
         if not self.is_atari:
             self.mcts_env = None
 
-    def pi_wrapper(self, s, max_depth):
+    def pi_wrapper(self, s, max_depth, visualize=False):
         if self.mcts_only:
             self.search(self.n_mcts, self.c_dpw, self.mcts_env, max_depth)
+            if visualize:
+                self.get_mcts().visualize()
             state, pi, V = self.return_results(self.temp)  # TODO put 0 if the network is enabled
             self.curr_probs.append(pi)
             max_p = np.max(pi)

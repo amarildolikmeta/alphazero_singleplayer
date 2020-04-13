@@ -65,6 +65,7 @@ if __name__ == '__main__':
     parser.add_argument('--n_workers', type=int, default=4, help='Number of parallel workers')
     parser.add_argument('--mcts_only', action='store_true')
     parser.add_argument('--show_plots', action='store_true')
+    parser.add_argument('--uct', action='store_true')
     parser.add_argument('--particles', type=int, default=0, help='Numbers of particles to approximate state distributions')
 
     args = parser.parse_args()
@@ -149,7 +150,8 @@ if __name__ == '__main__':
                                                       mcts_only=args.mcts_only,
                                                       particles=args.particles,
                                                       n_workers=args.n_workers,
-                                                      use_sampler=args.use_sampler)
+                                                      use_sampler=args.use_sampler,
+                                                      uct=args.uct)
 
             # TODO FIX THIS
             # exps.append(offline_scores)
