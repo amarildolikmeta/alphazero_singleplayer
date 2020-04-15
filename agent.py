@@ -4,7 +4,7 @@ import numpy as np
 import time
 from helpers import is_atari_game, store_safely, Database
 from rl.make_game import make_game
-from model_tf2 import ModelWrapper
+from models.model_tf2 import ModelWrapper
 from policies.eval_policy import eval_policy, parallelize_eval_policy
 from utils.logging.logger import Logger
 from utils.env_wrapper import Wrapper
@@ -35,7 +35,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         from particle_filtering.pf_mcts import PFMCTS
     else:
         from pure_mcts import MCTS
-        from pure_mcts_dpw import MCTSStochastic
+        from pure_mcts.pure_mcts_dpw import MCTSStochastic
 
     if parallelize_evaluation:
         print("The evaluation will be parallel")

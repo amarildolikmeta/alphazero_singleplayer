@@ -66,6 +66,7 @@ if __name__ == '__main__':
     parser.add_argument('--mcts_only', action='store_true')
     parser.add_argument('--show_plots', action='store_true')
     parser.add_argument('--particles', type=int, default=0, help='Numbers of particles to approximate state distributions')
+    parser.add_argument('--budget', type=int, default=1000, help='Computational budget')
 
     args = parser.parse_args()
     start_time = time.time()
@@ -137,7 +138,7 @@ if __name__ == '__main__':
             episode_returns, timepoints, a_best, \
             seed_best, R_best, offline_scores = agent(game=args.game,
                                                       n_ep=args.n_ep,
-                                                      n_mcts=args.n_mcts,
+                                                      n_mcts=int(args.budget/particles[i]),
                                                       max_ep_len=args.max_ep_len,
                                                       lr=args.lr,
                                                       c=args.c,

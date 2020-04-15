@@ -37,17 +37,30 @@ def argmax(x):
 
 def check_space(space):
     ''' Check the properties of an environment state or action space '''
+
+    # Handle dict spaces
+    if isinstance(space, spaces.dict.Dict):
+        try:
+            space = space['image']
+        except KeyError:
+            raise NotImplementedError('This type of space is not supported: {}'.format(space))
+
+    # Handle box spaces
     if isinstance(space, spaces.Box):
         dim = space.shape
         discrete = False
+
+    # Handle discrete spaces
     elif isinstance(space, spaces.Discrete):
         dim = space.n
         discrete = True
     # elif isinstance(space, spaces.Tuple):
     #     dim = (len(space.spaces))
     #     discrete = False
+
     else:
-        raise NotImplementedError('This type of space is not supported')
+        print(space['image'])
+        raise NotImplementedError('This type of space is not supported: {}'.format(type(space)))
     return dim, discrete
 
 

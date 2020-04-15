@@ -4,7 +4,7 @@ import os
 import time
 from helpers import is_atari_game, store_safely, Database
 from rl.make_game import make_game
-from model import Model
+from models.model import Model
 from mcts import MCTS
 from mcts_dpw import MCTSStochastic
 from policies.eval_policy import eval_policy

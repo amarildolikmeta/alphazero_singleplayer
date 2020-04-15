@@ -86,5 +86,6 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose):
         # print(acts)
         print("Episode {0}: Return = {1}, Duration = {2}, Time = {3} s".format(i, rew, t, time.time() - start))
 
-    signature = wrapper.get_env().index_to_box(wrapper.get_env().get_signature()['state'])
+    #signature = wrapper.get_env().index_to_box(wrapper.get_env().get_signature()['state'])
+    signature = None
     return rew, t, signature

@@ -1,12 +1,15 @@
 import copy
 
 from helpers import stable_normalizer, copy_atari_state, restore_atari_state
-from rl.make_game import make_game, is_atari_game
+from rl.make_game import is_atari_game
 import numpy as np
 import multiprocessing
-import json
+
+from igraph import Graph
+import plotly.graph_objects as go
 
 import random
+import json
 
 MULTITHREADED = False
 
@@ -49,17 +52,22 @@ def generate_new_particle(env, action, particle):
     env.set_signature(particle.state)
     env.seed(particle.seed)
     s, r, done, _ = env.step(action)
-    return Particle(env.get_signature(), particle.seed, r, done)
+
+    return Particle(env.get_signature(), particle.seed, r, done, info=s)
 
 
 class Particle(object):
     """Class storing information about a particle"""
 
-    def __init__(self, state, seed, reward, terminal):
+    def __init__(self, state, seed, reward, terminal, info=None):
         self.state = state
         self.seed = seed
         self.reward = reward
         self.terminal = terminal
+        self.info = info
+
+    def __str__(self):
+        return str(self.info)
 
 
 class Action(object):
@@ -114,7 +122,6 @@ class State(object):
 
     def __init__(self, parent_action, na, envs, particles, sampler=None, root=False, max_depth=200):
 
-
         """ Initialize a new state """
         self.r = np.mean([particle.reward for particle in particles])  # The reward is the mean of the particles' reward
         self.terminal = True  # whether the domain terminated in this state
@@ -146,7 +153,13 @@ class State(object):
         self.child_actions = [Action(a, parent_state=self, Q_init=self.V) for a in range(na)]
 
     def to_json(self):
-        raise NotImplementedError
+        inf = {}
+        inf["particles"] = '<br>' + str([str(p) + '<br>' for p in self.particles])
+        inf["V"] = str(self.V) + '<br>'
+        inf["n"] = str(self.n) + '<br>'
+        inf["terminal"] = str(self.terminal) + '<br>'
+        inf["r"] = str(self.r) + '<br>'
+        return json.dumps(inf)
 
     def select(self, c=1.5):
         """ Select one of the child actions based on UCT rule """
@@ -197,7 +210,14 @@ class PFMCTS(object):
         if self.root is None:
             # initialize new root with many equal particles
 
-            particles = [Particle(state=Env.get_signature(), seed=random.randint(0, 1e7), reward=0, terminal=False)
+            signature = Env.get_signature()
+
+            box = None
+            to_box = getattr(self, "index_to_box", None)
+            if callable(to_box):
+                box = Env.index_to_box(signature["state"])
+
+            particles = [Particle(state=signature, seed=random.randint(0, 1e7), reward=0, terminal=False, info=box)
                          for _ in range(self.n_particles)]
             self.root = State(parent_action=None, na=self.na, envs=Envs, particles=particles, sampler=self.sampler,
                               root=True)
@@ -261,7 +281,68 @@ class PFMCTS(object):
         self.root_index = s1
 
     def visualize(self):
-        raise NotImplementedError
+        g = Graph()
+        v_label = []
+        a_label = []
+        nr_vertices = self.inorderTraversal(self.root, g, 0, 0, v_label, a_label)
+        lay = g.layout_reingold_tilford(mode="in", root=[0])
+        position = {k: lay[k] for k in range(nr_vertices)}
+        Y = [lay[k][1] for k in range(nr_vertices)]
+        M = max(Y)
+        E = [e.tuple for e in g.es]  # list of edges
+
+        L = len(position)
+        Xn = [position[k][0] for k in range(L)]
+        Yn = [2 * M - position[k][1] for k in range(L)]
+        Xe = []
+        Ye = []
+        label_xs = []
+        label_ys = []
+        for edge in E:
+            Xe += [position[edge[0]][0], position[edge[1]][0], None]
+            Ye += [2 * M - position[edge[0]][1], 2 * M - position[edge[1]][1], None]
+            label_xs.append((position[edge[0]][0] + position[edge[1]][0]) / 2)
+            label_ys.append((2 * M - position[edge[0]][1] + 2 * M - position[edge[1]][1]) / 2)
+
+        labels = v_label
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=Xe,
+                                 y=Ye,
+                                 mode='lines',
+                                 line=dict(color='rgb(210,210,210)', width=1),
+                                 hoverinfo='none'
+                                 ))
+        fig.add_trace(go.Scatter(x=Xn,
+                                 y=Yn,
+                                 mode='markers',
+                                 name='bla',
+                                 marker=dict(symbol='circle-dot',
+                                             size=18,
+                                             color='#6175c1',  # '#DB4551',
+                                             line=dict(color='rgb(50,50,50)', width=1)
+                                             ),
+                                 text=labels,
+                                 hoverinfo='text',
+                                 opacity=0.8
+                                 ))
+
+        axis = dict(showline=False,  # hide axis line, grid, ticklabels and  title
+                    zeroline=False,
+                    showgrid=False,
+                    showticklabels=False,
+                    )
+        fig.update_layout(title='Tree with Reingold-Tilford Layout',
+                          annotations=make_annotations(position, v_label, label_xs, label_ys, a_label, M, position),
+                          font_size=12,
+                          showlegend=False,
+                          xaxis=axis,
+                          yaxis=axis,
+                          margin=dict(l=40, r=40, b=85, t=100),
+                          hovermode='closest',
+                          plot_bgcolor='rgb(248,248,248)'
+                          )
+        fig.show()
+        print("A")
 
     def inorderTraversal(self, root, g, vertex_index, parent_index, v_label, a_label):
         if root:
@@ -275,15 +356,41 @@ class PFMCTS(object):
             vertex_index += 1
             for i, a in enumerate(root.child_actions):
                 if hasattr(a, 'child_state'):
-                    vertex_index = self.inorderTraversal(a.child_state, g, vertex_index, par_index, v_label, a_label)
+                    vertex_index = self.inorderTraversal(a.child_state, g, vertex_index, par_index, v_label,
+                                                         a_label)
         return vertex_index
 
     def print_index(self):
-        raise NotImplementedError
+        print(self.count)
+        self.count += 1
 
     def print_tree(self, root):
-        raise NotImplementedError
-
+        self.print_index()
+        for i, a in enumerate(root.child_actions):
+            if hasattr(a, 'child_state'):
+                self.print_tree(a.child_state)
 
 def make_annotations(pos, labels, Xe, Ye, a_labels, M, position, font_size=10, font_color='rgb(250,250,250)'):
-    raise NotImplementedError
+    L = len(pos)
+    if len(labels) != L:
+        raise ValueError('The lists pos and text must have the same len')
+    annotations = []
+    for k in range(L):
+        annotations.append(
+            dict(
+                text=labels[k],  # or replace labels with a different list for the text within the circle
+                x=pos[k][0] + 2, y=2 * M - position[k][1],
+                xref='x1', yref='y1',
+                font=dict(color=font_color, size=font_size),
+                showarrow=False)
+        )
+    for e in range(len(a_labels)):
+        annotations.append(
+            dict(
+                text=a_labels[e],  # or replace labels with a different list for the text within the circle
+                x=Xe[e], y=Ye[e],
+                xref='x1', yref='y1',
+                font=dict(color='rgb(0, 0, 0)', size=font_size),
+                showarrow=False)
+        )
+    return annotations
