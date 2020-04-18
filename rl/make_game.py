@@ -10,7 +10,7 @@ from gym.envs.registration import register
 import gym_minigrid
 
 from envs import generate_taxi, generate_taxi_easy, generate_arms, generate_river, generate_loop, generate_chain, \
-    generate_three_arms, generate_collect_stochastic
+    generate_three_arms, generate_collect_stochastic, generate_bridge_stochastic
 
 from rl.wrappers import NormalizeWrapper, ReparametrizeWrapper, PILCOWrapper, ScaleRewardWrapper, ClipRewardWrapper, \
     ScaledObservationWrapper
@@ -38,7 +38,8 @@ game_to_env = {
     "RiverSwim": generate_river,
     "SixArms": generate_arms,
     "ThreeArms": generate_three_arms,
-    "MiniGrid-Collect-Stochastic-9x9-v0": generate_collect_stochastic}
+    "MiniGrid-Collect-Stochastic-9x9-v0": generate_collect_stochastic,
+    "Bridge-stochastic": generate_bridge_stochastic}
 
 
 def get_base_env(env):

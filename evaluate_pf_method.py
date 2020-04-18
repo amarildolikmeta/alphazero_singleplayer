@@ -10,6 +10,7 @@ from datetime import datetime
 
 from joblib import Parallel, delayed
 import numpy as np
+import pandas as pd
 import argparse
 import os
 import matplotlib.pyplot as plt
@@ -123,22 +124,29 @@ if __name__ == '__main__':
 
         # particles = [5, 10, 25, 50, 100, 250, 500]
 
-        particles = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+        # particles = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+
+        particles = [2,4,6,8,10,12,14,16,18,20]
 
         returns = []
         lens = []
         final_states = []
         means = []
         stds = []
+        indices = []
 
         for i in range(len(particles)):
             print()
             print("Number of particles:", particles[i])
+            n_mcts = int(args.budget/(args.max_ep_len * particles[i]))
             out_dir_i = out_dir + str(i) + '/'
+
+            print("Number of mcts searches:", n_mcts)
+            print("Maximum rollout length:", args.max_ep_len)
             episode_returns, timepoints, a_best, \
             seed_best, R_best, offline_scores = agent(game=args.game,
                                                       n_ep=args.n_ep,
-                                                      n_mcts=int(args.budget/particles[i]),
+                                                      n_mcts=n_mcts,
                                                       max_ep_len=args.max_ep_len,
                                                       lr=args.lr,
                                                       c=args.c,
@@ -168,8 +176,10 @@ if __name__ == '__main__':
 
             means.append(np.mean(evaluation_returns))
             stds.append(2 * np.std(evaluation_returns) / np.sqrt(len(evaluation_returns)))  # 95% confidence interval
-            returns.append(evaluation_returns)
-            lens.append(evaluation_lenghts)
+            for ret, length in zip(evaluation_returns, evaluation_lenghts):
+                returns.append(ret)
+                lens.append(length)
+                indices.append(str(particles[i]) + "_pf")
             final_states.append(evaluation_terminal_states)
 
             # TODO FIX THIS
@@ -182,21 +192,27 @@ if __name__ == '__main__':
         plt.figure()
         plt.errorbar(particles, means, stds, linestyle='None', marker='^', capsize=3)
         plt.xlabel("Number of particles")
-        plt.ylabel("Return")
-        plt.title("Mean and variance for number of particles")
+        plt.ylabel("Undiscounted reward")
+        plt.title("Particle filtering performance - budget {}".format(args.budget))
         plt.savefig(os.path.join(os.path.curdir, "logs/pf_evaluation.png"))
         plt.close()
 
         print("Averages:", means)
         print("Standard deviations:", stds)
 
-        with open("logs/stats.txt", 'w') as out:
-            for i in range(len(particles)):
-                out.write(str(particles[i]) + " particles\n")
-                out.write("Returns: " + str(returns[i])+"\n")
-                out.write("Mean: " + str(means[i]) + ", Std: " + str(stds[i]) + "\n")
-                out.write("Episode durations: " + str(lens[i]) + "\n")
-                out.write("Episode final states:\n" + str(final_states[i]) + "\n\n")
+        data = {"agent": indices, "total_reward": returns, "length": lens, "budget": [args.budget] * len(indices)}
+
+        df = pd.DataFrame(data)
+
+        df.to_csv("logs/data.csv", header=True, index=False)
+
+        # with open("logs/stats.txt", 'w') as out:
+        #     for i in range(len(particles)):
+        #         out.write(str(particles[i]) + " particles\n")
+        #         out.write("Returns: " + str(returns[i])+"\n")
+        #         out.write("Mean: " + str(means[i]) + ", 95% confidence: " + str(stds[i]) + "\n")
+        #         out.write("Episode durations: " + str(lens[i]) + "\n")
+        #         out.write("Episode final states:\n" + str(final_states[i]) + "\n\n")
 
 
         # fig, ax = plt.subplots(1, figsize=[7, 5])

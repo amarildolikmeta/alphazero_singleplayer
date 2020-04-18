@@ -22,7 +22,6 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
           stochastic=False, eval_freq=-1, eval_episodes=100, alpha=0.6, n_epochs=100, c_dpw=1, numpy_dump_dir='../',
           pre_process=None, visualize=False, game_params={}, parallelize_evaluation=False, mcts_only=False,
           particles=0, show_plots=False, n_workers=1, use_sampler=False):
-
     visualizer = None
 
     # if particles:
@@ -34,8 +33,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     elif particles:
         from particle_filtering.pf_mcts import PFMCTS
     else:
-        from pure_mcts import MCTS
-        from pure_mcts.pure_mcts_dpw import MCTSStochastic
+        from pure_mcts.mcts import MCTS
+        from pure_mcts.mcts_dpw import MCTSStochastic
 
     if parallelize_evaluation:
         print("The evaluation will be parallel")
@@ -83,9 +82,12 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         def make_pi(action_space):
             def pi(s):
                 return np.random.randint(low=0, high=action_space.n)
+
             return pi
+
         def make_env():
             return make_game(game, game_params)
+
         sampler = ParallelSampler(make_pi=make_pi, make_env=make_env, n_particles=particles,
                                   n_workers=n_workers, seed=10)
 
@@ -93,6 +95,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     mcts_env = make_game(game, game_params) if is_atari else None
     online_scores = []
     offline_scores = []
+
+    # Setup the parameters for generating the search environments
     mcts_params = dict(gamma=gamma)
     if particles:
         mcts_params['particles'] = particles
@@ -105,8 +109,11 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     else:
         mcts_maker = MCTS
 
+    # Prepare the database for storing training data to be sampled
     db = Database(max_size=data_size, batch_size=batch_size)
+
     # TODO extract dimensions to avoid allocating model
+    # Setup the model
     model_params = {"Env": Env,
                     "lr": lr,
                     "n_hidden_layers": n_hidden_layers,
@@ -114,7 +121,6 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                     "joint_networks": True}
 
     model_wrapper = ModelWrapper(**model_params)
-    #model_wrapper.instantiate_model()
 
     t_total = 0  # total steps
     R_best = -np.Inf
@@ -125,13 +131,13 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     avgs = []
     stds = []
 
+    # Run the episodes
     for ep in range(n_ep):
 
         if DEBUG_TAXI:
             visualizer.reset()
 
         ##### Policy evaluation step #####
-
         if eval_freq > 0 and ep % eval_freq == 0:  # and ep > 0
             print('--------------------------------\nEvaluating policy for {} episodes!'.format(eval_episodes))
             seed = np.random.randint(1e7)  # draw some Env seed
@@ -149,19 +155,18 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
             model_file = os.path.join(logger.save_dir, "model.h5")
 
-            #model_wrapper.save(model_file)
-            #model_wrapper.save(model_file)
+            # model_wrapper.save(model_file)
 
             env_wrapper = Wrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, mcts_env,
-                              c_dpw, temp, Env=penv, game_maker=pgame, mcts_only=mcts_only)
-            # pi_wrapper = PolicyEvalWrapper(env_wrapper, is_atari, n_mcts, mcts_env, c_dpw, temp, mcts_only=PURE_MCTS).pi_wrapper
+                                  c_dpw, temp, Env=penv, game_maker=pgame, mcts_only=mcts_only)
 
+            # Run the evaluation
             if parallelize_evaluation:
                 rews, lens, final_states = parallelize_eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False
-                                                     , max_len=max_ep_len)
+                                                                   , max_len=max_ep_len)
             else:
                 rews, lens, final_states = eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False
-                                         , max_len=max_ep_len)
+                                                       , max_len=max_ep_len)
 
             # offline_scores.append([np.min(rews), np.max(rews), np.mean(rews), np.std(rews),
             #                        len(rews), np.mean(lens)])
@@ -171,7 +176,6 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             np.save(numpy_dump_dir + '/offline_scores.npy', offline_scores)
 
             # Store and plot data
-
             avgs.append(np.mean(rews))
             stds.append(np.std(rews))
 
@@ -201,10 +205,9 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             ep_steps = 0
             start_targets = []
 
-
             for st in range(max_ep_len):
 
-                print_step = max_ep_len//10
+                print_step = max_ep_len // 10
                 if st % print_step == 0:
                     print('Step ' + str(st + 1) + ' of ' + str(max_ep_len))
 

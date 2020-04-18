@@ -1,7 +1,7 @@
 import numpy as np
 import copy
 from helpers import (argmax, is_atari_game, copy_atari_state, restore_atari_state, stable_normalizer)
-from pure_mcts import MCTS, Action, State
+from pure_mcts.mcts import MCTS, Action, State
 from igraph import Graph, EdgeSeq
 import plotly.graph_objects as go
 import plotly.io as pio
@@ -70,7 +70,7 @@ class MCTSStochastic(MCTS):
             mcts_env = copy.deepcopy(Env)  # copy original Env to rollout from
         # else:
         #     restore_atari_state(mcts_env, snapshot)
-        if mcts_env._state != Env._state:
+        if mcts_env.get_signature() != Env.get_signature():
             print("Copying went wrong")
         if self.root is None:
             # initialize new root

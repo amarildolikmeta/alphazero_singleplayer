@@ -9,7 +9,7 @@ import json
 from datetime import datetime
 
 from joblib import Parallel, delayed
-import numpy as np
+import pandas as pd
 import argparse
 import os
 import matplotlib.pyplot as plt
@@ -65,12 +65,15 @@ if __name__ == '__main__':
     parser.add_argument('--n_workers', type=int, default=4, help='Number of parallel workers')
     parser.add_argument('--mcts_only', action='store_true')
     parser.add_argument('--show_plots', action='store_true')
-    parser.add_argument('--particles', type=int, default=0, help='Numbers of particles to approximate state distributions')
+    parser.add_argument('--particles', type=int, default=0,
+                        help='Numbers of particles to approximate state distributions')
+    parser.add_argument('--budget', type=int, default=1000, help='Computational budget')
 
     args = parser.parse_args()
     start_time = time.time()
     time_str = str(start_time)
     out_dir = 'logs/' + args.game + '/' + time_str + '/'
+
 
     def pre_process():
         from gym.envs.registration import register
@@ -116,18 +119,41 @@ if __name__ == '__main__':
         exps = []
         game_params = {}
 
+        # Accept custom grid if the environment requires it
         if args.game == 'Taxi' or args.game == 'TaxiEasy':
             game_params['grid'] = args.grid
             game_params['box'] = True
             # TODO modify this to return to original taxi problem
 
+        # Define the name of the agent to be stored in the dataframe
+        if args.stochastic:
+            agent_name = "dpw_"
+        elif args.particles > 0:
+            agent_name = str(args.particles) + "_pf_"
+        else:
+            agent_name = "classic_"
+
+        if args.mcts_only:
+            agent_name += "mcts_only"
+        else:
+            agent_name += "alphazero"
+
+        # Run experiments
         for i in range(args.n_experiments):
-            particles = [5, 10, 25, 50, 100, 250, 500]
+
+            # Compute the actual number of mcts searches for each step
+            if args.particles > 0:
+                n_mcts = int(args.budget / (args.max_ep_len * args.particles))
+            else:
+                n_mcts = int(args.budget / args.max_ep_len)
+
             out_dir_i = out_dir + str(i) + '/'
+
+            # Run the algorithm
             episode_returns, timepoints, a_best, \
             seed_best, R_best, offline_scores = agent(game=args.game,
                                                       n_ep=args.n_ep,
-                                                      n_mcts=args.n_mcts,
+                                                      n_mcts=n_mcts,
                                                       max_ep_len=args.max_ep_len,
                                                       lr=args.lr,
                                                       c=args.c,
@@ -150,6 +176,25 @@ if __name__ == '__main__':
                                                       particles=args.particles,
                                                       n_workers=args.n_workers,
                                                       use_sampler=args.use_sampler)
+
+            evaluation_returns = offline_scores[0][0]
+            evaluation_lenghts = offline_scores[0][1]
+            evaluation_terminal_states = offline_scores[0][2]
+
+            indices = []
+            returns = []
+            lens = []
+
+            for ret, length in zip(evaluation_returns, evaluation_lenghts):
+                returns.append(ret)
+                lens.append(length)
+                indices.append(agent_name)
+
+            data = {"agent": indices, "total_reward": returns, "length": lens, "budget": [args.budget] * len(indices)}
+
+            df = pd.DataFrame(data)
+
+            df.to_csv("logs/data_exp_{}.csv".format(i), header=True, index=False)
 
             # TODO FIX THIS
             # exps.append(offline_scores)

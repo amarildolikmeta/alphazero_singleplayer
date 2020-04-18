@@ -201,7 +201,7 @@ class PFMCTS(object):
         self.n_particles = particles
         self.sampler = sampler
 
-    def search(self, n_mcts, c, Env, mcts_env, max_depth=200):
+    def search(self, n_mcts, c, Env, mcts_env, max_depth=200, fixed_depth=True):
         """ Perform the MCTS search from the root """
         Envs = None
         if not self.sampler:
@@ -251,7 +251,8 @@ class PFMCTS(object):
                     state = action.child_state  # select
                     continue
                 else:
-                    state = action.add_child_state(state, mcts_envs, self.sampler, max_depth - st)  # expand
+                    rollout_depth = max_depth if fixed_depth else max_depth - st
+                    state = action.add_child_state(state, mcts_envs, self.sampler, rollout_depth)  # expand
                     break
 
             # Back-up
