@@ -111,7 +111,7 @@ class MCTSStochastic(MCTS):
                     # if action.index == 0 and not np.array_equal(s1.flatten(), action.parent_state.index.flatten()):
                     #     print("WTF")
                     if action.get_state_ind(s1) != -1:
-                        state = action.child_states[action.get_state_ind(s1)]# select
+                        state = action.child_states[action.get_state_ind(s1)]  # select
                         state.r = r
                     else:
                         # if action.index == 0 and len(action.child_states) > 0:
