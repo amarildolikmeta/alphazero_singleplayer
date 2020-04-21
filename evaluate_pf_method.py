@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-One-player Alpha Zero
-@author: Thomas Moerland, Delft University of Technology
-"""
+
 import errno
 import json
 from datetime import datetime
@@ -82,9 +79,9 @@ if __name__ == '__main__':
                 entry_point='envs.blackjack_pi:BlackjackEnv',
             )
         except:
-            pass
+            print()
 
-
+    # Disable running on GPU if not specifically requested
     if not args.gpu:
         os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
@@ -128,13 +125,17 @@ if __name__ == '__main__':
 
         particles = [2,4,6,8,10,12,14,16,18,20]
 
+        # Variables for storing experiments' results
         returns = []
         lens = []
         final_states = []
         means = []
         stds = []
         indices = []
+        rews = []
+        gamma = args.gamma
 
+        # Perform an experiment for each number of particles in the list
         for i in range(len(particles)):
             print()
             print("Number of particles:", particles[i])
@@ -170,9 +171,10 @@ if __name__ == '__main__':
                                                       n_workers=args.n_workers,
                                                       use_sampler=args.use_sampler)
 
-            evaluation_returns = offline_scores[0][0]
-            evaluation_lenghts = offline_scores[0][1]
-            evaluation_terminal_states = offline_scores[0][2]
+            evaluation_r_per_timestep = offline_scores[0][1]
+            evaluation_returns = offline_scores[0][1]
+            evaluation_lenghts = offline_scores[0][2]
+            evaluation_terminal_states = offline_scores[0][3]
 
             means.append(np.mean(evaluation_returns))
             stds.append(2 * np.std(evaluation_returns) / np.sqrt(len(evaluation_returns)))  # 95% confidence interval
@@ -181,6 +183,15 @@ if __name__ == '__main__':
                 lens.append(length)
                 indices.append(str(particles[i]) + "_pf")
             final_states.append(evaluation_terminal_states)
+
+            # Compute the discounted return
+            for r_list in evaluation_r_per_timestep:
+                discount = 1
+                disc_rew = 0
+                for r in r_list:
+                    disc_rew += discount * r
+                    discount *= gamma
+                rews.append(disc_rew)
 
             # TODO FIX THIS
             # exps.append(offline_scores)
@@ -197,29 +208,13 @@ if __name__ == '__main__':
         plt.savefig(os.path.join(os.path.curdir, "logs/pf_evaluation_{}_{}.png".format(args.game, args.budget)))
         plt.close()
 
-        print("Averages:", means)
-        print("Standard deviations:", stds)
-
-        data = {"agent": indices, "total_reward": returns, "length": lens, "budget": [args.budget] * len(indices)}
+        # Store pandas dataframe with experiments' results
+        data = {"agent": indices,
+                "total_reward": returns,
+                "discounted_reward": rews,
+                "length": lens,
+                "budget": [args.budget] * len(indices)}
 
         df = pd.DataFrame(data)
 
         df.to_csv("logs/data_eval_pf_{}_{}.csv".format(args.game, args.budget), header=True, index=False)
-
-        # with open("logs/stats.txt", 'w') as out:
-        #     for i in range(len(particles)):
-        #         out.write(str(particles[i]) + " particles\n")
-        #         out.write("Returns: " + str(returns[i])+"\n")
-        #         out.write("Mean: " + str(means[i]) + ", 95% confidence: " + str(stds[i]) + "\n")
-        #         out.write("Episode durations: " + str(lens[i]) + "\n")
-        #         out.write("Episode final states:\n" + str(final_states[i]) + "\n\n")
-
-
-        # fig, ax = plt.subplots(1, figsize=[7, 5])
-        # total_eps = len(episode_returns)
-        # episode_returns = smooth(episode_returns, args.window, mode='valid')
-        # ax.plot(symmetric_remove(np.arange(total_eps), args.window - 1), episode_returns,  color='darkred')
-        # ax.set_ylabel('Return')
-        # ax.set_xlabel('Episode', color='darkred')
-        # name = 'learning_curve' + ('_dpw_alpha_'+str(args.alpha) if args.stochastic else '') + '.png'
-        # plt.savefig(out_dir + name, bbox_inches="tight")

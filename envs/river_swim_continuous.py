@@ -3,6 +3,11 @@ from gym import spaces
 from gym.utils import seeding
 import numpy as np
 
+
+def generate_river_continuous():
+    return RiverSwimContinuous()
+
+
 class RiverSwimContinuous(gym.Env):
 
     def __init__(self, dim=6, gamma=0.95, small=5, large=10000, horizon=np.inf, scale_reward=True):
@@ -30,7 +35,6 @@ class RiverSwimContinuous(gym.Env):
         self.seed()
         self.reset()
 
-
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
@@ -38,7 +42,7 @@ class RiverSwimContinuous(gym.Env):
     def _get_prob(self, action):
 
         prob = np.zeros(2)
-        if action == 0: # left
+        if action == 0:  # left
             prob[0] = 1.
             prob[1] = 0.
         else:
@@ -50,11 +54,11 @@ class RiverSwimContinuous(gym.Env):
 
     def step(self, action):
 
-        #action = np.clip(action, self.action_space.low, self.action_space.high)
+        # action = np.clip(action, self.action_space.low, self.action_space.high)
         prob = self._get_prob(action)
         dir = self.np_random.choice(2, p=prob)
         step = self.np_random.uniform(low=0.5, high=1.)
-        if dir == 0: #left
+        if dir == 0:  # left
             new_state = self.state - step
         else:
             new_state = self.state + step
@@ -91,7 +95,7 @@ if __name__ == '__main__':
 
     s = mdp.reset()
     while True:
-        #print(s)
+        # print(s)
         a = np.random.rand() * 2 - 1
         a = 1
         s, r, _, _ = mdp.step(a)

@@ -177,24 +177,42 @@ if __name__ == '__main__':
                                                       n_workers=args.n_workers,
                                                       use_sampler=args.use_sampler)
 
-            evaluation_returns = offline_scores[0][0]
-            evaluation_lenghts = offline_scores[0][1]
-            evaluation_terminal_states = offline_scores[0][2]
+            evaluation_r_per_timestep = offline_scores[0][1]
+            evaluation_returns = offline_scores[0][1]
+            evaluation_lenghts = offline_scores[0][2]
+            evaluation_terminal_states = offline_scores[0][3]
 
             indices = []
             returns = []
             lens = []
+            rews = []
+
+            gamma = args.gamma
+
+            # Compute the discounted return
+            for r_list in evaluation_r_per_timestep:
+                discount = 1
+                disc_rew = 0
+                for r in r_list:
+                    disc_rew += discount * r
+                    discount *= gamma
+                rews.append(disc_rew)
+
 
             for ret, length in zip(evaluation_returns, evaluation_lenghts):
                 returns.append(ret)
                 lens.append(length)
                 indices.append(agent_name)
 
-            data = {"agent": indices, "total_reward": returns, "length": lens, "budget": [args.budget] * len(indices)}
+            data = {"agent": indices,
+                    "total_reward": returns,
+                    "discounted_reward": rews,
+                    "length": lens,
+                    "budget": [args.budget] * len(indices)}
 
             df = pd.DataFrame(data)
 
-            df.to_csv("logs/{}_{}_data_exp_{}.csv".format(agent_name, args.budget, i), header=True, index=False)
+            df.to_csv("logs/{}_{}_{}_data_exp_{}.csv".format(agent_name, args.game, args.budget, i), header=True, index=False)
 
             # TODO FIX THIS
             # exps.append(offline_scores)

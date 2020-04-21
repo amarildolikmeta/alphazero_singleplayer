@@ -105,7 +105,6 @@ class Wrapper(object):
         return self.get_mcts().return_results(temp=temp)
     
 
-
 class PolicyEvalWrapper(object):
     def __init__(self, env_wrapper, is_atari, n_mcts, mcts_env, c_dpw, temp, mcts_only=True):
         self.env_wrapper = env_wrapper
