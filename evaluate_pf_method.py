@@ -194,7 +194,7 @@ if __name__ == '__main__':
         plt.xlabel("Number of particles")
         plt.ylabel("Undiscounted reward")
         plt.title("Particle filtering performance - budget {}".format(args.budget))
-        plt.savefig(os.path.join(os.path.curdir, "logs/pf_evaluation.png"))
+        plt.savefig(os.path.join(os.path.curdir, "logs/pf_evaluation_{}_{}.png".format(args.game, args.budget)))
         plt.close()
 
         print("Averages:", means)
@@ -204,7 +204,7 @@ if __name__ == '__main__':
 
         df = pd.DataFrame(data)
 
-        df.to_csv("logs/data.csv", header=True, index=False)
+        df.to_csv("logs/data_eval_pf_{}_{}.csv".format(args.game, args.budget), header=True, index=False)
 
         # with open("logs/stats.txt", 'w') as out:
         #     for i in range(len(particles)):

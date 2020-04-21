@@ -6,14 +6,18 @@ from igraph import Graph, EdgeSeq
 import plotly.graph_objects as go
 import plotly.io as pio
 
-DESTROY = False
+DESTROY = True
 
 class KeySet(object):
     def __init__(self, state):
         self.state = copy.deepcopy(state)
-        for k in state:
-            if type(self.state[k]) == np.ndarray:
-                self.state[k] = self.state[k].tostring()
+
+        if type(state) == np.ndarray:
+            self.state = {'state': state.tostring()}
+        else:
+            for k in state:
+                if type(self.state[k]) == np.ndarray:
+                    self.state[k] = self.state[k].tostring()
 
     def __hash__(self):
         return hash(tuple(sorted(self.state.items())))

@@ -194,7 +194,7 @@ if __name__ == '__main__':
 
             df = pd.DataFrame(data)
 
-            df.to_csv("logs/data_exp_{}.csv".format(i), header=True, index=False)
+            df.to_csv("logs/{}_{}_data_exp_{}.csv".format(agent_name, args.budget, i), header=True, index=False)
 
             # TODO FIX THIS
             # exps.append(offline_scores)
