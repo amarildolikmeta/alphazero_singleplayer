@@ -17,3 +17,5 @@ __pycache__/
 *.png
 
 *.svg
+
+notebooks/.ipynb_checkpoints/Plot-checkpoint.ipynb
