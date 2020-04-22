@@ -1,17 +1,22 @@
 import numpy as np
 from envs.FiniteMDP import FiniteMDP
+from gym_minigrid.register import register
 
 
 def generate_river(n=6, gamma=0.95, small=5, large=10000, horizon=np.inf, scale_reward=True):
-    nA = 2
-    nS = n
-    p = compute_probabilities(nS, nA)
-    r = compute_rewards(nS, nA, small, large)
-    if scale_reward:
-        r /= large
-    mu = compute_mu(nS)
-    return FiniteMDP(p, r, mu, gamma, horizon)
+    return RiverSwim(n, gamma, small, large, horizon, scale_reward)
 
+
+class RiverSwim(FiniteMDP):
+    def __init__(self, n=6, gamma=0.95, small=5, large=10000, horizon=np.inf, scale_reward=True):
+        nA = 2
+        nS = n
+        p = compute_probabilities(nS, nA)
+        r = compute_rewards(nS, nA, small, large)
+        if scale_reward:
+            r /= large
+        mu = compute_mu(nS)
+        super().__init__(p, r, mu, gamma, horizon)
 
 def compute_probabilities(nS, nA):
     p = np.zeros((nS, nA, nS))
@@ -44,3 +49,9 @@ def compute_mu(nS):
     mu[1] = 0.5
     mu[2] = 0.5
     return mu
+
+
+register(
+    id='MiniGrid-RiverSwim-v0',
+    entry_point='envs.river_swim:RiverSwim'
+)

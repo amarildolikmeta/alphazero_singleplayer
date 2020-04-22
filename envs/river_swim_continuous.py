@@ -2,6 +2,7 @@ import gym
 from gym import spaces
 from gym.utils import seeding
 import numpy as np
+from gym_minigrid.register import register
 
 
 def generate_river_continuous():
@@ -89,6 +90,11 @@ class RiverSwimContinuous(gym.Env):
     def set_signature(self, sig):
         self.state = np.copy(sig['agent_pos'])
 
+
+register(
+    id='MiniGrid-RiverSwim-continuous-v0',
+    entry_point='envs.river_swim_continuous:RiverSwimContinuous'
+)
 
 if __name__ == '__main__':
     mdp = RiverSwimContinuous()
