@@ -38,8 +38,8 @@ class FiniteMDP(gym.Env):
         self.mu = mu
 
         # MDP properties
-        observation_space = spaces.Discrete(p.shape[0])
-        action_space = spaces.Discrete(p.shape[1])
+        observation_space = gym_spaces.Discrete(p.shape[0])
+        action_space = gym_spaces.Discrete(p.shape[1])
 
         self.observation_space = observation_space
         self.action_space = action_space
