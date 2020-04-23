@@ -1,7 +1,7 @@
 import gym
+import numpy as np
 from gym import spaces
 from gym.utils import seeding
-import numpy as np
 from gym_minigrid.register import register
 
 
@@ -11,7 +11,7 @@ def generate_river_continuous():
 
 class RiverSwimContinuous(gym.Env):
 
-    def __init__(self, dim=6, gamma=0.95, small=5, large=10000, horizon=np.inf, scale_reward=True):
+    def __init__(self, dim=6, gamma=0.95, small=5, large=10000, horizon=10, scale_reward=True):
 
         self.horizon = horizon
         self.small = small
@@ -25,6 +25,8 @@ class RiverSwimContinuous(gym.Env):
         self.max_position = dim
 
         self.viewer = None
+
+        self.t = 0
 
         # self.action_space = spaces.Box(low=self.min_action, high=self.max_action,
         #                                shape=(1,), dtype=np.float32)
@@ -75,9 +77,14 @@ class RiverSwimContinuous(gym.Env):
 
         self.state = np.clip(new_state, self.observation_space.low, self.observation_space.high)
 
-        return self.state, reward, False, {}
+        self.t += 1
+
+        terminal = True if self.t >= self.horizon else False
+
+        return self.state, reward, terminal, {}
 
     def reset(self):
+        self.t = 0
         self.state = self.np_random.rand() * 0.5
 
     def get_state(self):
