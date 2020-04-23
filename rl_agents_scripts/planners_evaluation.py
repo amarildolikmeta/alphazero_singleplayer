@@ -22,6 +22,8 @@ from docopt import docopt
 from collections import OrderedDict
 from itertools import product
 from multiprocessing.pool import Pool
+from os.path import  abspath, dirname
+import sys
 
 import gym
 import numpy as np
@@ -35,6 +37,7 @@ from rl_agents.trainer.evaluation import Evaluation
 gamma = 0.8
 SEED_MAX = 1e9
 
+sys.path.append(dirname(dirname(abspath(__file__))))
 
 def env_configs():
     # return ['configs/CartPoleEnv/env.json']

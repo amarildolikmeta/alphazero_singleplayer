@@ -1,3 +1,5 @@
+from copy import copy
+
 import gym
 import numpy as np
 from gym import spaces
@@ -26,7 +28,7 @@ class RiverSwimContinuous(gym.Env):
 
         self.viewer = None
 
-        self.t = 0
+        self._t = 0
 
         # self.action_space = spaces.Box(low=self.min_action, high=self.max_action,
         #                                shape=(1,), dtype=np.float32)
@@ -77,25 +79,26 @@ class RiverSwimContinuous(gym.Env):
 
         self.state = np.clip(new_state, self.observation_space.low, self.observation_space.high)
 
-        self.t += 1
+        self._t += 1
 
-        terminal = True if self.t >= self.horizon else False
+        terminal = True if self._t >= self.horizon else False
 
         return self.state, reward, terminal, {}
 
     def reset(self):
-        self.t = 0
+        self._t = 0
         self.state = self.np_random.rand() * 0.5
 
     def get_state(self):
         return self.state
 
     def get_signature(self):
-        sig = {'agent_pos': np.copy(self.state)}
+        sig = {'agent_pos': np.copy(self.state), 't': copy(self._t)}
         return sig
 
     def set_signature(self, sig):
         self.state = np.copy(sig['agent_pos'])
+        self._t = copy(sig['t'])
 
 
 register(
