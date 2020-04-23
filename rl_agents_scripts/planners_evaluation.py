@@ -40,7 +40,7 @@ def env_configs():
     # return ['configs/CartPoleEnv/env.json']
     # return ['configs/HighwayEnv/env_medium.json']
     #return ['configs/GridWorld/collect_stochastic.json']
-    return ['configs/RiverSwim/riverswim_continuous.json']
+    return ['configs/RiverSwim/riverswim.json']
 
 
 def agent_configs():

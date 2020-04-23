@@ -3,12 +3,12 @@ from envs.FiniteMDP import FiniteMDP
 from gym_minigrid.register import register
 
 
-def generate_river(n=6, gamma=0.95, small=5, large=10000, horizon=np.inf, scale_reward=True):
+def generate_river(n=6, gamma=0.95, small=5, large=10000, horizon=10, scale_reward=True):
     return RiverSwim(n, gamma, small, large, horizon, scale_reward)
 
 
 class RiverSwim(FiniteMDP):
-    def __init__(self, n=6, gamma=0.95, small=5, large=10000, horizon=np.inf, scale_reward=True):
+    def __init__(self, n=6, gamma=0.95, small=5, large=10000, horizon=10, scale_reward=True):
         nA = 2
         nS = n
         p = compute_probabilities(nS, nA)
