@@ -143,8 +143,8 @@ if __name__ == '__main__':
                                                       n_workers=args.n_workers,
                                                       use_sampler=args.use_sampler)
 
-            evaluation_r_per_timestep = offline_scores[0][1]
-            evaluation_returns = offline_scores[0][1]
+            total_rewards = offline_scores[0][0]
+            undiscounted_returns = offline_scores[0][1]
             evaluation_lenghts = offline_scores[0][2]
             evaluation_terminal_states = offline_scores[0][3]
 
@@ -156,7 +156,7 @@ if __name__ == '__main__':
             gamma = args.gamma
 
             # Compute the discounted return
-            for r_list in evaluation_r_per_timestep:
+            for r_list in undiscounted_returns:
                 discount = 1
                 disc_rew = 0
                 for r in r_list:
@@ -165,7 +165,7 @@ if __name__ == '__main__':
                 rews.append(disc_rew)
 
             # Fill the lists for building the dataframe
-            for ret, length in zip(evaluation_returns, evaluation_lenghts):
+            for ret, length in zip(total_rewards, evaluation_lenghts):
                 returns.append(ret)
                 lens.append(length)
                 indices.append(agent_name)

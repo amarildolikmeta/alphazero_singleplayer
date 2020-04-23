@@ -137,21 +137,21 @@ if __name__ == '__main__':
                                                       n_workers=args.n_workers,
                                                       use_sampler=args.use_sampler)
 
-            evaluation_r_per_timestep = offline_scores[0][1]
-            evaluation_returns = offline_scores[0][1]
+            total_rewards = offline_scores[0][0]
+            undiscounted_returns = offline_scores[0][1]
             evaluation_lenghts = offline_scores[0][2]
             evaluation_terminal_states = offline_scores[0][3]
 
-            means.append(np.mean(evaluation_returns))
-            stds.append(2 * np.std(evaluation_returns) / np.sqrt(len(evaluation_returns)))  # 95% confidence interval
-            for ret, length in zip(evaluation_returns, evaluation_lenghts):
+            means.append(np.mean(total_rewards))
+            stds.append(2 * np.std(total_rewards) / np.sqrt(len(total_rewards)))  # 95% confidence interval
+            for ret, length in zip(total_rewards, evaluation_lenghts):
                 returns.append(ret)
                 lens.append(length)
                 indices.append(str(particles[i]) + "_pf")
             final_states.append(evaluation_terminal_states)
 
             # Compute the discounted return
-            for r_list in evaluation_r_per_timestep:
+            for r_list in undiscounted_returns:
                 discount = 1
                 disc_rew = 0
                 for r in r_list:

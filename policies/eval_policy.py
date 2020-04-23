@@ -12,7 +12,7 @@ def test(add_terminal, env, i, interactive, max_len, pi, verbose):
 
 def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, interactive=False, max_len=np.inf):
     start = time.time()
-    rewards = []
+    rewards_per_timestep = []
     lens = []
     final_states = []
 
@@ -22,25 +22,25 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
     results = p.starmap(evaluate, [(add_terminal, copy.deepcopy(wrapper), i, interactive, max_len, verbose) for i in range(n_episodes)])
 
     for r in results:
-        rewards.append(r[0])
+        rewards_per_timestep.append(r[0])
         lens.append(r[1])
         final_states.append(r[2])
 
     # p.join()
     p.close()
 
-    r_per_timestep = np.sum(rewards, axis=1)
-    avg = np.mean(r_per_timestep)
-    std = np.std(r_per_timestep)
+    total_rewards = np.sum(rewards_per_timestep, axis=1)
+    avg = np.mean(total_rewards)
+    std = np.std(total_rewards)
     if verbose or True:
         print("Average Return = {0} +- {1}".format(avg, std))
     wrapper.reset()
     print("Time to perform evaluation episodes:", time.time() - start, "s")
-    return r_per_timestep, rewards, lens, final_states
+    return total_rewards, rewards_per_timestep, lens, final_states
 
 
 def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, interactive=False, max_len=np.inf):
-    rewards = []
+    rewards_per_timestep = []
     lens = []
     final_states = []
     print()
@@ -49,17 +49,17 @@ def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, inter
             print('Evaluated ' + str(i) + ' of ' + str(n_episodes), end='\r')
 
         rew, t, final_state = evaluate(add_terminal, wrapper, i, interactive, max_len, verbose)
-        rewards.append(rew)
+        rewards_per_timestep.append(rew)
         lens.append(t)
         final_states.append(final_state)
 
-    r_per_timestep = np.sum(rewards, axis=1)
-    avg = np.mean(r_per_timestep)
-    std = np.std(r_per_timestep)
+    total_rewards = np.sum(rewards_per_timestep, axis=1)
+    avg = np.mean(total_rewards)
+    std = np.std(total_rewards)
     if verbose or True:
         print("Average Return = {0} +- {1}".format(avg, std))
     wrapper.reset()
-    return r_per_timestep, rewards, lens, final_states
+    return total_rewards, rewards_per_timestep, lens, final_states
 
 def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose):
     start = time.time()
