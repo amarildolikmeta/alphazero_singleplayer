@@ -19,3 +19,5 @@ __pycache__/
 *.svg
 
 notebooks/.ipynb_checkpoints/Plot-checkpoint.ipynb
+
+rl_agents_scripts/out
