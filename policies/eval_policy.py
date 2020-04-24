@@ -12,7 +12,7 @@ def test(add_terminal, env, i, interactive, max_len, pi, verbose):
 
 def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, interactive=False, max_len=np.inf):
     start = time.time()
-    rewards = []
+    rewards_per_timestep = []
     lens = []
     final_states = []
 
@@ -22,24 +22,25 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
     results = p.starmap(evaluate, [(add_terminal, copy.deepcopy(wrapper), i, interactive, max_len, verbose) for i in range(n_episodes)])
 
     for r in results:
-        rewards.append(r[0])
+        rewards_per_timestep.append(r[0])
         lens.append(r[1])
         final_states.append(r[2])
 
     # p.join()
     p.close()
 
-    avg = np.mean(rewards)
-    std = np.std(rewards)
+    total_rewards = np.sum(rewards_per_timestep, axis=1)
+    avg = np.mean(total_rewards)
+    std = np.std(total_rewards)
     if verbose or True:
         print("Average Return = {0} +- {1}".format(avg, std))
     wrapper.reset()
     print("Time to perform evaluation episodes:", time.time() - start, "s")
-    return rewards, lens, final_states
+    return total_rewards, rewards_per_timestep, lens, final_states
 
 
 def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, interactive=False, max_len=np.inf):
-    rewards = []
+    rewards_per_timestep = []
     lens = []
     final_states = []
     print()
@@ -48,24 +49,24 @@ def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, inter
             print('Evaluated ' + str(i) + ' of ' + str(n_episodes), end='\r')
 
         rew, t, final_state = evaluate(add_terminal, wrapper, i, interactive, max_len, verbose)
-        rewards.append(rew)
+        rewards_per_timestep.append(rew)
         lens.append(t)
         final_states.append(final_state)
 
-    avg = np.mean(rewards)
-    std = np.std(rewards)
+    total_rewards = np.sum(rewards_per_timestep, axis=1)
+    avg = np.mean(total_rewards)
+    std = np.std(total_rewards)
     if verbose or True:
         print("Average Return = {0} +- {1}".format(avg, std))
     wrapper.reset()
-    return rewards, lens
-
+    return total_rewards, rewards_per_timestep, lens, final_states
 
 def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose):
     start = time.time()
     s = wrapper.reset()
     # print("1")
     t = 0
-    rew = 0
+    rew = []
     while t <= max_len:
         s = np.concatenate([s, [0]]) if add_terminal else s
         a = wrapper.pi_wrapper(s, max_depth=max_len-t)
@@ -75,7 +76,7 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose):
             # print("Action=%f" % a.flatten())
             print("Reward=%f" % r)
             input()
-        rew += r
+        rew.append(r)
         t += 1
         if done:
             break
@@ -86,5 +87,6 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose):
         # print(acts)
         print("Episode {0}: Return = {1}, Duration = {2}, Time = {3} s".format(i, rew, t, time.time() - start))
 
-    signature = wrapper.get_env().index_to_box(wrapper.get_env().get_signature()['state'])
+    #signature = wrapper.get_env().index_to_box(wrapper.get_env().get_signature()['state'])
+    signature = None
     return rew, t, signature

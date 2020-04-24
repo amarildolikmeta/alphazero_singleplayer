@@ -7,11 +7,12 @@ import gym
 import numpy as np
 # Register deterministic FrozenLakes
 from gym.envs.registration import register
+import gym_minigrid
 
 from envs import generate_taxi, generate_taxi_easy, generate_arms, generate_river, generate_loop, generate_chain, \
-    generate_three_arms
+    generate_three_arms, generate_collect_stochastic, generate_bridge_stochastic, generate_river_continuous
 
-from .wrappers import NormalizeWrapper, ReparametrizeWrapper, PILCOWrapper, ScaleRewardWrapper, ClipRewardWrapper, \
+from rl.wrappers import NormalizeWrapper, ReparametrizeWrapper, PILCOWrapper, ScaleRewardWrapper, ClipRewardWrapper, \
     ScaledObservationWrapper
 
 register(
@@ -36,7 +37,10 @@ game_to_env = {
     "Loop": generate_loop,
     "RiverSwim": generate_river,
     "SixArms": generate_arms,
-    "ThreeArms": generate_three_arms}
+    "ThreeArms": generate_three_arms,
+    "MiniGrid-Collect-Stochastic-9x9-v0": generate_collect_stochastic,
+    "Bridge-stochastic": generate_bridge_stochastic,
+    "RiverSwim-continuous": generate_river_continuous}
 
 
 def get_base_env(env):
@@ -109,3 +113,6 @@ def prepare_atari_env(Env, frame_skip=3, repeat_action_prob=0.0, reward_clip=Tru
     if reward_clip:
         Env = ClipRewardWrapper(Env)
     return Env
+
+if __name__ == '__main__':
+    make_game("MiniGrid-Collect-Stochastic-9x9-v0")

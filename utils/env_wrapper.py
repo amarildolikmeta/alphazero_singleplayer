@@ -1,8 +1,6 @@
 import random
 import numpy as np
 
-from model_tf2 import ModelWrapper
-
 
 class Wrapper(object):
     def __init__(self, root_index, mcts_maker, model_save_file, model_wrapper_params,
@@ -101,11 +99,11 @@ class Wrapper(object):
 
     def search(self, n_mcts, c_dpw, mcts_env, max_depth=200):
         self.get_mcts().search(n_mcts=n_mcts, c=c_dpw, Env=self.get_env(), mcts_env=mcts_env, max_depth=max_depth)
+        # self.get_mcts().visualize()
 
     def return_results(self, temp):
         return self.get_mcts().return_results(temp=temp)
     
-
 
 class PolicyEvalWrapper(object):
     def __init__(self, env_wrapper, is_atari, n_mcts, mcts_env, c_dpw, temp, mcts_only=True):

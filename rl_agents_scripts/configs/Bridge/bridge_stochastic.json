@@ -1,0 +1,4 @@
+{
+    "id": "MiniGrid-Bridge-Stochastic-v0",
+    "import_module": "gym_minigrid"
+}

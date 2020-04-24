@@ -1,0 +1,4 @@
+{
+    "id": "MiniGrid-RiverSwim-continuous-v0",
+    "import_module": "envs"
+}

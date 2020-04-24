@@ -1,12 +1,26 @@
 import numpy as np
 import copy
 from helpers import (argmax, is_atari_game, copy_atari_state, restore_atari_state, stable_normalizer)
-from pure_mcts import MCTS, Action, State
+from pure_mcts.mcts import MCTS, Action, State
 from igraph import Graph, EdgeSeq
 import plotly.graph_objects as go
 import plotly.io as pio
 
-DESTROY = False
+DESTROY = True
+
+class KeySet(object):
+    def __init__(self, state):
+        self.state = copy.deepcopy(state)
+
+        if type(state) == np.ndarray:
+            self.state = {'state': state.tostring()}
+        else:
+            for k in state:
+                if type(self.state[k]) == np.ndarray:
+                    self.state[k] = self.state[k].tostring()
+
+    def __hash__(self):
+        return hash(tuple(sorted(self.state.items())))
 
 class StochasticAction(Action):
     ''' StochasticAction object '''
@@ -17,19 +31,23 @@ class StochasticAction(Action):
         self.n_children = 0
         self.state_indeces = {}
 
-    def add_child_state(self, s1, r, terminal, signature, env=None, max_state=200):
+    def add_child_state(self, s1, r, terminal, signature, env=None, max_depth=200):
         child_state = StochasticState(s1, r, terminal, self, self.parent_state.na, signature, env=env,
-                                      max_state=max_state)
+                                      max_depth=max_depth)
         self.child_states.append(child_state)
-        s1_hash = s1.tostring()
-        self.state_indeces[s1_hash] = self.n_children
+
+        sk = KeySet(s1)
+
+        #s1_hash = s1.tostring()
+        self.state_indeces[sk] = self.n_children
         self.n_children += 1
         return child_state
 
     def get_state_ind(self, s1):
-        s1_hash = s1.tostring()
+        # s1_hash = s1.tostring()
+        sk = KeySet(s1)
         try:
-            index = self.state_indeces[s1_hash]
+            index = self.state_indeces[sk]
             return index
         except KeyError:
             return -1
@@ -70,8 +88,22 @@ class MCTSStochastic(MCTS):
             mcts_env = copy.deepcopy(Env)  # copy original Env to rollout from
         # else:
         #     restore_atari_state(mcts_env, snapshot)
-        if mcts_env._state != Env._state:
-            print("Copying went wrong")
+
+        # Check that the environment has been copied correctly
+        try:
+            sig1 = mcts_env.get_signature()
+            sig2 = Env.get_signature()
+            if sig1.keys() != sig2.keys():
+                raise AssertionError
+            if not all(np.array_equal(sig1[key], sig2[key]) for key in sig1):
+                raise AssertionError
+        except AssertionError:
+            print("Something wrong while copying the environment")
+            sig1 = mcts_env.get_signature()
+            sig2 = Env.get_signature()
+            print(sig1.keys(), sig2.keys())
+            exit()
+
         if self.root is None:
             # initialize new root
             self.root = StochasticState(self.root_index, r=0.0, terminal=False, parent_action=None, na=self.na,
@@ -144,7 +176,7 @@ class MCTSStochastic(MCTS):
         V_target = np.sum((counts / np.sum(counts)) * Q)[None]
         # V_target = np.max((counts / np.sum(counts)) * Q)[None]
         # V_target = np.max(Q)[None]
-        return self.root.index.flatten(), pi_target, V_target
+        return self.root.index, pi_target, V_target
 
     def forward(self, a, s1, r):
         ''' Move the root forward '''
