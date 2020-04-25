@@ -6,10 +6,6 @@ import copy
 
 USE_TQDM = True
 
-def test(add_terminal, env, i, interactive, max_len, pi, verbose):
-    pass
-
-
 def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, interactive=False, max_len=np.inf):
     rewards_per_timestep = []
     lens = []
@@ -21,7 +17,6 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
 
     results = p.starmap(evaluate, [(add_terminal, copy.deepcopy(wrapper), i, interactive, max_len, verbose) for i in range(n_episodes)])
     print("Time to perform evaluation episodes:", time.time() - start, "s")
-
 
     for r in results:
         rewards_per_timestep.append(np.array(r[0]))
@@ -54,7 +49,7 @@ def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, inter
         lens.append(t)
         final_states.append(final_state)
 
-    total_rewards = np.sum(rewards_per_timestep, axis=1)
+    total_rewards = [sum(rew) for rew in rewards_per_timestep]
     avg = np.mean(total_rewards)
     std = np.std(total_rewards)
     if verbose or True:
