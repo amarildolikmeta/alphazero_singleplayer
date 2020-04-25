@@ -14,3 +14,4 @@ tqdm==4.43.0
 plotly==4.5.4
 gym_minigrid
 git+https://github.com/eleurent/rl-agents
+git+https://github.com/eleurent/gym-minigrid
