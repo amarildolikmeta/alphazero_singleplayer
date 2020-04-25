@@ -11,31 +11,32 @@ def test(add_terminal, env, i, interactive, max_len, pi, verbose):
 
 
 def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, interactive=False, max_len=np.inf):
-    start = time.time()
     rewards_per_timestep = []
     lens = []
     final_states = []
 
+    start = time.time()
     p = multiprocessing.Pool(min(n_episodes, multiprocessing.cpu_count()))
     # results = p.starmap(test, [(env) for i in range(n_episodes)])
 
     results = p.starmap(evaluate, [(add_terminal, copy.deepcopy(wrapper), i, interactive, max_len, verbose) for i in range(n_episodes)])
+    print("Time to perform evaluation episodes:", time.time() - start, "s")
+
 
     for r in results:
-        rewards_per_timestep.append(r[0])
-        lens.append(r[1])
+        rewards_per_timestep.append(np.array(r[0]))
+        lens.append(np.array(r[1]))
         final_states.append(r[2])
 
     # p.join()
     p.close()
 
-    total_rewards = np.sum(rewards_per_timestep, axis=1)
+    total_rewards = [sum(rew) for rew in rewards_per_timestep]
     avg = np.mean(total_rewards)
     std = np.std(total_rewards)
     if verbose or True:
         print("Average Return = {0} +- {1}".format(avg, std))
     wrapper.reset()
-    print("Time to perform evaluation episodes:", time.time() - start, "s")
     return total_rewards, rewards_per_timestep, lens, final_states
 
 
