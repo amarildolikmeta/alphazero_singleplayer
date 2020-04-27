@@ -59,7 +59,7 @@ from envs import race_strategy
 #                    'Root directory for writing logs/summaries/checkpoints.')
 flags.DEFINE_string('root_dir', "/tmp/alphazero/REINFORCE",
                     'Root directory for writing logs/summaries/checkpoints.')
-flags.DEFINE_integer('num_iterations', 500,
+flags.DEFINE_integer('num_iterations', 2000,
                      'Total number train/eval iterations to perform.')
 FLAGS = flags.FLAGS
 
@@ -240,4 +240,5 @@ def main(_):
 
 if __name__ == '__main__':
     flags.mark_flag_as_required('root_dir')
+    flags.mark_flag_as_required('num_iterations')
     app.run(main)
