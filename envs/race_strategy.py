@@ -1,5 +1,3 @@
-from abc import ABC
-from copy import copy
 import gym
 import numpy as np
 from gym import spaces
@@ -13,13 +11,12 @@ def generate_race():
 
 class Race(gym.Env):
 
-    def __init__(self, gamma=0.95, horizon=50, mean_lap=60., std_lap=1., mean_pit_stop=5., std_pit_stop=0.5,
+    def __init__(self, gamma=0.95, horizon=50, mean_lap=60., std_lap=1., mean_pit_stop=10., std_pit_stop=0.5,
                  slow_lap_degradation=0.5, fast_lap_degradation=1.2, slow_lap_time=4, fast_lap_time=1, max_lap_time=100,
                  scale_reward=True,):
 
         self.horizon = horizon
         self.gamma = gamma
-
         self.mean_lap = mean_lap
         self.std_lap = std_lap
         self.mean_pit_stop = mean_pit_stop
@@ -48,7 +45,7 @@ class Race(gym.Env):
         return [seed]
 
     def _get_slow_down(self):
-        return (self.tire_damage**2) / 10
+        return (self.tire_damage**2) / 20
 
     def _get_lap_time(self):
         time = self.np_random.normal(self.mean_lap, self.std_lap)
@@ -66,7 +63,7 @@ class Race(gym.Env):
         return self.np_random.normal(self.slow_lap_time, 0.2)
 
     def _fast_lap(self):
-        degradation = self.np_random.normal(self.fast_lap_degradation, 0.2)
+        degradation = self.np_random.normal(self.fast_lap_degradation, 0.1)
         self.tire_damage += degradation
         return self.np_random.normal(self.fast_lap_time, 0.1)
 
@@ -102,13 +99,14 @@ class Race(gym.Env):
         return np.array([self._t, self.tire_damage])
 
     def get_signature(self):
-        sig = {'state': np.copy(self.state)}
+        sig = {'state': np.copy(self.state), 'time': self.time}
         return sig
 
     def set_signature(self, sig):
         self.state = np.copy(sig['state'])
         self._t = self.state[0]
         self.tire_damage = self.state[1]
+        self.time = sig['time']
 
 
 register(
@@ -126,6 +124,7 @@ if __name__ == '__main__':
         a = 0
         s, r, done, _ = mdp.step(a)
         print("Reward:" + str(r) + " Lap Time: " + str(r * mdp.max_lap_time))
+        mdp.set_signature(mdp.get_signature())
         ret += r
         if done:
             print("Return:", ret)
