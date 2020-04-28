@@ -13,7 +13,7 @@ class Race(gym.Env):
 
     def __init__(self, gamma=0.95, horizon=20, mean_lap=60., std_lap=1., mean_pit_stop=10., std_pit_stop=0.5,
                  slow_lap_degradation=0.5, fast_lap_degradation=1.2, slow_lap_time=4, fast_lap_time=1, max_lap_time=100,
-                 scale_reward=True,):
+                 scale_reward=True, positive_reward=True):
 
         self.horizon = horizon
         self.gamma = gamma
@@ -26,7 +26,7 @@ class Race(gym.Env):
         self.slow_lap_time = slow_lap_time
         self.fast_lap_time = fast_lap_time
         self.max_lap_time = max_lap_time
-
+        self.positive_reward = positive_reward
         self.viewer = None
         self._t = 0
         self.time = 0
@@ -87,6 +87,8 @@ class Race(gym.Env):
         self._t += 1
         terminal = True if self._t >= self.horizon else False
         # self.state = self.get_state()
+        if self.positive_reward:
+            reward = 1 + reward
         return self.get_state(), reward, terminal, {}
 
     def reset(self):

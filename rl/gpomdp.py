@@ -9,6 +9,8 @@ def eval_policy(pi, env, num_episodes=50, gamma=0.99, horizon=50, stochastic=Fal
 
     num_stops = []
     avg_damages = []
+    total_times = []
+
     for i in range(num_episodes):
         state = env.reset()
         ret = 0
@@ -30,7 +32,8 @@ def eval_policy(pi, env, num_episodes=50, gamma=0.99, horizon=50, stochastic=Fal
         rets.append(ret)
         num_stops.append(num_pits)
         avg_damages.append(avg_damage)
-    return rets, num_stops, avg_damages
+        total_times.append(env.time)
+    return rets, num_stops, avg_damages, total_times
 
 
 def create_batch_trajectories(pi,
@@ -119,10 +122,10 @@ def learn(
         params = pi.get_weights()
         if it % eval_frequency == 0:
             print("Evaluating policy for %d episodes" % (eval_episodes))
-            rets, stops, damages = eval_policy(pi, env, num_episodes=eval_episodes, stochastic=False, horizon=horizon)
+            rets, stops, damages, total_times = eval_policy(pi, env, num_episodes=eval_episodes, stochastic=False, horizon=horizon)
             mean_return = np.mean(rets)
             print("Policy performance %f" % (mean_return))
-            offline_scores.append([mean_return, np.mean(stops), np.mean(damages)])
+            offline_scores.append([mean_return, np.mean(stops), np.mean(damages), np.mean(total_times)])
             np.save(logdir + 'offline_scores.npy', offline_scores)
             pi.save(logdir + 'last')
             if mean_return > best_eval:

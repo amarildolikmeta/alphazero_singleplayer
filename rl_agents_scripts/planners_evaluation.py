@@ -43,7 +43,8 @@ def env_configs():
     # return ['configs/CartPoleEnv/env.json']
     # return ['configs/HighwayEnv/env_medium.json']
     #return ['configs/GridWorld/collect_stochastic.json']
-    return ['configs/RiverSwim/riverswim_continuous.json']
+    #return ['configs/RiverSwim/riverswim_continuous.json']
+    return ['configs/RaceStrategy/racestrategy.json']
 
 
 def agent_configs():
@@ -52,9 +53,9 @@ def agent_configs():
             "__class__": "<class 'rl_agents.agents.simple.random.RandomUniformAgent'>"
         },
         "olop": {
-            "__class__": "<class 'rl_agents.agents.tree_search.olop.OLOPAgent'>",
+            "__class__": "<class 'rl.agents.olop.OLOPAgent'>",
             "gamma": gamma,
-            "max_depth": 4,
+            "max_depth": 20,
             "upper_bound": {
                 "type": "hoeffding",
                 "c": 4
@@ -64,9 +65,9 @@ def agent_configs():
             # "env_preprocessors": [{"method": "simplify"}]
         },
         "kl-olop": {
-            "__class__": "<class 'rl_agents.agents.tree_search.olop.OLOPAgent'>",
+            "__class__": "<class 'rl.agents.olop.OLOPAgent'>",
             "gamma": gamma,
-            "max_depth": 4,
+            "max_depth": 20,
             "upper_bound": {
                 "type": "kullback-leibler",
                 "c": 2

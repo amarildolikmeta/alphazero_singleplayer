@@ -8,6 +8,7 @@ import plotly.io as pio
 
 DESTROY = True
 
+
 class KeySet(object):
     def __init__(self, state):
         self.state = copy.deepcopy(state)
@@ -21,6 +22,7 @@ class KeySet(object):
 
     def __hash__(self):
         return hash(tuple(sorted(self.state.items())))
+
 
 class StochasticAction(Action):
     ''' StochasticAction object '''
@@ -38,7 +40,7 @@ class StochasticAction(Action):
 
         sk = KeySet(s1)
 
-        #s1_hash = s1.tostring()
+        # s1_hash = s1.tostring()
         self.state_indeces[sk] = self.n_children
         self.n_children += 1
         return child_state
@@ -68,8 +70,6 @@ class StochasticState(State):
         self.signature = signature
         # self.priors = model.predict_pi(index).flatten()
         self.child_actions = [StochasticAction(a, parent_state=self, Q_init=self.V) for a in range(na)]
-
-
 
 
 class MCTSStochastic(MCTS):
