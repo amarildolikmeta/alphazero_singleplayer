@@ -32,10 +32,11 @@ import pandas as pd
 import seaborn as sns
 
 from rl_agents.agents.common.factory import load_environment, agent_factory
-from rl_agents.trainer.evaluation import Evaluation
+from rl_agents_scripts.custom.evaluation import Evaluation
 
 gamma = 0.99
 SEED_MAX = 1e9
+race_strategy = True
 
 sys.path.append(dirname(dirname(abspath(__file__))))
 
@@ -154,6 +155,9 @@ def evaluate(experiment):
         "return": return_,
         "length": length
     }
+    if race_strategy:
+        result["pit"] = evaluation.pits
+
     df = pd.DataFrame.from_records([result])
     with open(path, 'a') as f:
         df.to_csv(f, sep=',', encoding='utf-8', header=f.tell() == 0, index=False)
