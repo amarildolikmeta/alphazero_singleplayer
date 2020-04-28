@@ -162,16 +162,16 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
             # Run the evaluation
             if parallelize_evaluation:
-                total_reward, reward_per_timestep, lens, final_states = parallelize_eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False
+                total_reward, reward_per_timestep, lens, action_counts = parallelize_eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False
                                                                    , max_len=max_ep_len)
             else:
-                total_reward, reward_per_timestep, lens, final_states = eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False
+                total_reward, reward_per_timestep, lens, action_counts = eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False
                                                        , max_len=max_ep_len)
 
             # offline_scores.append([np.min(rews), np.max(rews), np.mean(rews), np.std(rews),
             #                        len(rews), np.mean(lens)])
 
-            offline_scores.append([total_reward, reward_per_timestep, lens, final_states])
+            offline_scores.append([total_reward, reward_per_timestep, lens, action_counts])
 
             np.save(numpy_dump_dir + '/offline_scores.npy', offline_scores)
 
