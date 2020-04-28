@@ -45,7 +45,7 @@ class Race(gym.Env):
         return [seed]
 
     def _get_slow_down(self):
-        return (self.tire_damage**2) / 20
+        return (self.tire_damage**2) / 15
 
     def _get_lap_time(self):
         time = self.np_random.normal(self.mean_lap, self.std_lap)

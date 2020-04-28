@@ -117,7 +117,7 @@ def learn(
     optimizer = Adam(learning_rate=lr, ascent=True, size=params.shape[0])
     for it in trange(max_iterations):
         params = pi.get_weights()
-        if it % eval_frequency == 0 and it != 0 :
+        if it % eval_frequency == 0:
             print("Evaluating policy for %d episodes" % (eval_episodes))
             rets, stops, damages = eval_policy(pi, env, num_episodes=eval_episodes, stochastic=False, horizon=horizon)
             mean_return = np.mean(rets)
