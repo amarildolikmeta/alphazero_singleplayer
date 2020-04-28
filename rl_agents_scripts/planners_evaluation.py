@@ -22,7 +22,7 @@ from docopt import docopt
 from collections import OrderedDict
 from itertools import product
 from multiprocessing.pool import Pool
-from os.path import  abspath, dirname
+from os.path import abspath, dirname
 import sys
 
 import gym
@@ -34,7 +34,7 @@ import seaborn as sns
 from rl_agents.agents.common.factory import load_environment, agent_factory
 from rl_agents.trainer.evaluation import Evaluation
 
-gamma = 0.8
+gamma = 0.99
 SEED_MAX = 1e9
 
 sys.path.append(dirname(dirname(abspath(__file__))))
@@ -43,7 +43,7 @@ def env_configs():
     # return ['configs/CartPoleEnv/env.json']
     # return ['configs/HighwayEnv/env_medium.json']
     #return ['configs/GridWorld/collect_stochastic.json']
-    return ['configs/RiverSwim/riverswim.json']
+    return ['configs/RiverSwim/riverswim_continuous.json']
 
 
 def agent_configs():

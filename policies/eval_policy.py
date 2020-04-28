@@ -26,7 +26,7 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
     # p.join()
     p.close()
 
-    total_rewards = [sum(rew) for rew in rewards_per_timestep]
+    total_rewards = [np.sum(rew) for rew in rewards_per_timestep]
     avg = np.mean(total_rewards)
     std = np.std(total_rewards)
     if verbose or True:
@@ -45,11 +45,11 @@ def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, inter
             print('Evaluated ' + str(i) + ' of ' + str(n_episodes), end='\r')
 
         rew, t, final_state = evaluate(add_terminal, wrapper, i, interactive, max_len, verbose)
-        rewards_per_timestep.append(rew)
+        rewards_per_timestep.append(np.array(rew))
         lens.append(t)
         final_states.append(final_state)
 
-    total_rewards = [sum(rew) for rew in rewards_per_timestep]
+    total_rewards = [np.sum(rew) for rew in rewards_per_timestep]
     avg = np.mean(total_rewards)
     std = np.std(total_rewards)
     if verbose or True:

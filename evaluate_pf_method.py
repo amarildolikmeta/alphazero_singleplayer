@@ -12,7 +12,6 @@ import os
 import matplotlib.pyplot as plt
 from helpers import smooth, symmetric_remove
 import time
-from envs.blackjack_pi import BlackjackEnv
 
 from utils.parser_setup import setup_parser
 
@@ -138,7 +137,7 @@ if __name__ == '__main__':
                                                       use_sampler=args.use_sampler)
 
             total_rewards = offline_scores[0][0]
-            undiscounted_returns = offline_scores[0][1]
+            returns_per_step = offline_scores[0][1]
             evaluation_lenghts = offline_scores[0][2]
             evaluation_terminal_states = offline_scores[0][3]
 
@@ -151,7 +150,7 @@ if __name__ == '__main__':
             final_states.append(evaluation_terminal_states)
 
             # Compute the discounted return
-            for r_list in undiscounted_returns:
+            for r_list in returns_per_step:
                 discount = 1
                 disc_rew = 0
                 for r in r_list:

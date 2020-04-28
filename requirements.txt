@@ -14,6 +14,7 @@ tqdm
 plotly==4.5.4
 gym_minigrid
 seaborn
+tf-agents
 git+https://github.com/eleurent/rl-agents
 git+https://github.com/eleurent/gym-minigrid
 mpi4py

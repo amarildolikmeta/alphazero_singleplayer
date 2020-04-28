@@ -1,9 +1,9 @@
 import gym
+import copy
 import numpy as np
 from gym import spaces
 from gym.utils import seeding
 from gym import register
-
 
 def generate_race():
     return Race()
@@ -69,7 +69,7 @@ class Race(gym.Env):
 
     def step(self, action):
         if self._t >= self.horizon:
-            return self.state, 0, True, {}
+            return self.get_state(), 0, True, {}
 
         lap_time = self._get_lap_time()
         if action == 0:  # pit_stop
@@ -86,8 +86,8 @@ class Race(gym.Env):
         self.time += lap_time
         self._t += 1
         terminal = True if self._t >= self.horizon else False
-        self.state = self.get_state()
-        return self.state, reward, terminal, {}
+        # self.state = self.get_state()
+        return self.get_state(), reward, terminal, {}
 
     def reset(self):
         self._t = 0
@@ -99,14 +99,12 @@ class Race(gym.Env):
         return np.array([self._t, self.tire_damage])
 
     def get_signature(self):
-        sig = {'state': np.copy(self.state), 'time': self.time}
+        sig = {'state': np.copy(self.get_state()), 'time': copy(self.time)}
         return sig
 
     def set_signature(self, sig):
-        self.state = np.copy(sig['state'])
-        self._t = self.state[0]
-        self.tire_damage = self.state[1]
-        self.time = sig['time']
+        self._time = sig["time"]
+        self._t, self.tire_damage = sig["state"][0], sig["state"][1]
 
 
 register(
