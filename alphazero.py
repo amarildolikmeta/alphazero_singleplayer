@@ -146,12 +146,13 @@ if __name__ == '__main__':
             total_rewards = offline_scores[0][0]
             undiscounted_returns = offline_scores[0][1]
             evaluation_lenghts = offline_scores[0][2]
-            evaluation_terminal_states = offline_scores[0][3]
+            evaluation_pit_action_counts = offline_scores[0][3]
 
             indices = []
             returns = []
             lens = []
             rews = []
+            counts = []
 
             gamma = args.gamma
 
@@ -165,10 +166,11 @@ if __name__ == '__main__':
                 rews.append(disc_rew)
 
             # Fill the lists for building the dataframe
-            for ret, length in zip(total_rewards, evaluation_lenghts):
+            for ret, length, count in zip(total_rewards, evaluation_lenghts, evaluation_pit_action_counts):
                 returns.append(ret)
                 lens.append(length)
                 indices.append(agent_name)
+                counts.append(count)
 
             # Store the result of the experiment
             data = {"agent": indices,
@@ -176,6 +178,12 @@ if __name__ == '__main__':
                     "discounted_reward": rews,
                     "length": lens,
                     "budget": [args.budget] * len(indices)}
+
+            # Store the count of pit stops only if analyzing Race Strategy problem
+            if "RaceStrategy" in args.game:
+                data["pit_count"] = counts
+
+            # Write the dataframe to csv
             df = pd.DataFrame(data)
             df.to_csv("logs/{}_{}_{}_data_exp_{}.csv".format(agent_name, args.game, args.budget, i), header=True, index=False)
 

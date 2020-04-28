@@ -93,7 +93,7 @@ if __name__ == '__main__':
         # Variables for storing experiments' results
         returns = []
         lens = []
-        final_states = []
+        counts = []
         means = []
         stds = []
         indices = []
@@ -139,15 +139,15 @@ if __name__ == '__main__':
             total_rewards = offline_scores[0][0]
             returns_per_step = offline_scores[0][1]
             evaluation_lenghts = offline_scores[0][2]
-            evaluation_terminal_states = offline_scores[0][3]
+            evaluation_pit_counts = offline_scores[0][3]
 
             means.append(np.mean(total_rewards))
             stds.append(2 * np.std(total_rewards) / np.sqrt(len(total_rewards)))  # 95% confidence interval
-            for ret, length in zip(total_rewards, evaluation_lenghts):
+            for ret, length, count in zip(total_rewards, evaluation_lenghts, evaluation_pit_counts):
                 returns.append(ret)
                 lens.append(length)
                 indices.append(str(particles[i]) + "_pf")
-            final_states.append(evaluation_terminal_states)
+                counts.append(count)
 
             # Compute the discounted return
             for r_list in returns_per_step:
@@ -179,6 +179,10 @@ if __name__ == '__main__':
                 "discounted_reward": rews,
                 "length": lens,
                 "budget": [args.budget] * len(indices)}
+
+        # Store the count of pit stops only if analyzing Race Strategy problem
+        if "RaceStrategy" in args.game:
+            data["pit_count"] = counts
 
         df = pd.DataFrame(data)
 

@@ -22,3 +22,5 @@ notebooks/.ipynb_checkpoints/Plot-checkpoint.ipynb
 
 rl_agents_scripts/out
 notebooks/RiverSwim.zip
+
+.ipynb_checkpoints/
