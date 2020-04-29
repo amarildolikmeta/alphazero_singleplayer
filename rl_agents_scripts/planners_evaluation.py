@@ -48,7 +48,7 @@ def env_configs():
     # return ['configs/CartPoleEnv/env.json']
     # return ['configs/HighwayEnv/env_medium.json']
     #return ['configs/GridWorld/collect_stochastic.json']
-    return ['configs/RiverSwim/riverswim_continuous.json']
+    return ['configs/RiverSwim/riverswim.json']
     #return ['configs/RaceStrategy/racestrategy.json']
 
 
@@ -160,7 +160,7 @@ def evaluate(experiment):
         "length": length
     }
     if race_strategy:
-        result["pit"] = evaluation.pits
+        result["pit_count"] = evaluation.pits
 
     df = pd.DataFrame.from_records([result])
     with open(path, 'a') as f:
