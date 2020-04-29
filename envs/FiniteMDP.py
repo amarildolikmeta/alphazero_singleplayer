@@ -1,12 +1,50 @@
 from copy import copy
-
 import numpy as np
-from mushroom_rl.environments.environment import MDPInfo
-from mushroom_rl.utils import spaces
 import gym
 from gym.utils import seeding
 from gym import spaces as gym_spaces
 
+
+class MDPInfo:
+    """
+    This class is used to store the information of the environment.
+
+    """
+    def __init__(self, observation_space, action_space, gamma, horizon):
+        """
+        Constructor.
+
+        Args:
+             observation_space ([Box, Discrete]): the state space;
+             action_space ([Box, Discrete]): the action space;
+             gamma (float): the discount factor;
+             horizon (int): the horizon.
+
+        """
+        self.observation_space = observation_space
+        self.action_space = action_space
+        self.gamma = gamma
+        self.horizon = horizon
+
+    @property
+    def size(self):
+        """
+        Returns:
+            The sum of the number of discrete states and discrete actions. Only
+            works for discrete spaces.
+
+        """
+        return self.observation_space.size + self.action_space.size
+
+    @property
+    def shape(self):
+        """
+        Returns:
+            The concatenation of the shape tuple of the state and action
+            spaces.
+
+        """
+        return self.observation_space.shape + self.action_space.shape
 
 class FiniteMDP(gym.Env):
     """
@@ -79,7 +117,9 @@ class FiniteMDP(gym.Env):
 
     def step(self, action):
         # Increment timestep
-        self._t += 1
+        if self._t >= self.horizon:
+            return self._state, 0, True, {}
+
 
         if np.isscalar(action):
             action = [action]
@@ -90,7 +130,7 @@ class FiniteMDP(gym.Env):
 
         absorbing = not np.any(self.p[next_state[0], :, :])
         reward = self.r[self._state[0], action[0], next_state[0]]
-
+        self._t += 1
         # Signal that the state is terminal, if the time horizon has been reached
         if self._t >= self.horizon:
             absorbing = True

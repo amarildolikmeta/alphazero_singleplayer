@@ -5,7 +5,7 @@ import numpy as np
 from gym import spaces
 from gym.utils import seeding
 from gym_minigrid.register import register
-
+from rl_agents.agents.tree_search.deterministic import OptimisticDeterministicPlanner
 
 def generate_river_continuous():
     return RiverSwimContinuous()
@@ -58,6 +58,8 @@ class RiverSwimContinuous(gym.Env):
         return prob
 
     def step(self, action):
+        if self._t >= self.horizon:
+            return self.state, 0, True, {}
 
         # action = np.clip(action, self.action_space.low, self.action_space.high)
         prob = self._get_prob(action)
@@ -78,11 +80,8 @@ class RiverSwimContinuous(gym.Env):
             reward /= self.large
 
         self.state = np.clip(new_state, self.observation_space.low, self.observation_space.high)
-
         self._t += 1
-
         terminal = True if self._t >= self.horizon else False
-
         return self.state, reward, terminal, {}
 
     def reset(self):
@@ -109,11 +108,19 @@ register(
 if __name__ == '__main__':
     mdp = RiverSwimContinuous()
 
-    s = mdp.reset()
-    while True:
-        # print(s)
-        a = np.random.rand() * 2 - 1
-        a = 1
-        s, r, _, _ = mdp.step(a)
-        if s >= 5:
-            print(r)
+    gamma = 0.99
+    num_episodes = 5000
+    rets = []
+    for i in range(num_episodes):
+        ret = 0
+        t = 0
+        done = False
+        s = mdp.reset()
+        while not done:
+            a = 1
+            s, r, done, _ = mdp.step(a)
+            ret += r
+            t += 1
+        rets.append(ret)
+    print(np.mean(rets), np.std(rets) / np.sqrt(num_episodes))
+    print(rets)

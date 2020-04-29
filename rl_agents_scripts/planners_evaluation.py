@@ -54,33 +54,33 @@ def env_configs():
 
 def agent_configs():
     agents = {
-        "random": {
-            "__class__": "<class 'rl_agents.agents.simple.random.RandomUniformAgent'>"
-        },
-        "olop": {
-            "__class__": "<class 'rl.agents.olop.OLOPAgent'>",
-            "gamma": gamma,
-            "max_depth": MAX_DEPTH,
-            "upper_bound": {
-                "type": "hoeffding",
-                "c": 4
-            },
-            "lazy_tree_construction": True,
-            "continuation_type": "uniform",
-            # "env_preprocessors": [{"method": "simplify"}]
-        },
-        "kl-olop": {
-            "__class__": "<class 'rl.agents.olop.OLOPAgent'>",
-            "gamma": gamma,
-            "max_depth": MAX_DEPTH,
-            "upper_bound": {
-                "type": "kullback-leibler",
-                "c": 2
-            },
-            "lazy_tree_construction": True,
-            "continuation_type": "uniform",
-            # "env_preprocessors": [{"method": "simplify"}]
-        },
+        # "random": {
+        #     "__class__": "<class 'rl_agents.agents.simple.random.RandomUniformAgent'>"
+        # },
+        # "olop": {
+        #     "__class__": "<class 'rl.agents.olop.OLOPAgent'>",
+        #     "gamma": gamma,
+        #     "max_depth": MAX_DEPTH,
+        #     "upper_bound": {
+        #         "type": "hoeffding",
+        #         "c": 4
+        #     },
+        #     "lazy_tree_construction": True,
+        #     "continuation_type": "uniform",
+        #     # "env_preprocessors": [{"method": "simplify"}]
+        # },
+        # "kl-olop": {
+        #     "__class__": "<class 'rl.agents.olop.OLOPAgent'>",
+        #     "gamma": gamma,
+        #     "max_depth": MAX_DEPTH,
+        #     "upper_bound": {
+        #         "type": "kullback-leibler",
+        #         "c": 2
+        #     },
+        #     "lazy_tree_construction": True,
+        #     "continuation_type": "uniform",
+        #     # "env_preprocessors": [{"method": "simplify"}]
+        # },
         # "kl-olop-1": {
         #     "__class__": "<class 'rl_agents.agents.tree_search.olop.OLOPAgent'>",
         #     "gamma": gamma,
@@ -105,7 +105,8 @@ def agent_configs():
         #     # "env_preprocessors": [{"method": "simplify"}]
         # },
         "deterministic": {
-            "__class__": "<class 'rl_agents.agents.tree_search.deterministic.DeterministicPlannerAgent'>",
+            #"__class__": "<class 'rl_agents.agents.tree_search.deterministic.DeterministicPlannerAgent'>",
+            "__class__": "<class 'rl.agents.deterministic.DeterministicPlannerAgent'>",
             "gamma": gamma,
             # "env_preprocessors": [{"method": "simplify"}]
         }
