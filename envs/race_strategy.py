@@ -8,7 +8,6 @@ from gym import register
 def generate_race():
     return Race()
 
-
 class Race(gym.Env):
 
     def __init__(self, gamma=0.95, horizon=20, mean_lap=60., std_lap=1., mean_pit_stop=10., std_pit_stop=0.5,
