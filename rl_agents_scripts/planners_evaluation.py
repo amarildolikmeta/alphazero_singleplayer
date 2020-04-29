@@ -31,20 +31,25 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
+sys.path.append(dirname(dirname(abspath(__file__))))
+
 from rl_agents.agents.common.factory import load_environment, agent_factory
-from rl_agents.trainer.evaluation import Evaluation
+from rl_agents_scripts.custom.evaluation import Evaluation
 
 gamma = 0.99
 SEED_MAX = 1e9
+race_strategy = True
 
-sys.path.append(dirname(dirname(abspath(__file__))))
+MAX_DEPTH = 10
+
+
 
 def env_configs():
     # return ['configs/CartPoleEnv/env.json']
     # return ['configs/HighwayEnv/env_medium.json']
     #return ['configs/GridWorld/collect_stochastic.json']
-    #return ['configs/RiverSwim/riverswim_continuous.json']
-    return ['configs/RaceStrategy/racestrategy.json']
+    return ['configs/RiverSwim/riverswim_continuous.json']
+    #return ['configs/RaceStrategy/racestrategy.json']
 
 
 def agent_configs():
@@ -55,7 +60,7 @@ def agent_configs():
         "olop": {
             "__class__": "<class 'rl.agents.olop.OLOPAgent'>",
             "gamma": gamma,
-            "max_depth": 20,
+            "max_depth": MAX_DEPTH,
             "upper_bound": {
                 "type": "hoeffding",
                 "c": 4
@@ -67,7 +72,7 @@ def agent_configs():
         "kl-olop": {
             "__class__": "<class 'rl.agents.olop.OLOPAgent'>",
             "gamma": gamma,
-            "max_depth": 20,
+            "max_depth": MAX_DEPTH,
             "upper_bound": {
                 "type": "kullback-leibler",
                 "c": 2
@@ -154,6 +159,9 @@ def evaluate(experiment):
         "return": return_,
         "length": length
     }
+    if race_strategy:
+        result["pit"] = evaluation.pits
+
     df = pd.DataFrame.from_records([result])
     with open(path, 'a') as f:
         df.to_csv(f, sep=',', encoding='utf-8', header=f.tell() == 0, index=False)

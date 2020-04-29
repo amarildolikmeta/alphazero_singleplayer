@@ -1,5 +1,5 @@
 import gym
-import copy
+from copy import copy
 import numpy as np
 from gym import spaces
 from gym.utils import seeding
