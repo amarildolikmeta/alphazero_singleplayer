@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from utils.adam import Adam
 from gym.spaces import Box
 from tqdm import trange
@@ -118,14 +119,37 @@ def learn(
     params = pi.get_weights()
     best_eval = -np.inf
     optimizer = Adam(learning_rate=lr, ascent=True, size=params.shape[0])
-    for it in trange(max_iterations):
+    df = pd.DataFrame(columns=['disc_return', 'n_pits', 'damage', 'time', 'n_ep'])
+    df.to_csv(logdir + "offline_scores.csv")
+
+    pb = trange(max_iterations)
+    policy_perf = 0
+    mean_return = 0
+    grad_norm = 0
+
+    print("Evaluation will be on %d episodes" % eval_episodes)
+
+    for it in pb:
         params = pi.get_weights()
         if it % eval_frequency == 0:
-            print("Evaluating policy for %d episodes" % (eval_episodes))
+            pb.set_description("Ret %f # grad_norm %f # Evaluating..." % (mean_return, grad_norm))
+            # print("Evaluating policy for %d episodes" % (eval_episodes))
             rets, stops, damages, total_times = eval_policy(pi, env, num_episodes=eval_episodes, stochastic=False, horizon=horizon)
             mean_return = np.mean(rets)
-            print("Policy performance %f" % (mean_return))
-            offline_scores.append([mean_return, np.mean(stops), np.mean(damages), np.mean(total_times)])
+            mean_pit_count = np.mean(stops)
+            mean_damage = np.mean(damages)
+            mean_time = np.mean(total_times)
+            policy_perf = mean_return
+            # print("Policy performance %f" % (mean_return))
+
+            df = pd.DataFrame({'disc_return': [mean_return],
+                               'n_pits': mean_pit_count,
+                               'damage': mean_damage,
+                               'time': mean_pit_count,
+                               'n_ep': eval_episodes})
+            df.to_csv(logdir + "offline_scores.csv", mode='a', header=False, index=False)
+
+            offline_scores.append([mean_return, mean_pit_count, mean_damage, mean_time])
             np.save(logdir + 'offline_scores.npy', offline_scores)
             pi.save(logdir + 'last')
             if mean_return > best_eval:
@@ -143,7 +167,8 @@ def learn(
         # step = optimizer.update(grad)
         step = lr * grad
         grad_norm = np.linalg.norm(grad)
-        print("Iteration %d \t Return %f \t grad_norm %f" % ((it + 1), mean_return, grad_norm))
+        pb.set_description("Ret %f # grad_norm %f # Last eval %f" % (mean_return, grad_norm, policy_perf))
+        # print("Iteration %d \t Return %f \t grad_norm %f" % ((it + 1), mean_return, grad_norm))
         pi.set_weights(params + step)
     return pi
 

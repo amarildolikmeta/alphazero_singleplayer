@@ -10,6 +10,11 @@ import os
 from shutil import copyfile
 from gym import spaces
 
+def max_Q(x):
+    bestA = np.random.choice(np.argwhere(x == np.max(x))[0])
+    probs = np.array([0.] * len(x))
+    probs[bestA] = 1.
+    return probs
 
 def stable_normalizer(x, temp):
     ''' Computes x[i]**temp/sum_i(x[i]**temp) '''

@@ -62,6 +62,10 @@ parser.add_argument('--n_epochs', type=int, default=1000, help='Number of epochs
 args = parser.parse_args()
 game_params = {}
 
+# Disable GPU acceleration if not specifically requested
+if not args.gpu:
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 # Accept custom grid if the environment requires it
 if args.game == 'Taxi' or args.game == 'TaxiEasy':
     game_params['grid'] = args.grid

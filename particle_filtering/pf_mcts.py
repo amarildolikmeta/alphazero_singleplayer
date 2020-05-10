@@ -1,6 +1,6 @@
 import copy
 
-from helpers import stable_normalizer, copy_atari_state, restore_atari_state
+from helpers import stable_normalizer, copy_atari_state, restore_atari_state, argmax, max_Q
 from rl.make_game import is_atari_game
 import numpy as np
 import multiprocessing
@@ -166,7 +166,7 @@ class State(object):
         # TODO check here
         UCT = np.array(
             [child_action.Q + c * (np.sqrt(self.n + 1) / (child_action.n + 1)) for child_action in self.child_actions])
-        winner = np.argmax(UCT)
+        winner = argmax(UCT)
         return self.child_actions[winner]
 
     def update(self):
@@ -268,11 +268,14 @@ class PFMCTS(object):
                 state = action.parent_state
                 state.update()
 
-    def return_results(self, temp):
+    def return_results(self, temp, on_visits=False):
         """ Process the output at the root node """
         counts = np.array([child_action.n for child_action in self.root.child_actions])
         Q = np.array([child_action.Q for child_action in self.root.child_actions])
-        pi_target = stable_normalizer(counts, temp)
+        if on_visits:
+            pi_target = stable_normalizer(counts, temp)
+        else:
+            pi_target = max_Q(Q)
         V_target = np.sum((counts / np.sum(counts)) * Q)[None]
         return self.root.particles, pi_target, V_target
 

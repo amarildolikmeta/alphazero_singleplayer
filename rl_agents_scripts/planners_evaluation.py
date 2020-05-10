@@ -32,6 +32,7 @@ import pandas as pd
 import seaborn as sns
 
 sys.path.append(dirname(dirname(abspath(__file__))))
+sys.setrecursionlimit(10**6)
 
 from rl_agents.agents.common.factory import load_environment, agent_factory
 from rl_agents_scripts.custom.evaluation import Evaluation
@@ -48,8 +49,8 @@ def env_configs():
     # return ['configs/CartPoleEnv/env.json']
     # return ['configs/HighwayEnv/env_medium.json']
     #return ['configs/GridWorld/collect_stochastic.json']
-    return ['configs/RiverSwim/riverswim.json']
-    #return ['configs/RaceStrategy/racestrategy.json']
+    # return ['configs/RiverSwim/riverswim.json']
+    return ['configs/RaceStrategy/racestrategy.json']
 
 
 def agent_configs():

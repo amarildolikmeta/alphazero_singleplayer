@@ -1,6 +1,6 @@
 import numpy as np
 import copy
-from helpers import (is_atari_game, copy_atari_state, restore_atari_state, stable_normalizer)
+from helpers import (is_atari_game, copy_atari_state, restore_atari_state, stable_normalizer, max_Q)
 from pure_mcts.keyset import KeySet
 from pure_mcts.mcts import MCTS, Action, State
 
@@ -150,12 +150,14 @@ class MCTSStochastic(MCTS):
                 state = action.parent_state
                 state.update()
 
-    def return_results(self, temp):
+    def return_results(self, temp, on_visits=False):
         ''' Process the output at the root node '''
         counts = np.array([child_action.n for child_action in self.root.child_actions])
         Q = np.array([child_action.Q for child_action in self.root.child_actions])
-
-        pi_target = stable_normalizer(counts, temp)
+        if on_visits:
+            pi_target = stable_normalizer(counts, temp)
+        else:
+            pi_target = max_Q(Q)
         V_target = np.sum((counts / np.sum(counts)) * Q)[None]
         # V_target = np.max((counts / np.sum(counts)) * Q)[None]
         # V_target = np.max(Q)[None]
