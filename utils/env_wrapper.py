@@ -1,10 +1,19 @@
+import copy
 import random
+import signal
+
 import numpy as np
+
+class TimedOutExc(Exception):
+    pass
+
+def signal_handler(signum, frame):
+    raise TimedOutExc("Timed out!")
 
 
 class Wrapper(object):
     def __init__(self, root_index, mcts_maker, model_save_file, model_wrapper_params,
-                 mcts_params, is_atari, n_mcts, mcts_env, c_dpw,
+                 mcts_params, is_atari, n_mcts, budget, mcts_env, c_dpw,
                  temp, game_maker=None, Env=None, mcts_only=True):
 
         assert game_maker is not None or Env is not None, "No environment or maker provided to the wrapper"
@@ -25,6 +34,7 @@ class Wrapper(object):
         #self.action_dim = Env.action_space.n
         self.is_atari = is_atari
         self.n_mcts = n_mcts
+        self.budget = budget
         self.mcts_env = mcts_env
         self.mcts_only = mcts_only
         self.c_dpw = c_dpw
@@ -98,36 +108,13 @@ class Wrapper(object):
         return self.get_env().step(a)
 
     def search(self, n_mcts, c_dpw, mcts_env, max_depth=200):
-        self.get_mcts().search(n_mcts=n_mcts, c=c_dpw, Env=self.get_env(), mcts_env=mcts_env, max_depth=max_depth)
+        self.get_mcts().search(n_mcts=n_mcts,
+                               c=c_dpw,
+                               Env=self.get_env(),
+                               mcts_env=mcts_env,
+                               max_depth=max_depth,
+                               budget=self.budget)
         # self.get_mcts().visualize()
 
     def return_results(self, temp):
         return self.get_mcts().return_results(temp=temp)
-    
-
-class PolicyEvalWrapper(object):
-    def __init__(self, env_wrapper, is_atari, n_mcts, mcts_env, c_dpw, temp, mcts_only=True):
-        self.env_wrapper = env_wrapper
-        self.is_atari = is_atari
-        self.n_mcts = n_mcts
-        self.mcts_env = mcts_env
-        self.mcts_only = mcts_only
-        self.c_dpw = c_dpw
-        self.temp = temp
-
-        if not self.is_atari:
-            self.mcts_env = None
-
-    def pi_wrapper(self, s):
-        if self.mcts_only:
-            self.env_wrapper.search(self.n_mcts, self.c_dpw, self.mcts_env)
-            state, pi, V = self.env_wrapper.return_results(self.temp)  # TODO put 0 if the network is enabled
-            self.env_wrapper.curr_probs.append(pi)
-            max_p = np.max(pi)
-            a_w = np.random.choice(np.argwhere(pi == max_p)[0])
-        else:
-            pi_w = self.env_wrapper.get_model().predict_pi(s).flatten()
-            self.env_wrapper.curr_probs.append(pi_w)
-            max_p = np.max(pi_w)
-            a_w = np.random.choice(np.argwhere(pi_w == max_p))
-        return a_w

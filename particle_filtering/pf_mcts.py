@@ -14,7 +14,8 @@ import json
 MULTITHREADED = False
 
 
-def random_rollout(particle, actions, env, max_depth=200):
+def random_rollout(particle, actions, env, budget, max_depth=200):
+    print(budget)
     """Rollout from the current state following a random policy up to hitting a terminal state"""
     done = False
     if particle.terminal:
@@ -22,14 +23,15 @@ def random_rollout(particle, actions, env, max_depth=200):
 
     env.set_signature(particle.state)
     env.seed(particle.seed)
-    t = 0
     ret = 0
-    while t < max_depth and not done:
+    t = 0
+    while budget > 0 and t < max_depth and not done:
         action = np.random.choice(actions)
         s, r, done, _ = env.step(action)
-        t += 1
         ret += r
-    return ret
+        budget -= 1
+        t += 1
+    return ret, budget
 
 
 def parallel_step(particle, env, action):
@@ -81,7 +83,7 @@ class Action(object):
         self.Q = Q_init
         # self.child_state = None
 
-    def add_child_state(self, state, envs, sampler=None, max_depth=200):
+    def add_child_state(self, state, envs, budget, sampler=None, max_depth=200):
         if sampler:
 
             new_states = sampler.generate_next_particles(self.parent_state.particles, self.index)
@@ -108,8 +110,10 @@ class Action(object):
                                  particles=new_particles,
                                  sampler=sampler,
                                  root=False,
-                                 max_depth=max_depth)
-        return self.child_state
+                                 max_depth=max_depth,
+                                 budget=budget)
+
+        return self.child_state, self.child_state.remaining_budget
 
     def update(self, R):
         self.n += 1
@@ -120,7 +124,7 @@ class Action(object):
 class State(object):
     """ State object """
 
-    def __init__(self, parent_action, na, envs, particles, sampler=None, root=False, max_depth=200):
+    def __init__(self, parent_action, na, envs, particles, budget, sampler=None, root=False, max_depth=200):
 
         """ Initialize a new state """
         self.r = np.mean([particle.reward for particle in particles])  # The reward is the mean of the particles' reward
@@ -138,6 +142,7 @@ class State(object):
         # Child actions
         self.na = na
 
+        self.remaining_budget = budget
 
         if self.terminal or root:
             self.V = 0
@@ -147,53 +152,58 @@ class State(object):
             print("Warning, no environment was provided, initializing to 0 the value of the state!")
             self.V = 0
         else:
-            self.V = self.evaluate(particles, copy.deepcopy(envs), max_depth)
+            self.V, self.remaining_budget = self.evaluate(particles, copy.deepcopy(envs), budget, max_depth)
         self.n = 0
 
         self.child_actions = [Action(a, parent_state=self, Q_init=self.V) for a in range(na)]
 
+
+
     def to_json(self):
-        inf = {}
-        inf["particles"] = '<br>' + str([str(p) + '<br>' for p in self.particles])
-        inf["V"] = str(self.V) + '<br>'
-        inf["n"] = str(self.n) + '<br>'
-        inf["terminal"] = str(self.terminal) + '<br>'
-        inf["r"] = str(self.r) + '<br>'
+        inf = {"particles": '<br>' + str([str(p) + '<br>' for p in self.particles]),
+               "V": str(self.V) + '<br>',
+               "n": str(self.n) + '<br>',
+               "terminal": str(self.terminal) + '<br>',
+               "r": str(self.r) + '<br>'}
         return json.dumps(inf)
 
     def select(self, c=1.5):
         """ Select one of the child actions based on UCT rule """
         # TODO check here
-        UCT = np.array(
+        uct_upper_bound = np.array(
             [child_action.Q + c * (np.sqrt(self.n + 1) / (child_action.n + 1)) for child_action in self.child_actions])
-        winner = argmax(UCT)
+        winner = argmax(uct_upper_bound)
         return self.child_actions[winner]
 
     def update(self):
         """ update count on backward pass """
         self.n += 1
 
-    def evaluate(self, particles, envs, max_depth=200):
+    def evaluate(self, particles, envs, budget, max_depth=200):
         actions = np.arange(self.na, dtype=int)
 
         if not MULTITHREADED:
             results = []
             for i in range(len(particles)):
-                results.append(random_rollout(particles[i], actions, envs[i], max_depth))
+                if budget == 0:
+                    break
+                particle_return, budget = random_rollout(particles[i], actions, envs[i], budget, max_depth)
+                results.append(particle_return)
         else:
+            raise NotImplementedError("Budget handling with parallel rollout has not been implemented yet")
             p = multiprocessing.Pool(multiprocessing.cpu_count())
 
-            results = p.starmap(random_rollout, [(particles[i], actions, envs[i], max_depth) for i in range(len(envs))])
+            r = p.starmap(random_rollout, [(particles[i], actions, envs[i], budget) for i in range(len(envs))])
 
             p.close()
 
-        return np.mean(results)
+        return np.mean(results), budget
 
 
 class PFMCTS(object):
     ''' MCTS object '''
 
-    def __init__(self, root, root_index, na, gamma, model=None, particles=100, sampler = None):
+    def __init__(self, root, root_index, na, gamma, model=None, particles=100, sampler=None):
         self.root = root
         self.root_index = root_index
         self.na = na
@@ -201,7 +211,7 @@ class PFMCTS(object):
         self.n_particles = particles
         self.sampler = sampler
 
-    def search(self, n_mcts, c, Env, mcts_env, max_depth=200, fixed_depth=True):
+    def search(self, n_mcts, c, Env, mcts_env, budget, max_depth=200, fixed_depth=True):
         """ Perform the MCTS search from the root """
         Envs = None
         if not self.sampler:
@@ -220,7 +230,7 @@ class PFMCTS(object):
             particles = [Particle(state=signature, seed=random.randint(0, 1e7), reward=0, terminal=False, info=box)
                          for _ in range(self.n_particles)]
             self.root = State(parent_action=None, na=self.na, envs=Envs, particles=particles, sampler=self.sampler,
-                              root=True)
+                              root=True, budget=budget)
         else:
             self.root.parent_action = None  # continue from current root
             particles = self.root.particles
@@ -233,12 +243,13 @@ class PFMCTS(object):
             raise NotImplementedError
             snapshot = copy_atari_state(Env)  # for Atari: snapshot the root at the beginning
 
-        for i in range(n_mcts):
+        while budget > 0:
             state = self.root  # reset to root for new trace
             if not is_atari:
                 mcts_envs = None
                 if not self.sampler:
-                    mcts_envs = [copy.deepcopy(Env) for i in range(self.n_particles)]  # copy original Env to rollout from
+                    mcts_envs = [copy.deepcopy(Env) for i in
+                                 range(self.n_particles)]  # copy original Env to rollout from
             else:
                 raise NotImplementedError
                 restore_atari_state(mcts_env, snapshot)
@@ -252,7 +263,8 @@ class PFMCTS(object):
                     continue
                 else:
                     rollout_depth = max_depth if fixed_depth else max_depth - st
-                    state = action.add_child_state(state, mcts_envs, self.sampler, rollout_depth)  # expand
+                    state, budget = action.add_child_state(state, mcts_envs, budget, self.sampler,
+                                                   rollout_depth)  # expand
                     break
 
             # Back-up
@@ -373,6 +385,7 @@ class PFMCTS(object):
         for i, a in enumerate(root.child_actions):
             if hasattr(a, 'child_state'):
                 self.print_tree(a.child_state)
+
 
 def make_annotations(pos, labels, Xe, Ye, a_labels, M, position, font_size=10, font_color='rgb(250,250,250)'):
     L = len(pos)
