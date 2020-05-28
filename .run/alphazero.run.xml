@@ -13,7 +13,7 @@
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/alphazero.py" />
-    <option name="PARAMETERS" value="--game=RaceStrategy --budget=1000 --gamma=0.99 --max_ep_len=20 --stochastic --parallel --n_hidden_layers=3 --n_hidden_units=16 --eval_freq=20 --n_epochs=50 --lr=0.1 --batch_size=2048 --temp=0 --c=1.2 --n_ep=1 --eval_episodes=20 --n_mcts=50 --mcts_only --n_experiments=1" />
+    <option name="PARAMETERS" value="--game=RaceStrategy --parallel --budget=100000 --gamma=0.99 --max_ep_len=20 --stochastic --n_hidden_layers=3 --n_hidden_units=16 --eval_freq=20 --n_epochs=50 --lr=0.1 --batch_size=2048 --temp=0 --c=1.2 --n_ep=1 --eval_episodes=20 --n_mcts=50 --mcts_only --n_experiments=1" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="true" />
     <option name="MODULE_MODE" value="false" />

@@ -18,7 +18,8 @@ def random_rollout(particle, actions, env, budget, max_depth=200):
     """Rollout from the current state following a random policy up to hitting a terminal state"""
     done = False
     if particle.terminal:
-        return particle.reward
+        budget -= 1
+        return particle.reward, budget
 
     env.set_signature(particle.state)
     env.seed(particle.seed)
@@ -74,12 +75,16 @@ class Particle(object):
 class Action(object):
     """ Action object """
 
-    def __init__(self, index, parent_state, Q_init=0.0):
+    def __init__(self, index, parent_state, Q_init=np.ndarray):
         self.index = index
         self.parent_state = parent_state
         self.W = 0.0
+        self.M2 = 0.0
         self.n = 0
-        self.Q = Q_init
+        self.Q = 0.
+        self.update(Q_init)
+        self.sigma = np.inf
+        self.rewards = []
         # self.child_state = None
 
     def add_child_state(self, state, envs, budget, sampler=None, max_depth=200):
@@ -115,9 +120,28 @@ class Action(object):
         return self.child_state, self.child_state.remaining_budget
 
     def update(self, R):
+
+        for r in R:
+            self.update_aggregate(r)
+
+        self.finalize_aggregate()
+
+
+    def update_aggregate(self, new_sample):
         self.n += 1
-        self.W += R
-        self.Q = self.W / self.n
+        delta = new_sample - self.Q
+        self.Q += delta / self.n
+        delta2 = new_sample - self.Q
+        self.M2 += delta * delta2
+
+    def finalize_aggregate(self):
+
+        if self.n < 2:
+            self.sigma = np.inf
+        else:
+            self.sigma = self.M2 / self.n
+            # sample_variance = self.M2 / (self.n - 1)
+
 
 
 class State(object):
@@ -126,7 +150,7 @@ class State(object):
     def __init__(self, parent_action, na, envs, particles, budget, sampler=None, root=False, max_depth=200):
 
         """ Initialize a new state """
-        self.r = np.mean([particle.reward for particle in particles])  # The reward is the mean of the particles' reward
+        self.r = np.array([particle.reward for particle in particles])  # The reward is the mean of the particles' reward
         self.terminal = True  # whether the domain terminated in this state
 
         # A state is terminal only if all of its particles are terminal
@@ -144,16 +168,24 @@ class State(object):
         self.remaining_budget = budget
 
         if self.terminal or root:
-            self.V = 0
+            self.V = [0.] * len(self.particles)
             self.remaining_budget -= len(self.particles)
         elif sampler is not None:
+            raise NotImplementedError("no sampler, please")
             self.V = np.mean(sampler.evaluate(particles, max_depth))
         elif envs is None:
             print("Warning, no environment was provided, initializing to 0 the value of the state!")
-            self.V = 0
+            self.V = [0.] * len(self.particles)
         else:
             self.V, self.remaining_budget = self.evaluate(particles, copy.deepcopy(envs), budget, max_depth)
         self.n = 0
+
+        self.V = np.array(self.V)
+
+        if not self.V.shape == self.r.shape:
+            print(self.V.shape)
+            print(self.r.shape)
+            exit()
 
         self.child_actions = [Action(a, parent_state=self, Q_init=self.V) for a in range(na)]
 
@@ -169,9 +201,13 @@ class State(object):
     def select(self, c=1.5):
         """ Select one of the child actions based on UCT rule """
         # TODO check here
-        uct_upper_bound = np.array(
-            [child_action.Q + c * (np.sqrt(self.n + 1) / (child_action.n + 1)) for child_action in self.child_actions])
-        winner = argmax(uct_upper_bound)
+
+        bound = np.array([child_action.Q + c * child_action.sigma / child_action.n if child_action.n > 0 else np.inf
+                          for child_action in self.child_actions])
+
+        # uct_upper_bound = np.array(
+        #     [child_action.Q + c * (np.sqrt(self.n + 1) / (child_action.n + 1)) for child_action in self.child_actions])
+        winner = argmax(bound)
         return self.child_actions[winner]
 
     def update(self):
@@ -181,8 +217,10 @@ class State(object):
     def evaluate(self, particles, envs, budget, max_depth=200):
         actions = np.arange(self.na, dtype=int)
 
+        print(len(particles))
+
         if not MULTITHREADED:
-            results = []
+            results = [0.]
             for i in range(len(particles)):
                 if budget == 0:
                     break
@@ -195,8 +233,7 @@ class State(object):
             r = p.starmap(random_rollout, [(particles[i], actions, envs[i], budget) for i in range(len(envs))])
 
             p.close()
-
-        return np.mean(results), budget
+        return results, budget
 
 
 class PFMCTS(object):
@@ -247,7 +284,7 @@ class PFMCTS(object):
             if not is_atari:
                 mcts_envs = None
                 if not self.sampler:
-                    mcts_envs = [copy.deepcopy(Env) for i in
+                    mcts_envs = [copy.deepcopy(Env) for _ in
                                  range(self.n_particles)]  # copy original Env to rollout from
             else:
                 raise NotImplementedError

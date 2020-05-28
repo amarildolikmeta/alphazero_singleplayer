@@ -31,7 +31,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         from mcts import MCTS
         from mcts_dpw import MCTSStochastic
     elif particles:
-        from particle_filtering.pf_mcts import PFMCTS
+        from particle_filtering.pf_mcts_edo import PFMCTS
     else:
         from pure_mcts.mcts import MCTS
         from pure_mcts.mcts_dpw import MCTSStochastic

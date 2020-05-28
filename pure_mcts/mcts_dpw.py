@@ -16,8 +16,8 @@ class StochasticAction(Action):
         self.n_children = 0
         self.state_indeces = {}
 
-    def add_child_state(self, s1, r, terminal, signature, env=None, max_depth=200):
-        child_state = StochasticState(s1, r, terminal, self, self.parent_state.na, signature, env=env,
+    def add_child_state(self, s1, r, terminal, signature, budget, env=None, max_depth=200):
+        child_state = StochasticState(s1, r, terminal, self, self.parent_state.na, signature, budget, env=env,
                                       max_depth=max_depth)
         self.child_states.append(child_state)
 
@@ -26,7 +26,7 @@ class StochasticAction(Action):
         # s1_hash = s1.tostring()
         self.state_indeces[sk] = self.n_children
         self.n_children += 1
-        return child_state
+        return child_state, child_state.remaining_budget
 
     def get_state_ind(self, s1):
         # s1_hash = s1.tostring()
@@ -48,8 +48,8 @@ class StochasticAction(Action):
 class StochasticState(State):
     ''' StochasticState object '''
 
-    def __init__(self, index, r, terminal, parent_action, na, signature, env=None, max_depth=200):
-        super().__init__(index, r, terminal, parent_action, na, env=env, max_depth=max_depth)
+    def __init__(self, index, r, terminal, parent_action, na, signature, budget, env=None, max_depth=200):
+        super().__init__(index, r, terminal, parent_action, na, budget, env=env, max_depth=max_depth)
         self.signature = signature
         # self.priors = model.predict_pi(index).flatten()
         self.child_actions = [StochasticAction(a, parent_state=self, Q_init=self.V) for a in range(na)]
@@ -62,7 +62,7 @@ class MCTSStochastic(MCTS):
         super(MCTSStochastic, self).__init__(root, root_index, na, gamma)
         self.alpha = alpha
 
-    def search(self, n_mcts, c, Env, mcts_env, max_depth=200):
+    def search(self, n_mcts, c, Env, mcts_env, budget, max_depth=200):
         ''' Perform the MCTS search from the root '''
         is_atari = is_atari_game(Env)
         if is_atari:
@@ -90,13 +90,13 @@ class MCTSStochastic(MCTS):
         if self.root is None:
             # initialize new root
             self.root = StochasticState(self.root_index, r=0.0, terminal=False, parent_action=None, na=self.na,
-                                        signature=Env.get_signature(), env=mcts_env)
+                                        signature=Env.get_signature(), env=mcts_env, budget=budget)
         else:
             self.root.parent_action = None  # continue from current root
         if self.root.terminal:
             raise (ValueError("Can't do tree search from a terminal state"))
 
-        for i in range(n_mcts):
+        while budget > 0:
             state = self.root  # reset to root for new trace
             if not is_atari:
                 mcts_env = copy.deepcopy(Env)  # copy original Env to rollout from
@@ -123,15 +123,19 @@ class MCTSStochastic(MCTS):
                     if action.get_state_ind(s1) != -1:
                         state = action.child_states[action.get_state_ind(s1)]  # select
                         state.r = r
+                        if state.terminal:
+                            budget -= 1
                     else:
                         # if action.index == 0 and len(action.child_states) > 0:
                         #     print("Error")
-                        state = action.add_child_state(s1, r, t, mcts_env.get_signature(), env=mcts_env,
-                                                       max_depth=max_depth - st)  # expand
+                        state, budget = action.add_child_state(s1, r, t, mcts_env.get_signature(), budget, env=mcts_env,
+                                                               max_depth=max_depth - st)  # expand
                         break
                 else:
                     state = action.sample_state()
                     mcts_env.set_signature(state.signature)
+                    if state.terminal:
+                        budget -= 1
                     # obs = mcts_env._get_obs().flatten()
                     # flattened_State = state.index.flatten()
                     # if not np.array_equal(flattened_State, obs):
