@@ -108,6 +108,13 @@ class Action(object):
 
             p.close()
 
+        rollout_budget_bound = len(new_particles) * max_depth
+        if budget < rollout_budget_bound * 0.5:
+            return state, 0
+
+        elif 0.5 * rollout_budget_bound <= budget < rollout_budget_bound:
+            budget = rollout_budget_bound
+
         self.child_state = State(parent_action=self,
                                  na=self.parent_state.na,
                                  envs=envs,
@@ -182,11 +189,6 @@ class State(object):
 
         self.V = np.array(self.V)
 
-        if not self.V.shape == self.r.shape:
-            print(self.V.shape)
-            print(self.r.shape)
-            exit()
-
         self.child_actions = [Action(a, parent_state=self, Q_init=self.V) for a in range(na)]
 
 
@@ -217,13 +219,12 @@ class State(object):
     def evaluate(self, particles, envs, budget, max_depth=200):
         actions = np.arange(self.na, dtype=int)
 
-        print(len(particles))
-
         if not MULTITHREADED:
-            results = [0.]
+            results = []
             for i in range(len(particles)):
-                if budget == 0:
-                    break
+                assert budget > 0, "Running out of budget during evaluation of a state should never happen"
+                    # results.extend([np.mean(results)] * (len(particles) - i))
+                    # return results, 0
                 particle_return, budget = random_rollout(particles[i], actions, envs[i], budget, max_depth)
                 results.append(particle_return)
         else:
@@ -301,22 +302,29 @@ class PFMCTS(object):
                     continue
                 else:
                     rollout_depth = max_depth if fixed_depth else max_depth - st
-                    state, budget = action.add_child_state(state, mcts_envs, budget, self.sampler,
+                    child_state, budget = action.add_child_state(state, mcts_envs, budget, self.sampler,
                                                    rollout_depth)  # expand
+                    if id(state) == id(child_state):
+                        backup_ward = False
+                    else:
+                        backup_ward = True
+                        state = child_state
+
                     break
 
             # Back-up
-            R = state.V
-            state.update()
-            while state.parent_action is not None:  # loop back-up until root is reached
-                if not state.terminal:
-                    R = state.r + self.gamma * R
-                else:
-                    R = state.r
-                action = state.parent_action
-                action.update(R)
-                state = action.parent_state
+            if backup_ward:
+                R = state.V
                 state.update()
+                while state.parent_action is not None:  # loop back-up until root is reached
+                    if not state.terminal:
+                        R = state.r + self.gamma * R
+                    else:
+                        R = state.r
+                    action = state.parent_action
+                    action.update(R)
+                    state = action.parent_state
+                    state.update()
 
     def return_results(self, temp, on_visits=False):
         """ Process the output at the root node """
