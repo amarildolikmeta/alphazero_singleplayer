@@ -133,7 +133,6 @@ class Action(object):
 
         self.finalize_aggregate()
 
-
     def update_aggregate(self, new_sample):
         self.n += 1
         delta = new_sample - self.Q
@@ -150,14 +149,14 @@ class Action(object):
             # sample_variance = self.M2 / (self.n - 1)
 
 
-
 class State(object):
     """ State object """
 
     def __init__(self, parent_action, na, envs, particles, budget, sampler=None, root=False, max_depth=200):
 
         """ Initialize a new state """
-        self.r = np.array([particle.reward for particle in particles])  # The reward is the mean of the particles' reward
+        self.r = np.array(
+            [particle.reward for particle in particles])  # The reward is the mean of the particles' reward
         self.terminal = True  # whether the domain terminated in this state
 
         # A state is terminal only if all of its particles are terminal
@@ -191,7 +190,6 @@ class State(object):
 
         self.child_actions = [Action(a, parent_state=self, Q_init=self.V) for a in range(na)]
 
-
     def to_json(self):
         inf = {"particles": '<br>' + str([str(p) + '<br>' for p in self.particles]),
                "V": str(self.V) + '<br>',
@@ -200,12 +198,21 @@ class State(object):
                "r": str(self.r) + '<br>'}
         return json.dumps(inf)
 
-    def select(self, c=1.5):
-        """ Select one of the child actions based on UCT rule """
-        # TODO check here
+    def select(self, c=1.5, csi=1., b=1.):
+        """
+         Select one of the child actions based on UCT rule
+         :param c: UCB exploration constant
+         :param csi: exploration constant
+         :param b: parameter such that the rewards belong to [0, b]
+         """
 
-        bound = np.array([child_action.Q + c * child_action.sigma / child_action.n if child_action.n > 0 else np.inf
-                          for child_action in self.child_actions])
+        assert c > 0, "c must be > 0"
+        assert csi > 0, "csi must be > 0"
+        assert b > 0, "b must be > 0"
+
+        bound = np.array([child_action.Q + np.sqrt(csi * child_action.sigma * self.n / child_action.n) + 3 * c * b * csi * np.log(self.n)/child_action.n
+                  if child_action.n > 0 and self.n > 0 else np.inf
+                  for child_action in self.child_actions])
 
         # uct_upper_bound = np.array(
         #     [child_action.Q + c * (np.sqrt(self.n + 1) / (child_action.n + 1)) for child_action in self.child_actions])
@@ -223,8 +230,8 @@ class State(object):
             results = []
             for i in range(len(particles)):
                 assert budget > 0, "Running out of budget during evaluation of a state should never happen"
-                    # results.extend([np.mean(results)] * (len(particles) - i))
-                    # return results, 0
+                # results.extend([np.mean(results)] * (len(particles) - i))
+                # return results, 0
                 particle_return, budget = random_rollout(particles[i], actions, envs[i], budget, max_depth)
                 results.append(particle_return)
         else:
@@ -303,7 +310,7 @@ class PFMCTS(object):
                 else:
                     rollout_depth = max_depth if fixed_depth else max_depth - st
                     child_state, budget = action.add_child_state(state, mcts_envs, budget, self.sampler,
-                                                   rollout_depth)  # expand
+                                                                 rollout_depth)  # expand
                     if id(state) == id(child_state):
                         backup_ward = False
                     else:
