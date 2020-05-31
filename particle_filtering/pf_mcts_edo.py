@@ -206,12 +206,12 @@ class State(object):
          :param b: parameter such that the rewards belong to [0, b]
          """
 
-        assert c > 0, "c must be > 0"
-        assert csi > 0, "csi must be > 0"
-        assert b > 0, "b must be > 0"
+        # assert c > 0, "c must be > 0"
+        # assert csi > 0, "csi must be > 0"
+        # assert b > 0, "b must be > 0"
 
         bound = np.array([child_action.Q + np.sqrt(csi * child_action.sigma * self.n / child_action.n) + 3 * c * b * csi * np.log(self.n)/child_action.n
-                  if child_action.n > 0 and self.n > 0 else np.inf
+                  if child_action.n > 0 else np.inf
                   for child_action in self.child_actions])
 
         # uct_upper_bound = np.array(
@@ -289,6 +289,8 @@ class PFMCTS(object):
 
         while budget > 0:
             state = self.root  # reset to root for new trace
+            if state.n == 0:
+                state.n = 1
             if not is_atari:
                 mcts_envs = None
                 if not self.sampler:
