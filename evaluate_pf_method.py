@@ -88,7 +88,7 @@ if __name__ == '__main__':
 
         # particles = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
 
-        particles = [2,4,6,8,10,12,14,16,18,20]
+        particles = [2,4,6,8,10,12,14,16,18,20,50]
 
         # Variables for storing experiments' results
         returns = []

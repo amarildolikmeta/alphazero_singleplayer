@@ -63,7 +63,7 @@ class OptimisticDeterministicPlanner(AbstractPlanner):
 
 
 class DeterministicNode(Node):
-    def __init__(self, parent, planner, state=None, depth=0):
+    def __init__(self, parent, planner, state=None, depth=0, action=None):
         super(DeterministicNode, self).__init__(parent, planner)
         self.state = state
         self.depth = depth
@@ -71,6 +71,7 @@ class DeterministicNode(Node):
         self.value_upper_bound = 0
         self.count = 1
         self.done = False
+        self.action = action
 
     def selection_rule(self):
         if not self.children:
@@ -91,7 +92,8 @@ class DeterministicNode(Node):
             self.children[action] = type(self)(self,
                                                self.planner,
                                                state=safe_deepcopy_env(self.state),
-                                               depth=self.depth + 1)
+                                               depth=self.depth + 1,
+                                               action=action)
             observation, reward, done, _ = self.children[action].state.step(action)
             self.planner.leaves.append(self.children[action])
             self.children[action].update(reward, done, observation)

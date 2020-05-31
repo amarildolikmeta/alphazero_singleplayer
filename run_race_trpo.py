@@ -15,18 +15,30 @@ import utils.tf_util as U
 from rl.policies.eval_policy import eval_policy
 import time
 import argparse
+from rl.make_game import make_game
+import matplotlib.pyplot as plt
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
-def train_trpo(num_timesteps, eval_episodes, seed, horizon, out_dir='.', load_path=None, checkpoint_path_in=None,
+def train_trpo(game, num_timesteps, eval_episodes, seed, horizon, out_dir='.', load_path=None, checkpoint_path_in=None,
                gamma=0.99, timesteps_per_batch=500, num_layers=0, num_hidden=32, checkpoint_freq=20, max_kl=0.01):
     start_time = time.time()
     clip = None
-    dir = 'Race_Strategy'
-    env = Race(gamma=gamma, horizon=horizon, )
-    env_eval = Race(gamma=gamma, horizon=horizon)
+    dir = 'game'
+    game_params = {}
 
+    # Accept custom grid if the environment requires it
+    if game == 'Taxi' or game == 'TaxiEasy':
+        game_params['grid'] = args.grid
+        game_params['box'] = True
+    if game in ['RaceStrategy-v0', 'Cliff-v0']:
+        game_params['horizon'] = horizon
+
+    # env = Race(gamma=gamma, horizon=horizon, )
+    # env_eval = Race(gamma=gamma, horizon=horizon)
+    env = make_game(args.game, game_params)
+    env_eval = make_game(args.game, game_params)
     directory_output = (dir + '/trpo_' + str(num_layers) + '_'+ str(num_hidden) + '_'+  str(max_kl) + '/')
 
     def eval_policy_closure(**args):
@@ -47,7 +59,7 @@ def train_trpo(num_timesteps, eval_episodes, seed, horizon, out_dir='.', load_pa
     network = mlp(num_hidden=num_hidden, num_layers=num_layers)
 
 
-    trpo_mpi.learn(network=network, env=env, eval_policy=eval_policy_closure, timesteps_per_batch=timesteps_per_batch,
+    optimized_policy = trpo_mpi.learn(network=network, env=env, eval_policy=eval_policy_closure, timesteps_per_batch=timesteps_per_batch,
                    max_kl=max_kl, cg_iters=10, cg_damping=1e-3,
                    total_timesteps=num_timesteps, gamma=gamma, lam=1.0, vf_iters=3, vf_stepsize=1e-4,
                    checkpoint_freq=checkpoint_freq,
@@ -59,6 +71,21 @@ def train_trpo(num_timesteps, eval_episodes, seed, horizon, out_dir='.', load_pa
                    trainable_bias=True,
                    clip=clip)
 
+    s = env.reset()
+    done = False
+
+    states = []
+    actions = []
+    s = 0
+    delta_state = 0.2
+    while s < env.dim[0]:
+        a, _, _, _ = optimized_policy.step([s])
+        states.append(s)
+        actions.append(a[0])
+        s += delta_state
+    s = env.reset()
+    plt.plot(states, actions)
+    plt.show()
     print('TOTAL TIME:', time.time() - start_time)
     print("Time taken: %f seg" % ((time.time() - start_time)))
     print("Time taken: %f hours" % ((time.time() - start_time) / 3600))
@@ -68,20 +95,21 @@ def train_trpo(num_timesteps, eval_episodes, seed, horizon, out_dir='.', load_pa
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    parser.add_argument('--game', default='RaceStrategy-v0', help='Training environment')
     parser.add_argument('--num_layers', type=int, default=1)
     parser.add_argument('--num_hidden', type=int, default=8)
-    parser.add_argument('--timesteps_per_batch', type=int, default=2500)
+    parser.add_argument('--timesteps_per_batch', type=int, default=2000)
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--max_kl', type=float, default=0.001)
-    parser.add_argument('--checkpoint_freq', type=int, default=20)
-    parser.add_argument("--max_timesteps", type=int, default=5000000,
+    parser.add_argument('--checkpoint_freq', type=int, default=50)
+    parser.add_argument("--max_timesteps", type=int, default=402000,
                         help='Maximum number of timesteps')
     parser.add_argument("--eval_episodes", type=int, default=50,
                         help='Episodes of evaluation')
     parser.add_argument("--seed", type=int, default=8,
                         help='Random seed')
     parser.add_argument('--horizon', type=int, help='horizon length for episode',
-                        default=50)
+                        default=100)
     parser.add_argument('--dir', help='directory where to save data',
                         default='data/')
     parser.add_argument('--load_path', help='directory where to load model',
@@ -99,7 +127,8 @@ if __name__ == '__main__':
     if args.checkpoint_path_in == "":
         args.checkpoint_path_in = None
 
-    train_trpo(num_timesteps=args.max_timesteps,
+    train_trpo(game=args.game,
+               num_timesteps=args.max_timesteps,
                eval_episodes=args.eval_episodes,
                seed=args.seed,
                horizon=args.horizon,

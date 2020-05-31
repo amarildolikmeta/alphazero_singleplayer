@@ -21,9 +21,9 @@ def eval_policy(env, pi, n_episodes, verbose=True, interactive=False, gamma=0.99
         while True:
             a = pi(s)
             ns, r, done, inf = env.step(a[0])
-            num_pits += (1 if a == 0 else 0)
-            tire_damage = s[1]
-            avg_damage += tire_damage
+            #num_pits += (1 if a == 0 else 0)
+            #tire_damage = s[1]
+            #avg_damage += tire_damage
             s = ns
             if interactive:
                 print("Action=%d" % a)
@@ -34,7 +34,7 @@ def eval_policy(env, pi, n_episodes, verbose=True, interactive=False, gamma=0.99
             disc_rew += gamma**t * r
             t += 1
             if done:
-                avg_damage /= t
+                #avg_damage /= t
                 break
 
         if verbose:

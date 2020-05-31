@@ -13,7 +13,7 @@ def generate_river_continuous():
 
 class RiverSwimContinuous(gym.Env):
 
-    def __init__(self, dim=6, gamma=0.95, small=5, large=10000, horizon=10, scale_reward=True):
+    def __init__(self, dim=6, gamma=0.95, small=5, large=10000, horizon=10, fail=0.4, scale_reward=True):
 
         self.horizon = horizon
         self.small = small
@@ -25,7 +25,7 @@ class RiverSwimContinuous(gym.Env):
         self.max_action = 1.0
         self.min_position = 0
         self.max_position = dim
-
+        self.fail_prob = fail
         self.viewer = None
 
         self._t = 0
@@ -52,8 +52,8 @@ class RiverSwimContinuous(gym.Env):
             prob[1] = 0.
         else:
 
-            prob[0] = 0.3
-            prob[1] = 0.7
+            prob[0] = self.fail_prob
+            prob[1] = 1. - self.fail_prob
 
         return prob
 
@@ -107,9 +107,8 @@ register(
 
 if __name__ == '__main__':
     mdp = RiverSwimContinuous()
-
     gamma = 0.99
-    num_episodes = 5000
+    num_episodes = 10000
     rets = []
     for i in range(num_episodes):
         ret = 0
@@ -123,4 +122,5 @@ if __name__ == '__main__':
             t += 1
         rets.append(ret)
     print(np.mean(rets), np.std(rets) / np.sqrt(num_episodes))
+    print(np.max(rets))
     print(rets)

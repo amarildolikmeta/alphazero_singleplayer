@@ -21,18 +21,18 @@ def eval_policy(pi, env, num_episodes=50, gamma=0.99, horizon=50, stochastic=Fal
         while not done and t < horizon:
             a, _, _, _ = pi.step(state, stochastic=stochastic)
             state, reward, done, info = env.step(a)
-            num_pits += (1 if a == 0 else 0)
-            tire_damage = state[1]
-            avg_damage += tire_damage
+            #num_pits += (1 if a == 0 else 0)
+            #tire_damage = state[1]
+            #avg_damage += tire_damage
             ret += gamma ** t * reward
             t += 1
             if done:
-                avg_damage /= t
+                #avg_damage /= t
                 break
         rets.append(ret)
         num_stops.append(num_pits)
         avg_damages.append(avg_damage)
-        total_times.append(env.time)
+        #total_times.append(env.time)
     return rets, num_stops, avg_damages, total_times
 
 

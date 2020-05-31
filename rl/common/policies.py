@@ -57,19 +57,27 @@ class PolicyWithValue(object):
         self.neglogp = self.pd.neglogp(self.action)
         self.logits=tf.nn.softmax(self.pd.flatparam())
         self.sess = sess
-        self.action_ph = tf.placeholder(tf.int64, [None], name='targets_placeholder')
-        self.action_selected = action_selected = tf.one_hot(self.action_ph, env.action_space.n)
         self.prob = tf.nn.softmax(self.pd.flatparam())
-
-        out = tf.reduce_mean(tf.log(tf.reduce_sum(self.prob * action_selected, axis=1)))
-        self.vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="pi")
+        #out = tf.reduce_mean(tf.log(tf.reduce_sum(self.prob * action_selected, axis=1)))
+        self.vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="pi/pi")
         self.set_from_flat = tf_util.SetFromFlat(self.vars)
-        gradients = tf.gradients(out, self.vars)
-        flat_grad = tf_util.GetFlat(gradients).op
-        self.compute_gradients = tf_util.function(
-            inputs=[self.X, self.action_ph],
-            outputs=[flat_grad]
-        )
+        try:
+            self.action_ph = tf.placeholder(tf.int64, [None], name='targets_placeholder')
+            self.action_selected = action_selected = tf.one_hot(self.action_ph, env.action_space.n)
+        #out = tf.reduce_sum(tf.reduce_sum(tf.log(self.logits+1e-5)*action_selected, axis=1))
+            out = tf.reduce_mean(tf.log(tf.reduce_sum(self.prob*action_selected, axis=1)))
+            gradients = tf.gradients(out, self.vars)
+        except:
+            self.action_ph = tf.placeholder(dtype=tf.float32, shape=(None,) + env.action_space.shape,
+                                            name='targets_placeholder')
+            gradients = tf.gradients(-self.pd.neglogp(self.action_ph), self.vars)
+        #gradients = tf.gradients(out, self.vars)
+        if gradients[0] is not None:
+            flat_grad = tf_util.GetFlat(gradients).op
+            self.compute_gradients = tf_util.function(
+                inputs=[self.X, self.action_ph],
+                outputs=[flat_grad]
+            )
         if estimate_q:
             assert isinstance(env.action_space, gym.spaces.Discrete)
             self.q = fc(vf_latent, 'q', env.action_space.n)

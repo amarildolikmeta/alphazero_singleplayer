@@ -1,13 +1,12 @@
 import copy
-
+from scipy.stats import norm
 from helpers import stable_normalizer, copy_atari_state, restore_atari_state
 from rl.make_game import is_atari_game
 import numpy as np
 import multiprocessing
-
 from igraph import Graph
 import plotly.graph_objects as go
-
+from helpers import argmax
 import random
 import json
 
@@ -66,6 +65,7 @@ class Particle(object):
         self.terminal = terminal
         self.info = info
 
+
     def __str__(self):
         return str(self.info)
 
@@ -120,7 +120,7 @@ class Action(object):
 class State(object):
     """ State object """
 
-    def __init__(self, parent_action, na, envs, particles, sampler=None, root=False, max_depth=200):
+    def __init__(self, parent_action, na, envs, particles, sampler=None, root=False, max_depth=200, delta=0.95):
 
         """ Initialize a new state """
         self.r = np.mean([particle.reward for particle in particles])  # The reward is the mean of the particles' reward
@@ -137,17 +137,19 @@ class State(object):
 
         # Child actions
         self.na = na
-
+        self.standard_bound = norm.ppf(delta, loc=0, scale=1)
 
         if self.terminal or root:
             self.V = 0
         elif sampler is not None:
-            self.V = np.mean(sampler.evaluate(particles, max_depth))
+            rets = sampler.evaluate(particles, max_depth)
+            self.V = np.mean(rets) #+ self.standard_bound * np.std(rets) / np.sqrt(len(rets))
         elif envs is None:
             print("Warning, no environment was provided, initializing to 0 the value of the state!")
             self.V = 0
         else:
-            self.V = self.evaluate(particles, copy.deepcopy(envs), max_depth)
+            rets = self.evaluate(particles, copy.deepcopy(envs), max_depth)
+            self.V = self.V = np.mean(rets) #+ self.standard_bound * np.std(rets) / np.sqrt(len(rets))
         self.n = 0
 
         self.child_actions = [Action(a, parent_state=self, Q_init=self.V) for a in range(na)]
@@ -166,7 +168,7 @@ class State(object):
         # TODO check here
         UCT = np.array(
             [child_action.Q + c * (np.sqrt(self.n + 1) / (child_action.n + 1)) for child_action in self.child_actions])
-        winner = np.argmax(UCT)
+        winner = argmax(UCT)
         return self.child_actions[winner]
 
     def update(self):
@@ -187,19 +189,20 @@ class State(object):
 
             p.close()
 
-        return np.mean(results)
+        return results
 
 
 class PFMCTS(object):
     ''' MCTS object '''
 
-    def __init__(self, root, root_index, na, gamma, model=None, particles=100, sampler = None):
+    def __init__(self, root, root_index, na, gamma, model=None, particles=100, sampler = None, delta=0.95):
         self.root = root
         self.root_index = root_index
         self.na = na
         self.gamma = gamma
         self.n_particles = particles
         self.sampler = sampler
+        self.standard_bound = standard_bound = norm.ppf(delta, loc=0, scale=1)
 
     def search(self, n_mcts, c, Env, mcts_env, max_depth=200, fixed_depth=True):
         """ Perform the MCTS search from the root """
@@ -318,7 +321,7 @@ class PFMCTS(object):
                                  mode='markers',
                                  name='bla',
                                  marker=dict(symbol='circle-dot',
-                                             size=18,
+                                             size=5,
                                              color='#6175c1',  # '#DB4551',
                                              line=dict(color='rgb(50,50,50)', width=1)
                                              ),
@@ -352,7 +355,7 @@ class PFMCTS(object):
             v_label.append(root.to_json())
             if root.parent_action:
                 g.add_edge(parent_index, vertex_index)
-                a_label.append(root.parent_action.index)
+                a_label.append(str(root.parent_action.index) + " (%.2f)" %(root.r))
             par_index = vertex_index
             vertex_index += 1
             for i, a in enumerate(root.child_actions):
@@ -370,6 +373,7 @@ class PFMCTS(object):
         for i, a in enumerate(root.child_actions):
             if hasattr(a, 'child_state'):
                 self.print_tree(a.child_state)
+
 
 def make_annotations(pos, labels, Xe, Ye, a_labels, M, position, font_size=10, font_color='rgb(250,250,250)'):
     L = len(pos)

@@ -14,7 +14,7 @@ import os
 import matplotlib.pyplot as plt
 from helpers import smooth, symmetric_remove
 import time
-from envs.blackjack_pi import BlackjackEnv
+#from envs.blackjack_pi import BlackjackEnv
 
 from utils.parser_setup import setup_parser
 
@@ -22,10 +22,10 @@ plt.style.use('ggplot')
 from agent import agent
 from gym.envs.registration import register
 
-register(
-    id='Blackjack_pi-v0',
-    entry_point='envs.blackjack_pi:BlackjackEnv',
-)
+# register(
+#     id='Blackjack_pi-v0',
+#     entry_point='envs.blackjack_pi:BlackjackEnv',
+# )
 
 #### Command line call, parsing and plotting ##
 colors = ['r', 'b', 'g', 'orange', 'c', 'k', 'purple', 'y']

@@ -201,7 +201,7 @@ class MCTS(object):
                                  mode='markers',
                                  name='bla',
                                  marker=dict(symbol='circle-dot',
-                                             size=18,
+                                             size=5,
                                              color='#6175c1',  # '#DB4551',
                                              line=dict(color='rgb(50,50,50)', width=1)
                                              ),

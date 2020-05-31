@@ -1,2 +1,2 @@
 #!/bin/bash
-python evaluate_pf_method.py --game=MiniGrid-Collect-Stochastic-9x9-v0 --budget=1000 --gamma=0.8 --max_ep_len=10 --parallel --n_hidden_layers=3 --n_hidden_units=16 --eval_freq=20 --n_epochs=50 --lr=0.1 --batch_size=2048 --temp=0.15 --c=1.2 --n_ep=1 --eval_episodes=100 --n_mcts=50 --mcts_only --n_experiments=1
+python3 evaluate_pf_method.py --game=MiniGrid-RiverSwim-continuous-v0 --budget=10000 --gamma=0.99 --max_ep_len=10 --parallel --n_workers 6  --temp=0.15 --c=1.2 --n_ep=1 --eval_episodes=20 --n_mcts=50 --mcts_only --n_experiments=1
