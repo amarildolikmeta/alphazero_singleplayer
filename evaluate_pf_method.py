@@ -104,7 +104,8 @@ if __name__ == '__main__':
         for i in range(len(particles)):
             print()
             print("Number of particles:", particles[i])
-            n_mcts = int(args.budget/(args.max_ep_len * particles[i]))
+            # n_mcts = int(args.budget/(args.max_ep_len * particles[i]))
+            n_mcts = np.inf
             out_dir_i = out_dir + str(i) + '/'
 
             print("Number of mcts searches:", n_mcts)
@@ -114,6 +115,7 @@ if __name__ == '__main__':
                                                       n_ep=args.n_ep,
                                                       n_mcts=n_mcts,
                                                       max_ep_len=args.max_ep_len,
+                                                      budget=args.budget,
                                                       lr=args.lr,
                                                       c=args.c,
                                                       gamma=args.gamma,

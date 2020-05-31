@@ -8,7 +8,7 @@ USE_TQDM = True
 
 
 def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, interactive=False,
-                            max_len=np.inf):
+                            max_len=200):
     rewards_per_timestep = []
     ep_lengths = []
     action_counts = []
@@ -39,7 +39,7 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
     return total_rewards, rewards_per_timestep, ep_lengths, action_counts
 
 
-def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, interactive=False, max_len=np.inf):
+def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, interactive=False, max_len=200):
     rewards_per_timestep = []
     ep_lengths = []
     action_counts = []
@@ -68,7 +68,6 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose):
     s = wrapper.reset()
     t = 0
     rew = []
-
     while t <= max_len:
         s = np.concatenate([s, [0]]) if add_terminal else s
         a = wrapper.pi_wrapper(s, max_depth=max_len - t)
@@ -88,10 +87,12 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose):
             break
         else:
             wrapper.forward(a, s, r)
+        # print(t)
 
     if verbose:
         # print(acts)
         print("Episode {0}: Return = {1}, Duration = {2}, Time = {3} s".format(i, rew, t, time.time() - start))
 
     # signature = wrapper.get_env().index_to_box(wrapper.get_env().get_signature()['state'])
+
     return rew, t, action_counter

@@ -1,16 +1,14 @@
 import numpy as np
 import copy
 from helpers import (argmax, is_atari_game, copy_atari_state, restore_atari_state, stable_normalizer)
-from igraph import Graph, EdgeSeq, Edge
+from igraph import Graph
 import plotly.graph_objects as go
-import plotly.io as pio
 import json
-import random
 
 ##### MCTS functions #####
 
 class Action(object):
-    ''' Action object '''
+    """ Action object """
 
     def __init__(self, index, parent_state, Q_init=0.0):
         self.index = index
@@ -19,9 +17,9 @@ class Action(object):
         self.n = 0
         self.Q = Q_init
 
-    def add_child_state(self, s1, r, terminal, env=None, max_depth=200):
-        self.child_state = State(s1, r, terminal, self, self.parent_state.na, env=env, max_depth=max_depth)
-        return self.child_state
+    def add_child_state(self, s1, r, terminal, budget, env=None, max_depth=200):
+        self.child_state = State(s1, r, terminal, self, self.parent_state.na, budget, env=env, max_depth=max_depth)
+        return self.child_state, self.child_state.remaining_budget
 
     def update(self, R):
         self.n += 1
@@ -30,10 +28,10 @@ class Action(object):
 
 
 class State(object):
-    ''' State object '''
+    """ State object """
 
-    def __init__(self, index, r, terminal, parent_action, na, env=None, max_depth=200):
-        ''' Initialize a new state '''
+    def __init__(self, index, r, terminal, parent_action, na, budget,env=None, max_depth=200):
+        """ Initialize a new state """
         self.index = index  # state
         self.r = r  # reward upon arriving in this state
         self.terminal = terminal  # whether the domain terminated in this state
@@ -42,16 +40,18 @@ class State(object):
         # Child actions
         self.na = na
 
+        self.remaining_budget = budget
+
         if env is None:
             print("Warning, no environment was provided, initializing to 0 the value of the state!")
         if terminal or env is None:
             self.V = 0
+            self.remaining_budget -= 1
         else:
-            self.V = self.evaluate(copy.deepcopy(env), max_depth=max_depth)
+            self.V, self.remaining_budget = self.evaluate(copy.deepcopy(env), budget, max_depth=max_depth)
         self.n = 0
 
         self.child_actions = [Action(a, parent_state=self, Q_init=self.V) for a in range(na)]
-
 
     def to_json(self):
         inf = {}
@@ -64,7 +64,7 @@ class State(object):
         return json.dumps(inf)
 
     def select(self, c=1.5):
-        ''' Select one of the child actions based on UCT rule '''
+        """ Select one of the child actions based on UCT rule """
         # TODO check here
         UCT = np.array(
             [child_action.Q + c * (np.sqrt(self.n + 1) / (child_action.n + 1)) for child_action in self.child_actions])
@@ -72,23 +72,24 @@ class State(object):
         return self.child_actions[winner]
 
     def update(self):
-        ''' update count on backward pass '''
+        """ update count on backward pass """
         self.n += 1
 
-    def evaluate(self, env, max_depth=200):
+    def evaluate(self, env, budget, max_depth=200):
         """Run a random exploration from the state up to hitting a terminal state"""
         done = False
         t = 0
         ret = 0
-        while t < max_depth and not done:
+        while t < max_depth and budget > 0 and not done:
             a = np.random.choice(np.arange(self.na))
             _, r, done, _ = env.step(a)
             ret += r
             t += 1
-        return ret
+            budget -= 1
+        return ret, budget
 
 class MCTS(object):
-    ''' MCTS object '''
+    """ MCTS object """
 
     def __init__(self, root, root_index, na, gamma, dpw=False, alpha=0.6, model=None):
         self.root = root
@@ -98,11 +99,11 @@ class MCTS(object):
         self.dpw = dpw
         self.alpha = alpha
 
-    def search(self, n_mcts, c, Env, mcts_env, max_depth=200):
-        ''' Perform the MCTS search from the root '''
+    def search(self, n_mcts, c, Env, mcts_env, budget, max_depth=200):
+        """ Perform the MCTS search from the root """
         if self.root is None:
             # initialize new root
-            self.root = State(self.root_index, r=0.0, terminal=False, parent_action=None, na=self.na, env=mcts_env)
+            self.root = State(self.root_index, r=0.0, terminal=False, parent_action=None, na=self.na, env=mcts_env, budget=budget)
         else:
             self.root.parent_action = None  # continue from current root
         if self.root.terminal:
@@ -112,7 +113,7 @@ class MCTS(object):
         if is_atari:
             snapshot = copy_atari_state(Env)  # for Atari: snapshot the root at the beginning
 
-        for i in range(n_mcts):
+        while budget > 0:
             state = self.root  # reset to root for new trace
             if not is_atari:
                 mcts_env = copy.deepcopy(Env)  # copy original Env to rollout from
@@ -125,9 +126,11 @@ class MCTS(object):
                 s1, r, t, _ = mcts_env.step(action.index)
                 if hasattr(action, 'child_state'):
                     state = action.child_state  # select
+                    if state.terminal:
+                        budget -= 1
                     continue
                 else:
-                    state = action.add_child_state(s1, r, t, env=mcts_env, max_depth=max_depth-st)  # expand
+                    state, budget = action.add_child_state(s1, r, t, budget, env=mcts_env, max_depth=max_depth-st)  # expand
                     break
 
             # Back-up
@@ -144,7 +147,7 @@ class MCTS(object):
                 state.update()
 
     def return_results(self, temp):
-        ''' Process the output at the root node '''
+        """ Process the output at the root node """
         counts = np.array([child_action.n for child_action in self.root.child_actions])
         Q = np.array([child_action.Q for child_action in self.root.child_actions])
         pi_target = stable_normalizer(counts, temp)
@@ -152,7 +155,7 @@ class MCTS(object):
         return self.root.index.flatten(), pi_target, V_target
 
     def forward(self, a, s1, r):
-        ''' Move the root forward '''
+        """ Move the root forward """
         if not hasattr(self.root.child_actions[a], 'child_state'):
             self.root = None
             self.root_index = s1

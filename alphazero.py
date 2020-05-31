@@ -10,6 +10,7 @@ from datetime import datetime
 
 from joblib import Parallel, delayed
 import pandas as pd
+import numpy as np
 import os
 import matplotlib.pyplot as plt
 from helpers import smooth, symmetric_remove
@@ -108,10 +109,12 @@ if __name__ == '__main__':
         for i in range(args.n_experiments):
 
             # Compute the actual number of mcts searches for each step
-            if args.particles > 0:
-                n_mcts = int(args.budget / (args.max_ep_len * args.particles))
-            else:
-                n_mcts = int(args.budget / args.max_ep_len)
+            # if args.particles > 0:
+            #     n_mcts = int(args.budget / (args.max_ep_len * args.particles))
+            # else:
+            #     n_mcts = int(args.budget / args.max_ep_len)
+
+            n_mcts = np.inf
 
             out_dir_i = out_dir + str(i) + '/'
 
@@ -121,6 +124,7 @@ if __name__ == '__main__':
                                                       n_ep=args.n_ep,
                                                       n_mcts=n_mcts,
                                                       max_ep_len=args.max_ep_len,
+                                                      budget=args.budget,
                                                       lr=args.lr,
                                                       c=args.c,
                                                       gamma=args.gamma,

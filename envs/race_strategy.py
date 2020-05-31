@@ -5,6 +5,8 @@ from gym import spaces
 from gym.utils import seeding
 from gym import register
 
+from random import random
+
 def generate_race():
     return Race()
 
@@ -12,7 +14,7 @@ class Race(gym.Env):
 
     def __init__(self, gamma=0.95, horizon=20, mean_lap=60., std_lap=1., mean_pit_stop=10., std_pit_stop=0.5,
                  slow_lap_degradation=0.5, fast_lap_degradation=1.2, slow_lap_time=4, fast_lap_time=1, max_lap_time=100,
-                 scale_reward=True, positive_reward=True):
+                 scale_reward=True, positive_reward=True, random_event=0.):
 
         self.horizon = horizon
         self.gamma = gamma
@@ -27,6 +29,8 @@ class Race(gym.Env):
         self.max_lap_time = max_lap_time
         self.positive_reward = positive_reward
         self.viewer = None
+        self.random_event = random_event
+
         self._t = 0
         self.time = 0
         self.tire_damage = 0
@@ -77,6 +81,8 @@ class Race(gym.Env):
             lap_time += self._slow_lap()
         elif action == 2:  # fast lap
             lap_time += self._fast_lap()
+            if np.random.uniform() < self.random_event:
+                lap_time += 100
 
         lap_time = np.clip(lap_time, 0, self.max_lap_time)
         reward = -lap_time
