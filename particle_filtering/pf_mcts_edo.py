@@ -11,9 +11,6 @@ import plotly.graph_objects as go
 import random
 import json
 
-MULTITHREADED = False
-
-
 def random_rollout(particle, actions, env, budget, max_depth=200):
     """Rollout from the current state following a random policy up to hitting a terminal state"""
     done = False
@@ -75,38 +72,22 @@ class Particle(object):
 class Action(object):
     """ Action object """
 
-    def __init__(self, index, parent_state, Q_init=np.ndarray):
+    def __init__(self, index, parent_state, Q_init=None):
         self.index = index
         self.parent_state = parent_state
         self.W = 0.0
         self.M2 = 0.0
         self.n = 0
-        self.Q = 0.
-        self.update(Q_init)
+        self.Q = 0
         self.sigma = np.inf
         self.rewards = []
         # self.child_state = None
 
     def add_child_state(self, state, envs, budget, sampler=None, max_depth=200):
-        if sampler:
+        new_particles = []
 
-            new_states = sampler.generate_next_particles(self.parent_state.particles, self.index)
-            new_particles = []
-            for p in new_states:
-                new_particles.append(Particle(p[0], p[1], p[2], p[3]))
-        elif not MULTITHREADED:
-            new_particles = []
-
-            for i in range(len(envs)):
-                new_particles.append(generate_new_particle(envs[i], self.index, self.parent_state.particles[i]))
-
-        else:
-            p = multiprocessing.Pool(multiprocessing.cpu_count())
-
-            new_particles = p.starmap(generate_new_particle,
-                                      [(envs[i], self.index, self.parent_state.particles[i]) for i in range(len(envs))])
-
-            p.close()
+        for i in range(len(envs)):
+            new_particles.append(generate_new_particle(envs[i], self.index, self.parent_state.particles[i]))
 
         rollout_budget_bound = len(new_particles) * max_depth
         if budget < rollout_budget_bound * 0.5:
@@ -127,10 +108,8 @@ class Action(object):
         return self.child_state, self.child_state.remaining_budget
 
     def update(self, R):
-
         for r in R:
             self.update_aggregate(r)
-
         self.finalize_aggregate()
 
     def update_aggregate(self, new_sample):
@@ -141,7 +120,6 @@ class Action(object):
         self.M2 += delta * delta2
 
     def finalize_aggregate(self):
-
         if self.n < 2:
             self.sigma = np.inf
         else:
@@ -176,9 +154,6 @@ class State(object):
         if self.terminal or root:
             self.V = [0.] * len(self.particles)
             self.remaining_budget -= len(self.particles)
-        elif sampler is not None:
-            raise NotImplementedError("no sampler, please")
-            self.V = np.mean(sampler.evaluate(particles, max_depth))
         elif envs is None:
             print("Warning, no environment was provided, initializing to 0 the value of the state!")
             self.V = [0.] * len(self.particles)
@@ -210,9 +185,12 @@ class State(object):
         # assert csi > 0, "csi must be > 0"
         # assert b > 0, "b must be > 0"
 
-        bound = np.array([child_action.Q + np.sqrt(csi * child_action.sigma * self.n / child_action.n) + 3 * c * b * csi * np.log(self.n)/child_action.n
-                  if child_action.n > 0 else np.inf
-                  for child_action in self.child_actions])
+        logp = np.log(self.n)
+
+        bound = np.array([child_action.Q + np.sqrt(
+            csi * child_action.sigma * logp / child_action.n) + 3 * c * b * csi * logp / child_action.n
+                          if child_action.n > 0 and not np.isinf(child_action.sigma).any() else np.inf
+                          for child_action in self.child_actions])
 
         # uct_upper_bound = np.array(
         #     [child_action.Q + c * (np.sqrt(self.n + 1) / (child_action.n + 1)) for child_action in self.child_actions])
@@ -226,21 +204,14 @@ class State(object):
     def evaluate(self, particles, envs, budget, max_depth=200):
         actions = np.arange(self.na, dtype=int)
 
-        if not MULTITHREADED:
-            results = []
-            for i in range(len(particles)):
-                assert budget > 0, "Running out of budget during evaluation of a state should never happen"
-                # results.extend([np.mean(results)] * (len(particles) - i))
-                # return results, 0
-                particle_return, budget = random_rollout(particles[i], actions, envs[i], budget, max_depth)
-                results.append(particle_return)
-        else:
-            raise NotImplementedError("Budget handling with parallel rollout has not been implemented yet")
-            p = multiprocessing.Pool(multiprocessing.cpu_count())
+        results = []
+        for i in range(len(particles)):
+            assert budget > 0, "Running out of budget during evaluation of a state should never happen"
+            # results.extend([np.mean(results)] * (len(particles) - i))
+            # return results, 0
+            particle_return, budget = random_rollout(particles[i], actions, envs[i], budget, max_depth)
+            results.append(particle_return)
 
-            r = p.starmap(random_rollout, [(particles[i], actions, envs[i], budget) for i in range(len(envs))])
-
-            p.close()
         return results, budget
 
 
