@@ -10,3 +10,4 @@ from envs.bridge_wrapper import generate_bridge_stochastic
 from envs.river_swim_continuous import generate_river_continuous
 from envs.race_strategy import generate_race
 from envs.cliff_continuous_mono import generate_cliff
+from envs.trading import generate_trade
