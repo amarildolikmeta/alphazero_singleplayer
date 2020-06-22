@@ -51,6 +51,7 @@ def env_configs():
     # return ['configs/GridWorld/collect_stochastic.json']
     # return ['configs/RiverSwim/riverswim.json']
     return ['configs/RaceStrategy/racestrategy.json']
+    # return ['configs/Trading/trading.json']
 
 
 def agent_configs():
