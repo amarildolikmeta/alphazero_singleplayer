@@ -211,7 +211,6 @@ def main(args):
         chunksize = int(args["--chunksize"]) if args["--chunksize"] else args["--chunksize"]
         with Pool(processes=int(args["--processes"])) as p:
             p.map(evaluate, experiments, chunksize=chunksize)
-        # evaluate(experiments[0])
     if args["--show"] == "True":
         plot_all(Path(args["--data_path"]), Path(args["--plot_path"]), args["--range"])
 
