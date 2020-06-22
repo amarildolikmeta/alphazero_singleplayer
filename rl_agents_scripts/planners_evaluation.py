@@ -50,7 +50,8 @@ def env_configs():
     # return ['configs/HighwayEnv/env_medium.json']
     # return ['configs/GridWorld/collect_stochastic.json']
     # return ['configs/RiverSwim/riverswim.json']
-    return ['configs/RaceStrategy/racestrategy.json']
+    # return ['configs/RaceStrategy/racestrategy.json']
+    return['configs/Trading/trading.json']
 
 
 def agent_configs():
@@ -210,6 +211,7 @@ def main(args):
         chunksize = int(args["--chunksize"]) if args["--chunksize"] else args["--chunksize"]
         with Pool(processes=int(args["--processes"])) as p:
             p.map(evaluate, experiments, chunksize=chunksize)
+        # evaluate(experiments[0])
     if args["--show"] == "True":
         plot_all(Path(args["--data_path"]), Path(args["--plot_path"]), args["--range"])
 
