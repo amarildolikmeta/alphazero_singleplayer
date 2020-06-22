@@ -48,7 +48,7 @@ MAX_DEPTH = 10
 def env_configs():
     # return ['configs/CartPoleEnv/env.json']
     # return ['configs/HighwayEnv/env_medium.json']
-    #return ['configs/GridWorld/collect_stochastic.json']
+    # return ['configs/GridWorld/collect_stochastic.json']
     # return ['configs/RiverSwim/riverswim.json']
     return ['configs/RaceStrategy/racestrategy.json']
 

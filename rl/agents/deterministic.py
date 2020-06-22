@@ -44,7 +44,8 @@ class OptimisticDeterministicPlanner(AbstractPlanner):
         leaf_to_expand.backup_to_root()
 
     def plan(self, state, observation):
-        self.root.state = state
+        self.root.state = safe_deepcopy_env(state)
+        self.root.state.seed()
         for epoch in np.arange(self.config["budget"] // state.action_space.n):
             logger.debug("Expansion {}/{}".format(epoch + 1, self.config["budget"] // state.action_space.n))
             self.run()
@@ -94,6 +95,7 @@ class DeterministicNode(Node):
                                                state=safe_deepcopy_env(self.state),
                                                depth=self.depth + 1,
                                                action=action)
+            #self.children[action].state.seed()
             observation, reward, done, _ = self.children[action].state.step(action)
             self.planner.leaves.append(self.children[action])
             self.children[action].update(reward, done, observation)
