@@ -9,12 +9,10 @@ from policies.eval_policy import eval_policy, parallelize_eval_policy
 from utils.logging.logger import Logger
 from utils.env_wrapper import Wrapper
 from particle_filtering.parallel_sampler import ParallelSampler
-
+import os
 DEBUG = False
 DEBUG_TAXI = False
 USE_TQDM = True
-
-import os
 
 
 #### Agent ####

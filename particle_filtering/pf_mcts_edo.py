@@ -1,5 +1,4 @@
 import copy
-
 from helpers import stable_normalizer, copy_atari_state, restore_atari_state, argmax, max_Q
 from rl.make_game import is_atari_game
 import numpy as np
@@ -10,6 +9,7 @@ import plotly.graph_objects as go
 
 import random
 import json
+
 
 def random_rollout(particle, actions, env, budget, max_depth=200):
     """Rollout from the current state following a random policy up to hitting a terminal state"""

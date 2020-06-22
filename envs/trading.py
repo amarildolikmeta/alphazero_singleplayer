@@ -5,11 +5,13 @@ from gym.utils import seeding
 from gym import register
 import time
 
+
 def generate_trade():
     return Trade()
 
+
 class Trade(gym.Env):
-    def __init__(self, fees = 0.01, time_lag=1, horizon = 20):
+    def __init__(self, fees=0.01, time_lag=1, horizon=20):
         # Initialize parameters
 
         # price history, previous portfolio, time

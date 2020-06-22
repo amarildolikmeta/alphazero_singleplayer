@@ -120,11 +120,12 @@ class MCTSStochastic(MCTS):
                     s1, r, t, _ = mcts_env.step(action.index)
                     # if action.index == 0 and not np.array_equal(s1.flatten(), action.parent_state.index.flatten()):
                     #     print("WTF")
+                    budget -= 1
                     if action.get_state_ind(s1) != -1:
                         state = action.child_states[action.get_state_ind(s1)]  # select
                         state.r = r
-                        if state.terminal:
-                            budget -= 1
+                        # if state.terminal:
+                        #     budget -= 1
                     else:
                         # if action.index == 0 and len(action.child_states) > 0:
                         #     print("Error")
