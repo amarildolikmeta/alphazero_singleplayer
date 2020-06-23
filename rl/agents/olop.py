@@ -177,9 +177,11 @@ class OLOP(AbstractPlanner):
 
     def plan(self, state, observation):
         for self.episode in range(self.config['episodes']):
+            st = safe_deepcopy_env(state)
+            st.seed()
             if (self.episode+1) % max(self.config['episodes'] // 10, 1) == 0:
                 logger.debug('{} / {}'.format(self.episode+1, self.config['episodes']))
-            self.run(safe_deepcopy_env(state))
+            self.run(st)
 
         return self.get_plan()
 
@@ -249,11 +251,13 @@ class OLOPNode(Node):
             actions = state.get_available_actions()
         except AttributeError:
             actions = range(state.action_space.n)
+        state = safe_deepcopy_env(state)
+        state.seed()
         for action in actions:
             self.children[action] = type(self)(self,
                                                self.planner)
             if update_children:
-                _, reward, done, _ = safe_deepcopy_env(state).step(action)
+                _, reward, done, _ = state.step(action)
                 self.children[action].update(reward, done)
 
         idx = leaves.index(self)
