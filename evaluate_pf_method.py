@@ -129,7 +129,9 @@ if __name__ == '__main__':
                                                       mcts_only=args.mcts_only,
                                                       particles=particles[i],
                                                       n_workers=args.n_workers,
-                                                      use_sampler=args.use_sampler)
+                                                      use_sampler=args.use_sampler,
+                                                      unbiased=args.unbiased,
+                                                      max_workers=args.max_workers)
 
             total_rewards = offline_scores[0][0]
             returns_per_step = offline_scores[0][1]
