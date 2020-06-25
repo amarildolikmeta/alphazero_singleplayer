@@ -1,6 +1,5 @@
 import logging
 import numpy as np
-
 from rl_agents.agents.common.factory import safe_deepcopy_env
 from rl_agents.agents.tree_search.abstract import Node, AbstractTreeSearchAgent, AbstractPlanner
 from rl_agents.utils import hoeffding_upper_bound, kl_upper_bound, laplace_upper_bound
@@ -251,13 +250,13 @@ class OLOPNode(Node):
             actions = state.get_available_actions()
         except AttributeError:
             actions = range(state.action_space.n)
-        state = safe_deepcopy_env(state)
-        state.seed()
         for action in actions:
             self.children[action] = type(self)(self,
                                                self.planner)
             if update_children:
-                _, reward, done, _ = state.step(action)
+                st = safe_deepcopy_env(state)
+                st.seed()
+                _, reward, done, _ = st.step(action)
                 self.children[action].update(reward, done)
 
         idx = leaves.index(self)

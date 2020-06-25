@@ -38,6 +38,8 @@ def setup_parser():
     parser.add_argument('--show_plots', action='store_true')
     parser.add_argument('--particles', type=int, default=0,
                         help='Numbers of particles to approximate state distributions')
+    parser.add_argument('--unbiased', action='store_true', help='Use the unbiased particle algorithm')
+    parser.add_argument('--max_workers', type=int, default=100, help='Maximum number of parallel workers')
     parser.add_argument('--budget', type=int, default=1000, help='Computational budget')
 
     return parser.parse_args()

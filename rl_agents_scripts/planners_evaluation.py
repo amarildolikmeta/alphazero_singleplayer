@@ -24,7 +24,7 @@ from itertools import product
 from multiprocessing.pool import Pool
 from os.path import abspath, dirname
 import sys
-
+import time
 import gym
 import numpy as np
 import matplotlib.pyplot as plt
@@ -59,18 +59,18 @@ def agent_configs():
         # "random": {
         #     "__class__": "<class 'rl_agents.agents.simple.random.RandomUniformAgent'>"
         # },
-        # "olop": {
-        #     "__class__": "<class 'rl.agents.olop.OLOPAgent'>",
-        #     "gamma": gamma,
-        #     "max_depth": MAX_DEPTH,
-        #     "upper_bound": {
-        #         "type": "hoeffding",
-        #         "c": 4
-        #     },
-        #     "lazy_tree_construction": True,
-        #     "continuation_type": "uniform",
-        #     # "env_preprocessors": [{"method": "simplify"}]
-        # },
+        "olop": {
+            "__class__": "<class 'rl.agents.olop.OLOPAgent'>",
+            "gamma": gamma,
+            "max_depth": MAX_DEPTH,
+            "upper_bound": {
+                "type": "hoeffding",
+                "c": 4
+            },
+            "lazy_tree_construction": True,
+            "continuation_type": "uniform",
+            # "env_preprocessors": [{"method": "simplify"}]
+        },
         # "kl-olop": {
         #     "__class__": "<class 'rl.agents.olop.OLOPAgent'>",
         #     "gamma": gamma,
@@ -84,7 +84,7 @@ def agent_configs():
         #     # "env_preprocessors": [{"method": "simplify"}]
         # },
         # "kl-olop-1": {
-        #     "__class__": "<class 'rl_agents.agents.tree_search.olop.OLOPAgent'>",
+        #     "__class__": "<class 'rl.agents.olop.OLOPAgent'>",
         #     "gamma": gamma,
         #     "max_depth": 4,
         #     "upper_bound": {
@@ -96,7 +96,7 @@ def agent_configs():
         #     # "env_preprocessors": [{"method": "simplify"}]
         # },
         # "laplace": {
-        #     "__class__": "<class 'rl_agents.agents.tree_search.olop.OLOPAgent'>",
+        #     "__class__": "<class 'rl.agents.olop.OLOPAgent'>",
         #     "gamma": gamma,
         #     "upper_bound": {
         #         "type": "laplace",
@@ -106,12 +106,12 @@ def agent_configs():
         #     "continuation_type": "uniform",
         #     # "env_preprocessors": [{"method": "simplify"}]
         # },
-        "deterministic": {
-            #"__class__": "<class 'rl_agents.agents.tree_search.deterministic.DeterministicPlannerAgent'>",
-            "__class__": "<class 'rl.agents.deterministic.DeterministicPlannerAgent'>",
-            "gamma": gamma,
-            # "env_preprocessors": [{"method": "simplify"}]
-        }
+        # "deterministic": {
+        #     #"__class__": "<class 'rl_agents.agents.tree_search.deterministic.DeterministicPlannerAgent'>",
+        #     "__class__": "<class 'rl.agents.deterministic.DeterministicPlannerAgent'>",
+        #     "gamma": gamma,
+        #     # "env_preprocessors": [{"method": "simplify"}]
+        # }
         # ,
         # "value_iteration": {
         #     "__class__": "<class 'rl_agents.agents.dynamic_programming.value_iteration.ValueIterationAgent'>",
@@ -209,8 +209,11 @@ def main(args):
     if args["--generate"] == "True":
         experiments = prepare_experiments(args["--budgets"], args['--seeds'], args["--data_path"])
         chunksize = int(args["--chunksize"]) if args["--chunksize"] else args["--chunksize"]
+        start = time.time()
         with Pool(processes=int(args["--processes"])) as p:
             p.map(evaluate, experiments, chunksize=chunksize)
+        end = time.time()
+        print("Elapsed time = " + str(end - start))
     if args["--show"] == "True":
         plot_all(Path(args["--data_path"]), Path(args["--plot_path"]), args["--range"])
 
