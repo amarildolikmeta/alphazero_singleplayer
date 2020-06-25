@@ -137,7 +137,7 @@ class State(object):
         self.rewards = []
         dones = []
         for i, env in enumerate(envs):
-            if terminals[i]:
+            if terminals[i] != 0:
                 r = 0
                 done = 1
             else:
@@ -190,10 +190,10 @@ class PFMCTS(object):
         self.n_particles = particles
         self.sampler = sampler
 
-    def reset_root(self, envs):
-        for env in envs:
-            env.set_signature(self.root_signature)
-            env.seed()
+    def reset_root(self, envs, Env):
+        for i, env in enumerate(envs):
+            envs[i] = copy.deepcopy(Env)
+            envs[i].seed()
 
     def search(self, n_mcts, c, Env, mcts_env, budget, max_depth=200, fixed_depth=True):
         """ Perform the MCTS search from the root """
@@ -225,7 +225,7 @@ class PFMCTS(object):
         while budget > 0:
             state = self.root  # reset to root for new trace
             # reset to root state
-            self.reset_root(Envs)
+            self.reset_root(Envs, Env)
 
             if not is_atari:
                 mcts_envs = None
@@ -236,7 +236,7 @@ class PFMCTS(object):
                 restore_atari_state(mcts_env, snapshot)
             st = 0
             terminal = False
-            terminals = np.zeros(self.n_particles)
+            terminals = np.zeros(self.n_particles, dtype=np.int8)
             while not terminal:
                 action = state.select(c=c)
                 st += 1

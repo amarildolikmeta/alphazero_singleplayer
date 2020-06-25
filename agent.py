@@ -170,7 +170,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                                             max_workers=max_workers)
             else:
                 total_reward, reward_per_timestep, lens, action_counts = \
-                    eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False, max_len=max_ep_len)
+                    eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False, max_len=max_ep_len, visualize=visualize)
 
             # offline_scores.append([np.min(rews), np.max(rews), np.mean(rews), np.std(rews),
             #                        len(rews), np.mean(lens)])

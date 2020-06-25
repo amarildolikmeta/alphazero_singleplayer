@@ -44,7 +44,7 @@ def generate_new_particle(env, action, particle):
     """Generate the successor particle for a given particle"""
     # Do not give any reward if a particle is being generated from a terminal state particle
     if particle.terminal:
-        return Particle(particle.state, particle.seed, 0, True)
+        return Particle(particle.state, particle.seed, 0, True), 0
 
     # Apply the selected action to the state encapsulated by the particle and store the new state and reward
     env = copy.deepcopy(env)
@@ -52,7 +52,7 @@ def generate_new_particle(env, action, particle):
     env.seed(particle.seed)
     s, r, done, _ = env.step(action)
 
-    return Particle(env.get_signature(), particle.seed, r, done, info=s)
+    return Particle(env.get_signature(), particle.seed, r, done, info=s), 1
 
 
 class Particle(object):
@@ -87,8 +87,9 @@ class Action(object):
         new_particles = []
 
         for i in range(len(envs)):
-            new_particles.append(generate_new_particle(envs[i], self.index, self.parent_state.particles[i]))
-        # budget -= len(new_particles)
+            particle, budget_spent = generate_new_particle(envs[i], self.index, self.parent_state.particles[i])
+            new_particles.append(particle)
+            budget -= budget_spent
         rollout_budget_bound = len(new_particles) * max_depth
         if budget < rollout_budget_bound * 0.5:
             return state, 0
