@@ -73,6 +73,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     timepoints = []
 
     # Environments
+    game_params = {'save_dir':logger.save_dir}
     Env = make_game(game, game_params)
     num_actions = Env.action_space.n
     sampler = None

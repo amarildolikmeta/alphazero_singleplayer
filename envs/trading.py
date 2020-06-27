@@ -4,14 +4,15 @@ from gym import spaces
 from gym.utils import seeding
 from gym import register
 import time
+import errno
+import os
 
-
-def generate_trade():
-    return Trade()
+def generate_trade(save_dir=''):
+    return Trade(logpath = save_dir)
 
 
 class Trade(gym.Env):
-    def __init__(self, fees=0.01, time_lag=1, horizon=20):
+    def __init__(self, fees=0.01, time_lag=2, horizon=20, log_actions=True, logpath=''):
         # Initialize parameters
 
         # price history, previous portfolio, time
@@ -32,8 +33,34 @@ class Trade(gym.Env):
         # self.current_ret = [0]
 
         self._t = 0
-        self.seed()
+        # self.seed()
+        # start logging file
+        sd = self.seed()
+        self.log_actions = log_actions
+        if self.log_actions==True:
+            try:
+                os.makedirs(os.path.join(logpath, "state_action"))
+            except OSError as e:
+                if e.errno != errno.EEXIST:
+                    raise  # This was not a "directory exist" error..
+            self.file_name = os.path.join(logpath, 'state_action', str(sd[0]) + '.csv')
+
+            print('writing actions in ' + self.file_name)
+            text_file = open(self.file_name, 'w')
+            s = ''
+            for j in range(time_lag):
+                s += 'p' + str(j) + ', '
+            s += 'a \n'
+            text_file.write(s)
+            text_file.close()
+            # reset action file
         self.reset()
+
+    def write_file(self, s_a):
+        with open(self.file_name, 'a') as text_file:
+                prices = ','.join(str(e) for e in s_a[:-1])
+                toprint = prices+','+str(s_a[-1])+'\n'
+                text_file.write(toprint)
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -61,11 +88,27 @@ class Trade(gym.Env):
         self.ret_window = np.append(self.ret_window[1:],s_ret.tolist())
         return s_ret
 
+    def vasicek(self, r0=100, K=10, theta=101, sigma=20, days=2, ppd=1):
+        # theta: long term mean
+        # K: reversion speed
+        # sigma: instantaneous volatility
+
+        dt = 1 / (365 * ppd)
+        T = days * ppd
+        rates = [r0]
+        bm = self.np_random.normal(0, 1)
+        dr = K * (theta - rates[-1]) * dt + sigma * bm * dt
+        # rates.append(rates[-1] + dr)
+        return dr
+
     def step(self, action):
         if self._t >= self.horizon:
             return self.get_state(), 0, True, {}
         action = int(action) -1
         self.previous_portfolio, self.current_portfolio = self.current_portfolio, action
+        if self.log_actions == True:
+            self.write_file(self.get_state())
+
         reward = self.get_reward()
         self._t += 1
         if self._t >= self.horizon:

@@ -77,6 +77,11 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose):
             action_counter += 1
 
         ns, r, done, inf = wrapper.step(a)
+        if bool(inf):
+            with open(inf, 'a') as text_file:
+                    prices = ','.join(str(e) for e in s[:-1])
+                    toprint = prices+','+str(a-1)+',real \n'
+                    text_file.write(toprint)
         s = ns
         if interactive:
             print("Reward=%f" % r)
