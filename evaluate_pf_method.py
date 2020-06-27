@@ -1,20 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import errno
-import json
-from datetime import datetime
-
 from joblib import Parallel, delayed
 import numpy as np
 import pandas as pd
 import os
 import matplotlib.pyplot as plt
-from helpers import smooth, symmetric_remove
 import time
-
 from utils.parser_setup import setup_parser
-
 plt.style.use('ggplot')
 from agent import agent
 from gym.envs.registration import register
@@ -136,7 +129,9 @@ if __name__ == '__main__':
                                                       mcts_only=args.mcts_only,
                                                       particles=particles[i],
                                                       n_workers=args.n_workers,
-                                                      use_sampler=args.use_sampler)
+                                                      use_sampler=args.use_sampler,
+                                                      unbiased=args.unbiased,
+                                                      max_workers=args.max_workers)
 
             total_rewards = offline_scores[0][0]
             returns_per_step = offline_scores[0][1]

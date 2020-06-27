@@ -91,6 +91,9 @@ class Wrapper(object):
             self.Env.seed(seed)
             self.Env.reset()
 
+    def visualize(self):
+        self.get_mcts().visualize()
+
     def reset(self):
         s = self.get_env().reset()
         self.make_mcts()

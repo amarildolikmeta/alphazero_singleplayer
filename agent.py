@@ -19,7 +19,8 @@ USE_TQDM = True
 def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, temp, n_hidden_layers, n_hidden_units,
           stochastic=False, eval_freq=-1, eval_episodes=100, alpha=0.6, n_epochs=100, c_dpw=1, numpy_dump_dir='../',
           pre_process=None, visualize=False, game_params={}, parallelize_evaluation=False, mcts_only=False,
-          particles=0, show_plots=False, n_workers=1, use_sampler=False, budget=np.inf):
+          particles=0, show_plots=False, n_workers=1, use_sampler=False, budget=np.inf, unbiased=False,
+          max_workers=100):
     visualizer = None
 
     # if particles:
@@ -29,7 +30,11 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         from mcts import MCTS
         from mcts_dpw import MCTSStochastic
     elif particles:
-        from particle_filtering.pf_mcts_edo import PFMCTS
+        if not unbiased:
+            from particle_filtering.pf_mcts_edo import PFMCTS
+        else:
+            from particle_filtering.pf_mcts_std import PFMCTS
+
     else:
         from pure_mcts.mcts import MCTS
         from pure_mcts.mcts_dpw import MCTSStochastic
@@ -77,7 +82,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     Env = make_game(game, game_params)
     num_actions = Env.action_space.n
     sampler = None
-    if use_sampler:
+    if use_sampler and not unbiased:
         def make_pi(action_space):
             def pi(s):
                 return np.random.randint(low=0, high=action_space.n)
@@ -162,10 +167,11 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             # Run the evaluation
             if parallelize_evaluation:
                 total_reward, reward_per_timestep, lens, action_counts = \
-                    parallelize_eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False, max_len=max_ep_len)
+                    parallelize_eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False, max_len=max_ep_len,
+                                            max_workers=max_workers)
             else:
                 total_reward, reward_per_timestep, lens, action_counts = \
-                    eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False, max_len=max_ep_len)
+                    eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False, max_len=max_ep_len, visualize=visualize)
 
             # offline_scores.append([np.min(rews), np.max(rews), np.mean(rews), np.std(rews),
             #                        len(rews), np.mean(lens)])

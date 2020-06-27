@@ -8,14 +8,16 @@ USE_TQDM = True
 
 
 def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, interactive=False,
-                            max_len=200):
+                            max_len=200, max_workers=12):
     rewards_per_timestep = []
     ep_lengths = []
     action_counts = []
 
     # Run the evaluation on multiple threads
     start = time.time()
-    p = multiprocessing.Pool(min(n_episodes, multiprocessing.cpu_count()))
+    n_workers = min(n_episodes, multiprocessing.cpu_count())
+    n_workers = min(n_workers, max_workers)
+    p = multiprocessing.Pool(n_workers)
 
     results = p.starmap(evaluate, [(add_terminal, copy.deepcopy(wrapper), i, interactive, max_len, verbose) for i in
                                    range(n_episodes)])
@@ -39,7 +41,8 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
     return total_rewards, rewards_per_timestep, ep_lengths, action_counts
 
 
-def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, interactive=False, max_len=200):
+def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, interactive=False, max_len=200,
+                visualize=False):
     rewards_per_timestep = []
     ep_lengths = []
     action_counts = []
@@ -48,7 +51,7 @@ def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, inter
         if not USE_TQDM:
             print('Evaluated ' + str(i) + ' of ' + str(n_episodes), end='\r')
 
-        rew, t, count = evaluate(add_terminal, wrapper, i, interactive, max_len, verbose)
+        rew, t, count = evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=visualize)
         rewards_per_timestep.append(np.array(rew))
         ep_lengths.append(t)
         action_counts.append(count)
@@ -62,7 +65,7 @@ def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, inter
     return total_rewards, rewards_per_timestep, ep_lengths, action_counts
 
 
-def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose):
+def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=False):
     action_counter = 0
     start = time.time()
     s = wrapper.reset()
@@ -77,11 +80,16 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose):
             action_counter += 1
 
         ns, r, done, inf = wrapper.step(a)
+
         if bool(inf):
             with open(inf, 'a') as text_file:
                     prices = ','.join(str(e) for e in s[:-1])
                     toprint = prices+','+str(a-1)+',real \n'
                     text_file.write(toprint)
+
+        if visualize:
+            wrapper.visualize()
+
         s = ns
         if interactive:
             print("Reward=%f" % r)
