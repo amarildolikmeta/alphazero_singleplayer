@@ -24,3 +24,4 @@ rl_agents_scripts/out
 notebooks/RiverSwim.zip
 
 .ipynb_checkpoints/
+/venv/

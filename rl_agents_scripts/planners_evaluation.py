@@ -13,11 +13,12 @@ Options:
   --processes <p>             Number of processes [default: 4]
   --chunksize <c>             Size of data chunks each processor receives
   --range <start:end>         Range of budgets to be plotted.
+  --alg <name>                Algorithm to run [default: ]
+  --env <name>                Environment to run [default: ]
 """
 
 from ast import literal_eval
 from pathlib import Path
-
 from docopt import docopt
 from collections import OrderedDict
 from itertools import product
@@ -43,22 +44,17 @@ race_strategy = True
 
 MAX_DEPTH = 10
 
+env_to_confings = {
+    'Trading': 'configs/Trading/trading.json',
+    #'RaceStrategy': 'configs/RaceStrategy/racestrategy.json',
+    'Riverswim': 'configs/RiverSwim/riverswim.json'
+}
 
 
-def env_configs():
-    # return ['configs/CartPoleEnv/env.json']
-    # return ['configs/HighwayEnv/env_medium.json']
-    # return ['configs/GridWorld/collect_stochastic.json']
-    # return ['configs/RiverSwim/riverswim.json']
-    # return ['configs/RaceStrategy/racestrategy.json']
-    return['configs/Trading/trading.json']
-
-
-def agent_configs():
-    agents = {
-        # "random": {
-        #     "__class__": "<class 'rl_agents.agents.simple.random.RandomUniformAgent'>"
-        # },
+agent_to_confings = {
+        "random": {
+            "__class__": "<class 'rl_agents.agents.simple.random.RandomUniformAgent'>"
+        },
         "olop": {
             "__class__": "<class 'rl.agents.olop.OLOPAgent'>",
             "gamma": gamma,
@@ -71,18 +67,18 @@ def agent_configs():
             "continuation_type": "uniform",
             # "env_preprocessors": [{"method": "simplify"}]
         },
-        # "kl-olop": {
-        #     "__class__": "<class 'rl.agents.olop.OLOPAgent'>",
-        #     "gamma": gamma,
-        #     "max_depth": MAX_DEPTH,
-        #     "upper_bound": {
-        #         "type": "kullback-leibler",
-        #         "c": 2
-        #     },
-        #     "lazy_tree_construction": True,
-        #     "continuation_type": "uniform",
-        #     # "env_preprocessors": [{"method": "simplify"}]
-        # },
+        "kl-olop": {
+            "__class__": "<class 'rl.agents.olop.OLOPAgent'>",
+            "gamma": gamma,
+            "max_depth": MAX_DEPTH,
+            "upper_bound": {
+                "type": "kullback-leibler",
+                "c": 2
+            },
+            "lazy_tree_construction": True,
+            "continuation_type": "uniform",
+            # "env_preprocessors": [{"method": "simplify"}]
+        },
         # "kl-olop-1": {
         #     "__class__": "<class 'rl.agents.olop.OLOPAgent'>",
         #     "gamma": gamma,
@@ -106,12 +102,12 @@ def agent_configs():
         #     "continuation_type": "uniform",
         #     # "env_preprocessors": [{"method": "simplify"}]
         # },
-        # "deterministic": {
-        #     #"__class__": "<class 'rl_agents.agents.tree_search.deterministic.DeterministicPlannerAgent'>",
-        #     "__class__": "<class 'rl.agents.deterministic.DeterministicPlannerAgent'>",
-        #     "gamma": gamma,
-        #     # "env_preprocessors": [{"method": "simplify"}]
-        # }
+        "deterministic": {
+            #"__class__": "<class 'rl_agents.agents.tree_search.deterministic.DeterministicPlannerAgent'>",
+            "__class__": "<class 'rl.agents.deterministic.DeterministicPlannerAgent'>",
+            "gamma": gamma,
+            # "env_preprocessors": [{"method": "simplify"}]
+        }
         # ,
         # "value_iteration": {
         #     "__class__": "<class 'rl_agents.agents.dynamic_programming.value_iteration.ValueIterationAgent'>",
@@ -119,6 +115,37 @@ def agent_configs():
         #     "iterations": int(3 / (1 - gamma))
         # }
     }
+
+
+def env_configs(env):
+    # return ['configs/CartPoleEnv/env.json']
+    # return ['configs/HighwayEnv/env_medium.json']
+    # return ['configs/GridWorld/collect_stochastic.json']
+    # return ['configs/RiverSwim/riverswim.json']
+    # return ['configs/RaceStrategy/racestrategy.json']
+
+    if env is None or env == '':
+        envs = env_to_confings
+    elif env in env_to_confings:
+        envs = {
+            env: env_to_confings[env]
+        }
+    else:
+        envs = {
+            'Trading': 'configs/Trading/trading.json'
+        }
+    return OrderedDict(envs)
+
+
+def agent_configs(agent):
+    if agent is None or agent == '':
+        agents = agent_to_confings
+    elif agent in agent_to_confings:
+        agents = {
+            agent: agent_to_confings[agent]
+        }
+    else:
+        agents = agent_to_confings
     return OrderedDict(agents)
 
 
@@ -130,6 +157,7 @@ def evaluate(experiment):
     path.parent.mkdir(parents=True, exist_ok=True)
 
     # Make environment
+    env_name, env_config = env_config
     env = load_environment(env_config)
 
     # Make agent
@@ -155,6 +183,7 @@ def evaluate(experiment):
 
     # Save results
     result = {
+        "env": env_name,
         "agent": agent_name,
         "budget": budget,
         "seed": seed,
@@ -170,16 +199,16 @@ def evaluate(experiment):
         df.to_csv(f, sep=',', encoding='utf-8', header=f.tell() == 0, index=False)
 
 
-def prepare_experiments(budgets, seeds, path):
+def prepare_experiments(budgets, seeds, path, alg, env):
     budgets = np.unique(np.logspace(*literal_eval(budgets)).astype(int))
-    agents = agent_configs()
+    agents = agent_configs(alg)
     seeds = seeds.split(",")
     first_seed = int(seeds[0]) if len(seeds) == 2 else np.random.randint(0, SEED_MAX, dtype=int)
     seeds_count = int(seeds[-1])
     seeds = (first_seed + np.arange(seeds_count)).tolist()
-    envs = env_configs()
+    envs = env_configs(env)
     paths = [path]
-    experiments = list(product(seeds, budgets, agents.items(), envs, paths))
+    experiments = list(product(seeds, budgets, agents.items(), envs.items(), paths))
     return experiments
 
 
@@ -207,7 +236,8 @@ def plot_all(data_path, plot_path, data_range):
 
 def main(args):
     if args["--generate"] == "True":
-        experiments = prepare_experiments(args["--budgets"], args['--seeds'], args["--data_path"])
+        experiments = prepare_experiments(args["--budgets"], args['--seeds'], args["--data_path"],
+                                          args['--alg'], args['--env'])
         chunksize = int(args["--chunksize"]) if args["--chunksize"] else args["--chunksize"]
         start = time.time()
         with Pool(processes=int(args["--processes"])) as p:

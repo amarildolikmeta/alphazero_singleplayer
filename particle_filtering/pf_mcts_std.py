@@ -155,7 +155,10 @@ class State(object):
          :param csi: exploration constant
          :param b: parameter such that the rewards belong to [0, b]
          """
-        logp = np.log(self.n)
+        if self.n > 0:
+            logp = np.log(self.n)
+        else:
+            logp = -np.inf
 
         bound = np.array([child_action.Q + np.sqrt(
             csi * child_action.sigma * logp / child_action.n) + 3 * c * b * csi * logp / child_action.n
@@ -191,7 +194,7 @@ class PFMCTS(object):
         self.sampler = sampler
 
     def reset_root(self, envs, Env):
-        for i, env in enumerate(envs):
+        for i in range(len(envs)):
             envs[i] = copy.deepcopy(Env)
             envs[i].seed()
 
