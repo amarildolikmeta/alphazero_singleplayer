@@ -12,8 +12,8 @@ def generate_trade(save_dir=''):
 
 
 class Trade(gym.Env):
-    def __init__(self, fees=0.01, time_lag=2, horizon=20, log_actions=True, logpath=''):
-        # Initialize parameters
+    def __init__(self, fees=0.01, time_lag=2, horizon=20, log_actions=False, logpath='.'):
+        # Initialize parameter
 
         # price history, previous portfolio, time
         observation_low = np.concatenate([np.full(time_lag, -1), [-1.0]])
@@ -29,6 +29,7 @@ class Trade(gym.Env):
         self.ret_window = np.asarray([0]*self.time_lag)
         self.prices = [100]
         self.fees = fees
+        self.rates = 100
         # self.actions = []
         # self.current_ret = [0]
 
@@ -70,7 +71,9 @@ class Trade(gym.Env):
         return np.append(self.ret_window, self.current_portfolio)
 
     def get_reward(self):
-        new_ret = self.gmb()
+        # new_ret = self.gmb()
+        new_ret = self.vasicek()
+
         pl = self.current_portfolio * new_ret - \
                 abs(self.current_portfolio - self.previous_portfolio) * self.fees
 
@@ -80,24 +83,25 @@ class Trade(gym.Env):
 
     def gmb(self, sigma=0.2, r=0, days=2, ppd=1):
         dt = 1 / (365 * ppd)
-        T = days * ppd
         tmp_exp = r - 0.5 * sigma ** 2
         bm = self.np_random.normal(0, 1)
         s = np.exp(tmp_exp * dt + sigma * bm * np.sqrt(dt))
-        s_ret = (s - 1)/1
+        s_ret = s-1
         self.ret_window = np.append(self.ret_window[1:],s_ret.tolist())
         return s_ret
 
-    def vasicek(self, r0=100, K=10, theta=101, sigma=20, days=2, ppd=1):
+    def vasicek(self, K=10, theta=100, sigma=20, days=2, ppd=1):
         # theta: long term mean
         # K: reversion speed
         # sigma: instantaneous volatility
 
         dt = 1 / (365 * ppd)
-        T = days * ppd
-        rates = [r0]
         bm = self.np_random.normal(0, 1)
-        dr = K * (theta - rates[-1]) * dt + sigma * bm * dt
+        dr = K * (theta - self.rates) * dt + sigma * bm * dt
+        s_ret = dr/self.rates
+        self.rates = self.rates + dr
+        self.ret_window = np.append(self.ret_window[1:],s_ret)
+
         # rates.append(rates[-1] + dr)
         return dr
 
@@ -143,12 +147,8 @@ register(
 if __name__ == '__main__':
     t0 = time.time()
     mdp = Trade()
-    mt1 = time.time()
-    print("initialization time", mt1 - t0)
 
     s = mdp.reset()
-    mt1 = time.time()
-    print("first reset time", mt1 - t0)
     ret=0
     for i in range(1,100):
         ft0 = time.time()
@@ -162,12 +162,7 @@ if __name__ == '__main__':
             print("Return:", ret)
             rt0 = time.time()
             s = mdp.reset()
-            rt1 = time.time()
-            print("reset time", rt1 - rt0)
-            print(s)
-        ft1 = time.time()
-        print("for time is ", ft1 - ft0)
-        print("cumulated for time", ft1 - mt1)
+            # print(s)
     t1 = time.time()
     print("time is ", t1-t0)
 
