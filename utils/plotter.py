@@ -14,8 +14,17 @@ import os
 # plt.rcParams['svg.fonttype'] = 'none'
 
 # # def plot_trading(df, dirname, i, action):
-def plot_trading(path):
+def data_p(path):
     df = pd.read_csv(path)
+    pre, ext = os.path.splitext(path)
+    save_path = os.path.join(pre + "_img.png")
+    if not df.empty:
+        plot_trading(df, save_path)
+    else:
+        print("empty dataframe, removing ")
+        os.remove(path)
+
+def plot_trading(df, save_path):
     price = [100]
     for perc in df['p1'][1:]:
         price.append(price[0] * (1 + perc))
@@ -64,8 +73,11 @@ def plot_trading(path):
     xint = range(0,df.shape[0]+1)
     plt.xticks(xint)
     # plt.show()
-    folder= os.path.dirname(os.path.abspath(path))
-    plt.savefig(os.path.join(folder, "results_plot.png"))
+    # folder= os.path.dirname(os.path.abspath(path))
+    # save_path
+    plt.savefig(os.path.join(save_path))
+
+    # plt.savefig(os.path.join(folder, "results_plot.png"))
     plt.close()
 
 if __name__ == '__main__':
@@ -82,7 +94,7 @@ if __name__ == '__main__':
     # data['Cum_rew']=cr[:-1]
     #
     # print(data)
-    path = "/Users/edoardovittori/Code/alphazero_singleplayer/logs/Trading-v0/2020-07-13_12-21-03/state_action/real_actions.csv"
-
-    plot_trading(path)
+    # path = "/Users/edoardovittori/Code/alphazero_singleplayer/logs/Trading-v0/2020-07-13_14-40-22/state_action/3261920518430412717.csv"
+    path = "/Users/edoardovittori/Code/alphazero_singleplayer/logs/Trading-v0/2020-07-13_14-56-33/state_action/11204837701962185700.csv"
+    data_p(path)
 

@@ -82,7 +82,6 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=
 
         ns, r, done, inf = wrapper.step(a)
         if bool(inf):
-            # is it possible to also plot the price?
             with open(inf, 'a') as text_file:
                     prices = ','.join(str(e) for e in s[:-1])
                     # toprint = prices+','+str(a-1)+',real \n'
@@ -102,7 +101,7 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=
             break
         else:
             wrapper.forward(a, s, r)
-    plotter.plot_trading(inf)
+    plotter.data_p(inf)
 
     if verbose:
         # print(acts)
