@@ -75,7 +75,8 @@ if __name__ == '__main__':
             "n_epochs": args.n_epochs,
             "parallelize_evaluation": args.parallel,
             "mcts_only": args.mcts_only,
-            "particles": args.particles
+            "particles": args.particles,
+            "variance": args.variance
     }
 
     trials = hp.Trials()

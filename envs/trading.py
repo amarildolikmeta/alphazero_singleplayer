@@ -70,7 +70,7 @@ class Trade(gym.Env):
         #             raise  # This was not a "directory exist" error..
         #
         #     self.file_name = os.path.join(logpath, 'state_action', "real_actions" + '.csv')
-            print('writing actions in ' + self.file_name)
+            #print('writing actions in ' + self.file_name)
 
             # reset action file
         self.reset()
@@ -126,7 +126,7 @@ class Trade(gym.Env):
     def step(self, action):
         if self._t >= self.horizon:
             return self.get_state(), 0, True, {}
-        action = int(action) -1
+        action = int(action) - 1
         self.previous_portfolio, self.current_portfolio = self.current_portfolio, action
         # if self.log_actions == True:
         #     self.write_file(self.get_state())
@@ -137,7 +137,7 @@ class Trade(gym.Env):
             terminal = True
         else:
             terminal = False
-        return self.get_state(), reward, terminal, self.file_name
+        return self.get_state(), reward, terminal, {'save_path': self.file_name}
 
     def reset(self):
         self._t = 0

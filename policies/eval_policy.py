@@ -71,7 +71,7 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=
     s = wrapper.reset()
     t = 0
     rew = []
-    inf = ''
+    inf = {}
     while t <= max_len:
         s = np.concatenate([s, [0]]) if add_terminal else s
         a = wrapper.pi_wrapper(s, max_depth=max_len - t)
@@ -81,12 +81,14 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=
             action_counter += 1
 
         ns, r, done, inf = wrapper.step(a)
-        if bool(inf):
-            with open(inf, 'a') as text_file:
-                    prices = ','.join(str(e) for e in s[:-1])
-                    # toprint = prices+','+str(a-1)+',real \n'
-                    toprint = prices+','+str(a-1)+','+str(r)+'\n'
-                    text_file.write(toprint)
+        if "save_path" in inf:
+            save_path = inf['save_path']
+            if bool(save_path):
+                with open(save_path, 'a') as text_file:
+                        prices = ','.join(str(e) for e in s[:-1])
+                        # toprint = prices+','+str(a-1)+',real \n'
+                        toprint = prices+','+str(a-1)+','+str(r)+'\n'
+                        text_file.write(toprint)
 
         if visualize:
             wrapper.visualize()
@@ -101,7 +103,8 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=
             break
         else:
             wrapper.forward(a, s, r)
-    plotter.data_p(inf)
+    if "save_path" in inf:
+        plotter.data_p(inf['save_path'])
 
     if verbose:
         # print(acts)

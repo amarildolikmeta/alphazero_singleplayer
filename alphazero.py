@@ -146,7 +146,8 @@ if __name__ == '__main__':
                                                       particles=args.particles,
                                                       n_workers=args.n_workers,
                                                       use_sampler=args.use_sampler,
-                                                      unbiased=args.unbiased)
+                                                      unbiased=args.unbiased,
+                                                      variance=args.variance)
 
             total_rewards = offline_scores[0][0]
             undiscounted_returns = offline_scores[0][1]

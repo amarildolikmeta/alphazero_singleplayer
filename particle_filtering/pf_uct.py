@@ -148,13 +148,20 @@ class State(object):
         self.terminals = np.array(dones)
         return self.terminals, budget
 
-    def select(self, c=1.5, csi=1., b=1.):
+    def select(self, c=1.5, csi=1., b=1., variance=False):
         """
          Select one of the child actions based on UCT rule
          :param c: UCB exploration constant
          :param csi: exploration constant
          :param b: parameter such that the rewards belong to [0, b]
          """
+        if not variance:
+            uct_upper_bound = np.array(
+                [child_action.Q + c * (np.sqrt(self.n + 1) / (child_action.n + 1)) for child_action in
+                 self.child_actions])
+            winner = argmax(uct_upper_bound)
+            return self.child_actions[winner]
+
         if self.n > 0:
             logp = np.log(self.n)
         else:
@@ -185,13 +192,14 @@ class State(object):
 class PFMCTS(object):
     ''' MCTS object '''
 
-    def __init__(self, root, root_index, na, gamma, model=None, particles=2, sampler=None):
+    def __init__(self, root, root_index, na, gamma, model=None, particles=2, sampler=None, variance=False):
         self.root = root
         self.root_index = root_index
         self.na = na
         self.gamma = gamma
         self.n_particles = particles
         self.sampler = sampler
+        self.variance = variance
 
     def reset_root(self, envs, Env):
         for i in range(len(envs)):
@@ -241,7 +249,7 @@ class PFMCTS(object):
             terminal = False
             terminals = np.zeros(self.n_particles, dtype=np.int8)
             while not terminal:
-                action = state.select(c=c)
+                action = state.select(c=c, variance=self.variance)
                 st += 1
                 # s1, r, t, _ = mcts_env.step(action.index)
                 if hasattr(action, 'child_state'):

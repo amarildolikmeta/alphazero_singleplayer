@@ -20,7 +20,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
           stochastic=False, eval_freq=-1, eval_episodes=100, alpha=0.6, n_epochs=100, c_dpw=1, numpy_dump_dir='../',
           pre_process=None, visualize=False, game_params={}, parallelize_evaluation=False, mcts_only=False,
           particles=0, show_plots=False, n_workers=1, use_sampler=False, budget=np.inf, unbiased=False,
-          max_workers=100):
+          max_workers=100, variance=False):
     visualizer = None
 
     # if particles:
@@ -33,7 +33,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         if not unbiased:
             from particle_filtering.pf_mcts_edo import PFMCTS
         else:
-            from particle_filtering.pf_mcts_std import PFMCTS
+            from particle_filtering.pf_uct import PFMCTS
 
     else:
         from pure_mcts.mcts import MCTS
@@ -78,7 +78,9 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     timepoints = []
 
     # Environments
-    game_params = {'save_dir':logger.save_dir}
+    game_params = {}
+    if game == 'Trading-v0':
+        game_params['save_dir'] = logger.save_dir
     Env = make_game(game, game_params)
     num_actions = Env.action_space.n
     sampler = None
@@ -105,6 +107,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     if particles:
         mcts_params['particles'] = particles
         mcts_params['sampler'] = sampler
+        if unbiased:
+            mcts_params['variance'] = variance
     if stochastic:
         mcts_params['alpha'] = alpha
         mcts_maker = MCTSStochastic
@@ -112,6 +116,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         mcts_maker = PFMCTS
     else:
         mcts_maker = MCTS
+
+
 
     # Prepare the database for storing training data to be sampled
     db = Database(max_size=data_size, batch_size=batch_size)

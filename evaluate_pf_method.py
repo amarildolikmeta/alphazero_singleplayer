@@ -81,7 +81,7 @@ if __name__ == '__main__':
 
         # particles = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
 
-        particles = [2,4,6,8,10,12,14,16,18,20,50]
+        particles = [1, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 50]
 
         # Variables for storing experiments' results
         returns = []
@@ -131,7 +131,8 @@ if __name__ == '__main__':
                                                       n_workers=args.n_workers,
                                                       use_sampler=args.use_sampler,
                                                       unbiased=args.unbiased,
-                                                      max_workers=args.max_workers)
+                                                      max_workers=args.max_workers,
+                                                      variance=args.variance)
 
             total_rewards = offline_scores[0][0]
             returns_per_step = offline_scores[0][1]
