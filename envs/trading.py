@@ -41,19 +41,21 @@ class Trade(gym.Env):
         if self.log_actions==True:
             try:
                 os.makedirs(os.path.join(logpath, "state_action"))
+                self.file_name = os.path.join(logpath, 'state_action', "real_actions" + '.csv')
+                text_file = open(self.file_name, 'a')
+                s = ''
+                for j in range(time_lag):
+                    s += 'p' + str(j) + ','
+                s += 'a,r\n'
+                text_file.write(s)
+                text_file.close()
             except OSError as e:
                 if e.errno != errno.EEXIST:
                     raise  # This was not a "directory exist" error..
-            self.file_name = os.path.join(logpath, 'state_action', str(sd[0]) + '.csv')
 
+            self.file_name = os.path.join(logpath, 'state_action', "real_actions" + '.csv')
             print('writing actions in ' + self.file_name)
-            text_file = open(self.file_name, 'w')
-            s = ''
-            for j in range(time_lag):
-                s += 'p' + str(j) + ','
-            s += 'a,r\n'
-            text_file.write(s)
-            text_file.close()
+
             # reset action file
         self.reset()
 

@@ -45,7 +45,7 @@ def plot_trading(path):
     p1, = par1.plot(df['Cum_rew'], "m-", label="Cumulated Rewards")
 
     # host.set_xlim(0, 2)
-    # host.set_ylim(-0.5, 0.5)
+    host.set_ylim(99.8, 100.2)
     # par1.set_ylim(-1, 1)
     # par2.set_ylim(0, 0.1)
 
@@ -82,6 +82,7 @@ if __name__ == '__main__':
     # data['Cum_rew']=cr[:-1]
     #
     # print(data)
-    path = "/Users/edoardovittori/Code/alphazero_singleplayer/logs/Trading-v0/2020-07-13_11-35-43/state_action/11793779510439986209.csv"
+    path = "/Users/edoardovittori/Code/alphazero_singleplayer/logs/Trading-v0/2020-07-13_12-21-03/state_action/real_actions.csv"
+
     plot_trading(path)
 
