@@ -3,7 +3,7 @@ import time
 import multiprocessing
 from tqdm import trange
 import copy
-
+from utils import plotter
 USE_TQDM = True
 
 
@@ -71,6 +71,7 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=
     s = wrapper.reset()
     t = 0
     rew = []
+    inf = ''
     while t <= max_len:
         s = np.concatenate([s, [0]]) if add_terminal else s
         a = wrapper.pi_wrapper(s, max_depth=max_len - t)
@@ -80,11 +81,12 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=
             action_counter += 1
 
         ns, r, done, inf = wrapper.step(a)
-
         if bool(inf):
+            # is it possible to also plot the price?
             with open(inf, 'a') as text_file:
                     prices = ','.join(str(e) for e in s[:-1])
-                    toprint = prices+','+str(a-1)+',real \n'
+                    # toprint = prices+','+str(a-1)+',real \n'
+                    toprint = prices+','+str(a-1)+','+str(r)+'\n'
                     text_file.write(toprint)
 
         if visualize:
@@ -100,7 +102,7 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=
             break
         else:
             wrapper.forward(a, s, r)
-        # print(t)
+    plotter.plot_trading(inf)
 
     if verbose:
         # print(acts)

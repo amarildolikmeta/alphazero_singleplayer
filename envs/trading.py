@@ -12,7 +12,7 @@ def generate_trade(save_dir=''):
 
 
 class Trade(gym.Env):
-    def __init__(self, fees=0.01, time_lag=2, horizon=20, log_actions=False, logpath='.'):
+    def __init__(self, fees=0.01, time_lag=2, horizon=20, log_actions=True, logpath=''):
         # Initialize parameter
 
         # price history, previous portfolio, time
@@ -50,8 +50,8 @@ class Trade(gym.Env):
             text_file = open(self.file_name, 'w')
             s = ''
             for j in range(time_lag):
-                s += 'p' + str(j) + ', '
-            s += 'a \n'
+                s += 'p' + str(j) + ','
+            s += 'a,r\n'
             text_file.write(s)
             text_file.close()
             # reset action file
@@ -78,7 +78,7 @@ class Trade(gym.Env):
                 abs(self.current_portfolio - self.previous_portfolio) * self.fees
 
         # transform with logistic in [0,1] for algorithm
-        pl = 1/(1+np.exp(-100*pl))
+        pl = 1/(1+np.exp(-4*pl))
         return pl
 
     def gmb(self, sigma=0.2, r=0, days=2, ppd=1):
@@ -110,8 +110,8 @@ class Trade(gym.Env):
             return self.get_state(), 0, True, {}
         action = int(action) -1
         self.previous_portfolio, self.current_portfolio = self.current_portfolio, action
-        if self.log_actions == True:
-            self.write_file(self.get_state())
+        # if self.log_actions == True:
+        #     self.write_file(self.get_state())
 
         reward = self.get_reward()
         self._t += 1
@@ -119,7 +119,7 @@ class Trade(gym.Env):
             terminal = True
         else:
             terminal = False
-        return self.get_state(), reward, terminal, {}
+        return self.get_state(), reward, terminal, self.file_name
 
     def reset(self):
         self._t = 0
