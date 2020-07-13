@@ -46,8 +46,8 @@ MAX_DEPTH = 10
 
 env_to_confings = {
     'Trading': 'configs/Trading/trading.json',
-    #'RaceStrategy': 'configs/RaceStrategy/racestrategy.json',
-    'Riverswim': 'configs/RiverSwim/riverswim.json'
+    'RaceStrategy': 'configs/RaceStrategy/racestrategy.json',
+    # 'Riverswim': 'configs/RiverSwim/riverswim.json'
 }
 
 
