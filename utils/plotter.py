@@ -3,7 +3,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import math
 # import matplotlib
+import errno
 import os
+import ntpath
+
+
 # import os.path as osp
 # import datetime
 # import glob
@@ -16,10 +20,18 @@ import os
 # # def plot_trading(df, dirname, i, action):
 def data_p(path):
     df = pd.read_csv(path)
-    pre, ext = os.path.splitext(path)
-    save_path = os.path.join(pre + "_img.png")
     if not df.empty:
-        plot_trading(df, save_path)
+        pre, ext = os.path.splitext(path)
+        spath, s_num = ntpath.split(pre)
+        try:
+            spath = os.path.join(spath, "images")
+            os.makedirs(spath)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise  # This was not a "directory exist" error..
+        file_name = os.path.join(spath, s_num + '.png')
+
+        plot_trading(df, file_name)
     else:
         print("empty dataframe, removing ")
         os.remove(path)
