@@ -1,6 +1,7 @@
 import numpy as np
 from envs.FiniteMDP import FiniteMDP
 
+
 def generate_chain(n=5, slip=0.2, small=2, large=10, gamma=0.9999, horizon=1000):
         nA = 2
         nS = n

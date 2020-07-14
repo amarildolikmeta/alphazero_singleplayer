@@ -5,10 +5,12 @@ from gym import spaces
 from gym.utils import seeding
 from gym import register
 
-from random import random
 
-def generate_race():
-    return Race()
+def generate_race(**game_params):
+    if game_params is None:
+        game_params = {}
+    return Race(**game_params)
+
 
 class Race(gym.Env):
 

@@ -71,11 +71,13 @@ if __name__ == '__main__':
         # plt.savefig(out_dir + name, bbox_inches="tight", bbox_extra_artists=(lgd,))
     else:
         exps = []
-        game_params = {}
+        game_params = {'horizon': args.max_ep_len}
 
         if args.game == 'Taxi' or args.game == 'TaxiEasy':
             game_params['grid'] = args.grid
             game_params['box'] = True
+        elif args.game == 'RiverSwim-continuous':
+            game_params['dim'] = args.chain_dim
 
         # particles = [5, 10, 25, 50, 100, 250, 500]
 
@@ -184,4 +186,5 @@ if __name__ == '__main__':
 
         df = pd.DataFrame(data)
 
-        df.to_csv("logs/data_eval_pf_{}_{}.csv".format(args.game, args.budget), header=True, index=False)
+        df.to_csv("logs/" + time_str + '/' + "data_eval_pf_{}_{}.csv".format(args.game, args.budget), header=True,
+                  index=False)

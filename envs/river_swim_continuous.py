@@ -1,14 +1,15 @@
 from copy import copy
-
 import gym
 import numpy as np
 from gym import spaces
 from gym.utils import seeding
 from gym_minigrid.register import register
-from rl_agents.agents.tree_search.deterministic import OptimisticDeterministicPlanner
 
-def generate_river_continuous():
-    return RiverSwimContinuous()
+
+def generate_river_continuous(**game_params):
+    if game_params is None:
+        game_params = {}
+    return RiverSwimContinuous(**game_params)
 
 
 class RiverSwimContinuous(gym.Env):
@@ -20,7 +21,6 @@ class RiverSwimContinuous(gym.Env):
         self.large = large
         self.gamma = gamma
         self.dim = dim
-
         self.min_action = -1.0
         self.max_action = 1.0
         self.min_position = 0
@@ -106,9 +106,9 @@ register(
 )
 
 if __name__ == '__main__':
-    mdp = RiverSwimContinuous()
+    mdp = RiverSwimContinuous(horizon=40, dim=15)
     gamma = 0.99
-    num_episodes = 10000
+    num_episodes = 1000
     rets = []
     for i in range(num_episodes):
         ret = 0
@@ -121,6 +121,7 @@ if __name__ == '__main__':
             ret += r
             t += 1
         rets.append(ret)
-    print(np.mean(rets), np.std(rets) / np.sqrt(num_episodes))
-    print(np.max(rets))
+    print("Return = %.2f +/- %.2f" %(np.mean(rets), np.std(rets) / np.sqrt(num_episodes)))
+    print("Max Return:", np.max(rets))
+    print("Returns:")
     print(rets)

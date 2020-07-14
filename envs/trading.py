@@ -7,12 +7,15 @@ import time
 import errno
 import os
 
-def generate_trade(save_dir=''):
-    return Trade(logpath = save_dir)
+
+def generate_trade(**game_params):
+    if game_params is None:
+        game_params = {}
+    return Trade(**game_params)
 
 
 class Trade(gym.Env):
-    def __init__(self, fees=0.01, time_lag=2, horizon=20, log_actions=True, logpath=''):
+    def __init__(self, fees=0.01, time_lag=2, horizon=20, log_actions=True, save_dir=''):
         # Initialize parameter
 
         # price history, previous portfolio, time
@@ -38,13 +41,13 @@ class Trade(gym.Env):
         # start logging file
         sd = self.seed()
         self.log_actions = log_actions
-        if self.log_actions==True:
+        if self.log_actions:
             try:
-                os.makedirs(os.path.join(logpath, "state_action"))
+                os.makedirs(os.path.join(save_dir, "state_action"))
             except OSError as e:
                 if e.errno != errno.EEXIST:
                     raise  # This was not a "directory exist" error..
-            self.file_name = os.path.join(logpath, 'state_action', str(sd[0]) + '.csv')
+            self.file_name = os.path.join(save_dir, 'state_action', str(sd[0]) + '.csv')
 
             print('writing actions in ' + self.file_name)
             text_file = open(self.file_name, 'w')

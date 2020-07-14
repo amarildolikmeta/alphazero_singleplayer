@@ -10,6 +10,7 @@ from utils.logging.logger import Logger
 from utils.env_wrapper import Wrapper
 from particle_filtering.parallel_sampler import ParallelSampler
 import os
+
 DEBUG = False
 DEBUG_TAXI = False
 USE_TQDM = True
@@ -78,7 +79,6 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     timepoints = []
 
     # Environments
-    game_params = {}
     if game == 'Trading-v0':
         game_params['save_dir'] = logger.save_dir
     Env = make_game(game, game_params)
@@ -116,8 +116,6 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         mcts_maker = PFMCTS
     else:
         mcts_maker = MCTS
-
-
 
     # Prepare the database for storing training data to be sampled
     db = Database(max_size=data_size, batch_size=batch_size)
@@ -177,7 +175,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                                             max_workers=max_workers)
             else:
                 total_reward, reward_per_timestep, lens, action_counts = \
-                    eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False, max_len=max_ep_len, visualize=visualize)
+                    eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False, max_len=max_ep_len,
+                                visualize=visualize)
 
             # offline_scores.append([np.min(rews), np.max(rews), np.mean(rews), np.std(rews),
             #                        len(rews), np.mean(lens)])

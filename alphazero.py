@@ -4,29 +4,15 @@
 One-player Alpha Zero
 @author: Thomas Moerland, Delft University of Technology
 """
-import errno
-import json
-from datetime import datetime
-
 from joblib import Parallel, delayed
 import pandas as pd
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-from helpers import smooth, symmetric_remove
 import time
-#from envs.blackjack_pi import BlackjackEnv
-
 from utils.parser_setup import setup_parser
-
 plt.style.use('ggplot')
 from agent import agent
-from gym.envs.registration import register
-
-# register(
-#     id='Blackjack_pi-v0',
-#     entry_point='envs.blackjack_pi:BlackjackEnv',
-# )
 
 #### Command line call, parsing and plotting ##
 colors = ['r', 'b', 'g', 'orange', 'c', 'k', 'purple', 'y']
@@ -68,29 +54,17 @@ if __name__ == '__main__':
             delayed(agent)(*(fun_args + [alpha + i * delta_alpha, out_dir + '/alpha_' +
                                          str(alpha + i * delta_alpha) + '/', pre_process]))
             for i in range(n))
-
-        # fig, ax = plt.subplots(1, figsize=[7, 5])
-        # for j in range(len(out)):
-        #     episode_returns, timepoints, a_best, seed_best, R_best, offline_scores = out[j]
-        #     total_eps = len(episode_returns)
-        #     episode_returns = smooth(episode_returns, args.window, mode='valid')
-        #     ax.plot(symmetric_remove(np.arange(total_eps), args.window - 1), episode_returns, color=colors[j],
-        #         marker =markers[j], label='a-'+ str(alpha + j * delta_alpha))
-        #     model.save(out_dir+'/alpha_' + str(alpha + j * delta_alpha) + '/')
-        # ax.set_ylabel('Return')
-        # ax.set_xlabel('Episode', color='darkred')
-        # name = 'learning_curve_dpw_alpha_test.png'
-        # lgd = fig.legend(loc='lower center', ncol=n/2, fancybox=True, shadow=True)
-        # plt.savefig(out_dir + name, bbox_inches="tight", bbox_extra_artists=(lgd,))
     else:
         exps = []
-        game_params = {}
+        game_params = {'horizon': args.max_ep_len}
 
         # Accept custom grid if the environment requires it
         if args.game == 'Taxi' or args.game == 'TaxiEasy':
             game_params['grid'] = args.grid
             game_params['box'] = True
             # TODO modify this to return to original taxi problem
+        elif args.game == 'RiverSwim-continuous':
+            game_params['dim'] = args.chain_dim
 
         # Define the name of the agent to be stored in the dataframe
         if args.stochastic:
@@ -139,7 +113,8 @@ if __name__ == '__main__':
                                                       visualize=args.visualize,
                                                       eval_freq=args.eval_freq,
                                                       eval_episodes=args.eval_episodes,
-                                                      pre_process=None, game_params=game_params,
+                                                      pre_process=None,
+                                                      game_params=game_params,
                                                       n_epochs=args.n_epochs,
                                                       parallelize_evaluation=args.parallel,
                                                       mcts_only=args.mcts_only,
@@ -188,10 +163,12 @@ if __name__ == '__main__':
             # Store the count of pit stops only if analyzing Race Strategy problem
             if "RaceStrategy" in args.game:
                 data["pit_count"] = counts
-
+            if not os.path.exists("logs/" + time_str + '/'):
+                os.makedirs("logs/" + time_str + '/')
             # Write the dataframe to csv
             df = pd.DataFrame(data)
-            df.to_csv("logs/{}_{}_{}_data_exp_{}.csv".format(agent_name, args.game, args.budget, i), header=True, index=False)
+            df.to_csv("logs/" + time_str + '/' + "{}_{}_{}_data_exp_{}.csv".format(agent_name, args.game, args.budget
+                                                                                   , i), header=True, index=False)
 
             # TODO FIX THIS
             # exps.append(offline_scores)
