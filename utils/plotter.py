@@ -1,4 +1,4 @@
-# import numpy as np
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import math
@@ -37,15 +37,17 @@ def data_p(path):
         os.remove(path)
 
 def plot_trading(df, save_path):
+    df = df.append(pd.Series(0, index=df.columns), ignore_index=True)
     price = [100]
-    for perc in df['p1'][1:]:
-        price.append(price[0] * (1 + perc))
-    df['price'] = price
+    for perc in df['p1']:
+        price.append(price[-1] * (1 + perc))
+    df['price'] = price[:-1]
 
     cr = [0]
-    for rew in df['r']:
-        cr.append(cr[-1] + rew - 0.5)
-    df['Cum_rew'] = cr[:-1]
+    for rew in df['r'][:-1]:
+        norm = -1/4*np.log(1/rew-1)
+        cr.append(cr[-1] + norm)
+    df['Cum_rew'] = cr
 
     fig, host = plt.subplots()
     fig.subplots_adjust(right=0.75)
@@ -66,9 +68,8 @@ def plot_trading(df, save_path):
     p1, = par1.plot(df['Cum_rew'], "m-", label="Cumulated Rewards")
 
     # host.set_xlim(0, 2)
-    host.set_ylim(99.8, 100.2)
-    # par1.set_ylim(-1, 1)
-    # par2.set_ylim(0, 0.1)
+    host.set_ylim(99.5, 100.5)
+    par1.set_ylim(-0.009, 0.009)
 
     host.set_xlabel("Timesteps")
     host.set_ylabel("Stock price")

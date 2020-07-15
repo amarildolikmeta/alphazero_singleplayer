@@ -15,7 +15,7 @@ def generate_trade(**game_params):
 
 
 class Trade(gym.Env):
-    def __init__(self, fees=0.01, time_lag=2, horizon=20, log_actions=True, save_dir=''):
+    def __init__(self, fees=0.0001, time_lag=2, horizon=20, log_actions=True, save_dir=''):
         # Initialize parameter
 
         # price history, previous portfolio, time
@@ -124,7 +124,7 @@ class Trade(gym.Env):
         self.ret_window = np.append(self.ret_window[1:],s_ret)
 
         # rates.append(rates[-1] + dr)
-        return dr
+        return s_ret
 
     def step(self, action):
         if self._t >= self.horizon:
