@@ -165,13 +165,14 @@ if __name__ == '__main__':
             # np.save(out_dir + "scores.npy", scores)
 
         # Finished training: Visualize
-
+        if not os.path.exists("logs/" + time_str + '/'):
+            os.makedirs("logs/" + time_str + '/')
         plt.figure()
         plt.errorbar(particles, means, stds, linestyle='None', marker='^', capsize=3)
         plt.xlabel("Number of particles")
         plt.ylabel("Undiscounted reward")
         plt.title("Particle filtering performance - budget {}".format(args.budget))
-        plt.savefig(os.path.join(os.path.curdir, "logs/pf_evaluation_{}_{}.png".format(args.game, args.budget)))
+        plt.savefig(os.path.join(os.path.curdir, "logs/" + time_str + '/' +"pf_evaluation_{}_{}.png".format(args.game, args.budget)))
         plt.close()
 
         # Store pandas dataframe with experiments' results

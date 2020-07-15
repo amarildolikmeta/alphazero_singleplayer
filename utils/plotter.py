@@ -1,9 +1,13 @@
-# import numpy as np
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import math
 # import matplotlib
+import errno
 import os
+import ntpath
+
+
 # import os.path as osp
 # import datetime
 # import glob
@@ -16,24 +20,34 @@ import os
 # # def plot_trading(df, dirname, i, action):
 def data_p(path):
     df = pd.read_csv(path)
-    pre, ext = os.path.splitext(path)
-    save_path = os.path.join(pre + "_img.png")
     if not df.empty:
-        plot_trading(df, save_path)
+        pre, ext = os.path.splitext(path)
+        spath, s_num = ntpath.split(pre)
+        try:
+            spath = os.path.join(spath, "images")
+            os.makedirs(spath)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise  # This was not a "directory exist" error..
+        file_name = os.path.join(spath, s_num + '.png')
+
+        plot_trading(df, file_name)
     else:
         print("empty dataframe, removing ")
         os.remove(path)
 
 def plot_trading(df, save_path):
+    df = df.append(pd.Series(0, index=df.columns), ignore_index=True)
     price = [100]
-    for perc in df['p1'][1:]:
-        price.append(price[0] * (1 + perc))
-    df['price'] = price
+    for perc in df['p1']:
+        price.append(price[-1] * (1 + perc))
+    df['price'] = price[:-1]
 
     cr = [0]
-    for rew in df['r']:
-        cr.append(cr[-1] + rew - 0.5)
-    df['Cum_rew'] = cr[:-1]
+    for rew in df['r'][:-1]:
+        norm = -1/4*np.log(1/rew-1)
+        cr.append(cr[-1] + norm)
+    df['Cum_rew'] = cr
 
     fig, host = plt.subplots()
     fig.subplots_adjust(right=0.75)
@@ -54,9 +68,8 @@ def plot_trading(df, save_path):
     p1, = par1.plot(df['Cum_rew'], "m-", label="Cumulated Rewards")
 
     # host.set_xlim(0, 2)
-    host.set_ylim(99.8, 100.2)
-    # par1.set_ylim(-1, 1)
-    # par2.set_ylim(0, 0.1)
+    host.set_ylim(99.5, 100.5)
+    par1.set_ylim(-0.009, 0.009)
 
     host.set_xlabel("Timesteps")
     host.set_ylabel("Stock price")
