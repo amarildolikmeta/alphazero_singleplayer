@@ -63,8 +63,8 @@ class StochasticState(State):
 class MCTSStochastic(MCTS):
     ''' MCTS object '''
 
-    def __init__(self, root, root_index, model, na, gamma, alpha=0.6):
-        super(MCTSStochastic, self).__init__(root, root_index, model, na, gamma)
+    def __init__(self, root, root_index, model, na, gamma, alpha=0.6, depth_based_bias=False):
+        super(MCTSStochastic, self).__init__(root, root_index, model, na, gamma, depth_based_bias=depth_based_bias)
         self.alpha = alpha
 
     def search(self, n_mcts, c, Env, mcts_env, max_depth=200):

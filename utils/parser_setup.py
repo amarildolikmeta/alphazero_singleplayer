@@ -43,5 +43,8 @@ def setup_parser():
     parser.add_argument('--variance', action='store_true', help='use variance based selection policy')
     parser.add_argument('--max_workers', type=int, default=100, help='Maximum number of parallel workers')
     parser.add_argument('--budget', type=int, default=1000, help='Computational budget')
+    parser.add_argument('--depth_based_bias', action='store_true', help='use depth based bias')
+    parser.add_argument('--opt_iters', type=int, default=20, help='Number of hyperparameter tries,'
+                                                                  ' only used in hyperparameter tuning')
 
     return parser.parse_args()

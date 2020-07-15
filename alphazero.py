@@ -65,7 +65,6 @@ if __name__ == '__main__':
             # TODO modify this to return to original taxi problem
         elif args.game == 'RiverSwim-continuous':
             game_params['dim'] = args.chain_dim
-
         # Define the name of the agent to be stored in the dataframe
         if args.stochastic:
             agent_name = "dpw_"
@@ -122,7 +121,9 @@ if __name__ == '__main__':
                                                       n_workers=args.n_workers,
                                                       use_sampler=args.use_sampler,
                                                       unbiased=args.unbiased,
-                                                      variance=args.variance)
+                                                      variance=args.variance,
+                                                      depth_based_bias=args.depth_based_bias,
+                                                      max_workers=args.max_workers)
 
             total_rewards = offline_scores[0][0]
             undiscounted_returns = offline_scores[0][1]
@@ -163,11 +164,22 @@ if __name__ == '__main__':
             # Store the count of pit stops only if analyzing Race Strategy problem
             if "RaceStrategy" in args.game:
                 data["pit_count"] = counts
-            if not os.path.exists("logs/" + time_str + '/'):
-                os.makedirs("logs/" + time_str + '/')
+            alg = "dpw/"
+            if not args.stochastic:
+                if args.unbiased:
+                    if args.variance:
+                        alg = 'p_uct_var/'
+                    else:
+                        alg = 'p_uct/'
+                else:
+                    alg = 'pf_uct/'
+                alg += str(args.particles) + '_particles/'
+            out_dir = "logs/" + args.game + "/" + alg + time_str + '/'
+            if not os.path.exists(out_dir):
+                os.makedirs(out_dir)
             # Write the dataframe to csv
             df = pd.DataFrame(data)
-            df.to_csv("logs/" + time_str + '/' + "{}_{}_{}_data_exp_{}.csv".format(agent_name, args.game, args.budget
+            df.to_csv(out_dir + "{}_{}_{}_data_exp_{}.csv".format(agent_name, args.game, args.budget
                                                                                    , i), header=True, index=False)
 
             # TODO FIX THIS

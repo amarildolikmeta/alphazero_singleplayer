@@ -134,7 +134,8 @@ if __name__ == '__main__':
                                                       use_sampler=args.use_sampler,
                                                       unbiased=args.unbiased,
                                                       max_workers=args.max_workers,
-                                                      variance=args.variance)
+                                                      variance=args.variance,
+                                                      depth_based_bias=args.depth_based_bias)
 
             total_rewards = offline_scores[0][0]
             returns_per_step = offline_scores[0][1]
@@ -184,7 +185,21 @@ if __name__ == '__main__':
         if "RaceStrategy" in args.game:
             data["pit_count"] = counts
 
+        alg = "dpw/"
+        if not args.stochastic:
+            if args.unbiased:
+                if args.variance:
+                    alg = 'p_uct_var/'
+                else:
+                    alg = 'p_uct/'
+            else:
+                alg = 'pf_uct/'
+            alg += str(args.particles) + '_particles/'
+        out_dir = "logs/" + args.game + "/" + alg + time_str + '/'
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+
         df = pd.DataFrame(data)
 
-        df.to_csv("logs/" + time_str + '/' + "data_eval_pf_{}_{}.csv".format(args.game, args.budget), header=True,
+        df.to_csv(out_dir + "data_eval_pf_{}_{}.csv".format(args.game, args.budget), header=True,
                   index=False)

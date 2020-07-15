@@ -156,6 +156,7 @@ class State(object):
          :param b: parameter such that the rewards belong to [0, b]
          """
         if not variance:
+
             uct_upper_bound = np.array(
                 [child_action.Q + c * (np.sqrt(self.n + 1) / (child_action.n + 1)) for child_action in
                  self.child_actions])
@@ -192,7 +193,8 @@ class State(object):
 class PFMCTS(object):
     ''' MCTS object '''
 
-    def __init__(self, root, root_index, na, gamma, model=None, particles=2, sampler=None, variance=False):
+    def __init__(self, root, root_index, na, gamma, model=None, particles=2, sampler=None, variance=False,
+                 depth_based_bias=False):
         self.root = root
         self.root_index = root_index
         self.na = na
@@ -200,6 +202,7 @@ class PFMCTS(object):
         self.n_particles = particles
         self.sampler = sampler
         self.variance = variance
+        self.depth_based_bias = depth_based_bias
 
     def reset_root(self, envs, Env):
         for i in range(len(envs)):
@@ -249,7 +252,8 @@ class PFMCTS(object):
             terminal = False
             terminals = np.zeros(self.n_particles, dtype=np.int8)
             while not terminal:
-                action = state.select(c=c, variance=self.variance)
+                bias = c * self.gamma ** st / (1 - self.gamma) if self.depth_based_bias else c
+                action = state.select(c=bias, variance=self.variance)
                 st += 1
                 # s1, r, t, _ = mcts_env.step(action.index)
                 if hasattr(action, 'child_state'):

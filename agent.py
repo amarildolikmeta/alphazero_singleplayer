@@ -21,7 +21,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
           stochastic=False, eval_freq=-1, eval_episodes=100, alpha=0.6, n_epochs=100, c_dpw=1, numpy_dump_dir='../',
           pre_process=None, visualize=False, game_params={}, parallelize_evaluation=False, mcts_only=False,
           particles=0, show_plots=False, n_workers=1, use_sampler=False, budget=np.inf, unbiased=False,
-          max_workers=100, variance=False):
+          max_workers=100, variance=False, depth_based_bias=False):
     visualizer = None
 
     # if particles:
@@ -35,7 +35,6 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             from particle_filtering.pf_mcts_edo import PFMCTS
         else:
             from particle_filtering.pf_uct import PFMCTS
-
     else:
         from pure_mcts.mcts import MCTS
         from pure_mcts.mcts_dpw import MCTSStochastic
@@ -48,7 +47,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                       "n_hidden_layers": n_hidden_layers, "n_hidden_units": n_hidden_units, "stochastic": stochastic,
                       "eval_freq": eval_freq, "eval_episodes": eval_episodes, "alpha": alpha, "n_epochs": n_epochs,
                       "out_dir": numpy_dump_dir, "pre_process": pre_process, "visualize": visualize,
-                      "game_params": game_params, "n_workers": n_workers, "use_sampler": use_sampler}
+                      "game_params": game_params, "n_workers": n_workers, "use_sampler": use_sampler,
+                      "variance": variance, "depth_based_bias": depth_based_bias, "unbiased": unbiased}
 
     logger = Logger(parameter_list, game, show=show_plots)
 
@@ -111,9 +111,11 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             mcts_params['variance'] = variance
     if stochastic:
         mcts_params['alpha'] = alpha
+        mcts_params['depth_based_bias'] = depth_based_bias
         mcts_maker = MCTSStochastic
     elif particles:
         mcts_maker = PFMCTS
+        mcts_params['depth_based_bias'] = depth_based_bias
     else:
         mcts_maker = MCTS
 

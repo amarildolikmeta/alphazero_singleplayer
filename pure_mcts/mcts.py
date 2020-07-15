@@ -91,13 +91,14 @@ class State(object):
 class MCTS(object):
     """ MCTS object """
 
-    def __init__(self, root, root_index, na, gamma, dpw=False, alpha=0.6, model=None):
+    def __init__(self, root, root_index, na, gamma, dpw=False, alpha=0.6, model=None, depth_based_bias=False):
         self.root = root
         self.root_index = root_index
         self.na = na
         self.gamma = gamma
         self.dpw = dpw
         self.alpha = alpha
+        self.depth_based_bias = depth_based_bias
 
     def search(self, n_mcts, c, Env, mcts_env, budget, max_depth=200):
         """ Perform the MCTS search from the root """
@@ -121,7 +122,8 @@ class MCTS(object):
                 restore_atari_state(mcts_env, snapshot)
             st = 0
             while not state.terminal:
-                action = state.select(c=c)
+                bias = c * self.gamma ** st / (1 - self.gamma) if self.depth_based_bias else c
+                action = state.select(c=bias)
                 st += 1
                 s1, r, t, _ = mcts_env.step(action.index)
                 if hasattr(action, 'child_state'):

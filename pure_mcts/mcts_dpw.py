@@ -58,8 +58,8 @@ class StochasticState(State):
 class MCTSStochastic(MCTS):
     ''' MCTS object '''
 
-    def __init__(self, root, root_index, na, gamma, alpha=0.6, model=None):
-        super(MCTSStochastic, self).__init__(root, root_index, na, gamma)
+    def __init__(self, root, root_index, na, gamma, alpha=0.6, model=None, depth_based_bias=False):
+        super(MCTSStochastic, self).__init__(root, root_index, na, gamma, depth_based_bias=depth_based_bias)
         self.alpha = alpha
 
     def search(self, n_mcts, c, Env, mcts_env, budget, max_depth=200):
@@ -102,18 +102,11 @@ class MCTSStochastic(MCTS):
                 mcts_env = copy.deepcopy(Env)  # copy original Env to rollout from
             else:
                 restore_atari_state(mcts_env, snapshot)
-            # obs1 = mcts_env._get_obs().flatten()
-            # obs2 = Env._get_obs().flatten()
-            # if not np.array_equal(obs1, obs2):
-            #     print("HOLDUP")
             mcts_env.seed()
             st = 0
             while not state.terminal:
-                # obs = mcts_env._get_obs().flatten()
-                # flattened_State = state.index.flatten()
-                # if not np.array_equal(flattened_State, obs):
-                #     print("WHATTTTTT")
-                action = state.select(c=c)
+                bias = c * self.gamma ** st / (1 - self.gamma) if self.depth_based_bias else c
+                action = state.select(c=bias)
                 st += 1
                 k = np.ceil(c * action.n ** self.alpha)
                 if k >= action.n_children:

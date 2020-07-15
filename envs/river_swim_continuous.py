@@ -106,7 +106,7 @@ register(
 )
 
 if __name__ == '__main__':
-    mdp = RiverSwimContinuous(horizon=40, dim=15)
+    mdp = RiverSwimContinuous(horizon=20, dim=7)
     gamma = 0.99
     num_episodes = 1000
     rets = []
@@ -116,7 +116,7 @@ if __name__ == '__main__':
         done = False
         s = mdp.reset()
         while not done:
-            a = 1
+            a = 0
             s, r, done, _ = mdp.step(a)
             ret += r
             t += 1

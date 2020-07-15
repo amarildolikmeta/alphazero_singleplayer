@@ -1,21 +1,18 @@
-import argparse
 import os, pickle
 import numpy as np
 import hyperopt as hp
 from functools import partial
-
 from agent import agent
 from utils.parser_setup import setup_parser
+import time
 
-parameter_space = {"temp": hp.hp.quniform('temp', 0.05, 0.5, 0.05),
+parameter_space = {#"temp": hp.hp.quniform('temp', 0.05, 0.5, 0.05),
                    # "lr": hp.hp.qloguniform('lr', np.log(0.0001), np.log(0.1)),
-                   "c": hp.hp.quniform('c', 0, 2, 0.1),
+                   "c": hp.hp.quniform('c', 1, 5, 0.4),
                    "alpha": hp.hp.quniform('alpha', 0, 0.99, 0.01)}
 
 
 def objective(params, keywords):
-
-    print(params)
 
     # keywords["eval_freq"] = 1
     # keywords["n_ep"] = 1
@@ -26,13 +23,13 @@ def objective(params, keywords):
     means = []
 
     # Take all the average returns for evaluation
-    for score in offline_scores:
-        means.append(score[2])
+    # for score in offline_scores:
+    #     means.append(score[2])
+    means = offline_scores[0][0]
+    # print("Mean return:", np.mean(means))
+    # print("Standard deviation:", np.std(means))
 
-    print("Mean return:", -np.mean(means))
-    print("Standard deviation:", np.std(means))
-
-    return -np.mean(means)
+    return np.mean(means)
 
 
 if __name__ == '__main__':
@@ -45,17 +42,21 @@ if __name__ == '__main__':
 
     if not args.gpu:
         os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    game_params = {'horizon': args.max_ep_len}
 
-    game_params = {}
+    # Accept custom grid if the environment requires it
     if args.game == 'Taxi' or args.game == 'TaxiEasy':
         game_params['grid'] = args.grid
         game_params['box'] = True
         # TODO modify this to return to original taxi problem
+    elif args.game == 'RiverSwim-continuous':
+        game_params['dim'] = args.chain_dim
 
     keys = {"game": args.game,
             "n_ep": args.n_ep,
             "n_mcts": args.n_mcts,
             "max_ep_len": args.max_ep_len,
+            "budget": args.budget,
             "lr": args.lr,
             "c": args.c,
             "gamma": args.gamma,
@@ -75,18 +76,46 @@ if __name__ == '__main__':
             "n_epochs": args.n_epochs,
             "parallelize_evaluation": args.parallel,
             "mcts_only": args.mcts_only,
+            "n_workers": args.n_workers,
+            "use_sampler": args.use_sampler,
             "particles": args.particles,
-            "variance": args.variance
+            "variance": args.variance,
+            "unbiased": args.unbiased,
+            "depth_based_bias": args.depth_based_bias,
+            "max_workers": args.max_workers
     }
 
     trials = hp.Trials()
 
+    if args.stochastic:
+        parameter_space = {
+            "c": hp.hp.quniform('c', 1, 5, 0.4),
+            "alpha": hp.hp.quniform('alpha', 0, 0.99, 0.01)}
+    else:
+        parameter_space = {
+            "c": hp.hp.quniform('c', 1, 5, 0.4),}
     old = [{'alpha': 0.49, 'c': 1.6, 'temp': 0.05}, {'alpha': 0.99, 'c': 0.5, 'temp': 0.15}]
 
-    best = hp.fmin(fn=partial(objective, keywords=keys), algo=hp.tpe.suggest, max_evals=50, space=parameter_space,
-                   trials=trials, points_to_evaluate=old)
+    start_time = time.time()
+    time_str = str(start_time)
+    alg = "dpw/"
+    if not args.stochastic:
+        if args.unbiased:
+            if args.variance:
+                alg = 'p_uct_var/'
+            else:
+                alg = 'p_uct/'
+        else:
+            alg = 'pf_uct/'
+        alg += str(args.particles) + '_particles/'
+    out_dir = "logs/" + args.game + '/ ' + alg + "hyperopt/" + time_str + '/'
+
+    best = hp.fmin(fn=partial(objective, keywords=keys), algo=hp.tpe.suggest, max_evals=args.opt_iters, space=parameter_space,
+                   trials=trials) #, points_to_evaluate=old
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
     print(hp.space_eval(parameter_space, best))
 
-    with open("trials.pickle", "wb") as dumpfile:
+    with open(out_dir + "trials.pickle", "wb") as dumpfile:
         pickle.dump(trials, dumpfile)
         dumpfile.close()
