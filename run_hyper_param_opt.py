@@ -8,7 +8,7 @@ import time
 
 parameter_space = {#"temp": hp.hp.quniform('temp', 0.05, 0.5, 0.05),
                    # "lr": hp.hp.qloguniform('lr', np.log(0.0001), np.log(0.1)),
-                   "c": hp.hp.quniform('c', 1, 5, 0.4),
+                   "c": hp.hp.quniform('c', 0.1, 5, 0.4),
                    "alpha": hp.hp.quniform('alpha', 0, 0.99, 0.01)}
 
 
