@@ -111,12 +111,12 @@ class Trade(gym.Env):
         self.ret_window = np.append(self.ret_window[1:],s_ret.tolist())
         return s_ret
 
-    def vasicek(self, K=10, theta=100, sigma=20, days=2, ppd=1):
+    def vasicek(self, K=25, theta=100, sigma=50):
         # theta: long term mean
         # K: reversion speed
         # sigma: instantaneous volatility
 
-        dt = 1 / (365 * ppd)
+        dt = 1 / self.horizon
         bm = self.np_random.normal(0, 1)
         dr = K * (theta - self.rates) * dt + sigma * bm * dt
         s_ret = dr/self.rates
