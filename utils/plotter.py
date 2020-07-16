@@ -68,8 +68,8 @@ def plot_trading(df, save_path):
     p1, = par1.plot(df['Cum_rew'], "m-", label="Cumulated Rewards")
 
     # host.set_xlim(0, 2)
-    host.set_ylim(99.5, 100.5)
-    par1.set_ylim(-0.009, 0.009)
+    # host.set_ylim(99.5, 100.5)
+    # par1.set_ylim(-0.009, 0.009)
 
     host.set_xlabel("Timesteps")
     host.set_ylabel("Stock price")
