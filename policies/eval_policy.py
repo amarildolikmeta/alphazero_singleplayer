@@ -83,12 +83,12 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=
         ns, r, done, inf = wrapper.step(a)
         if "save_path" in inf:
             save_path = inf['save_path']
-        if bool(save_path):
-            with open(save_path, 'a') as text_file:
-                    prices = ','.join(str(e) for e in ns[:-1])
-                    # toprint = prices+','+str(a-1)+',real \n'
-                    toprint = prices+','+str(a-1)+','+str(r)+'\n'
-                    text_file.write(toprint)
+            if bool(save_path):
+                with open(save_path, 'a') as text_file:
+                        prices = ','.join(str(e) for e in ns[:-1])
+                        # toprint = prices+','+str(a-1)+',real \n'
+                        toprint = prices+','+str(a-1)+','+str(r)+'\n'
+                        text_file.write(toprint)
 
         if visualize:
             wrapper.visualize()
