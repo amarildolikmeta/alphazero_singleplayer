@@ -29,7 +29,7 @@ def objective(params, keywords):
     # print("Mean return:", np.mean(means))
     # print("Standard deviation:", np.std(means))
 
-    return np.mean(means)
+    return -np.mean(means)
 
 
 if __name__ == '__main__':
