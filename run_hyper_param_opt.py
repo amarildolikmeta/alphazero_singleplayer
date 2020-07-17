@@ -19,9 +19,9 @@ def objective(params, keywords):
     for k in params:
         keywords[k] = params[k]
 
+    print("Evaluating with params:", params)
     _, _, _, _, _, offline_scores = agent(**keywords)
     means = []
-
     # Take all the average returns for evaluation
     # for score in offline_scores:
     #     means.append(score[2])
@@ -89,11 +89,11 @@ if __name__ == '__main__':
 
     if args.stochastic:
         parameter_space = {
-            "c": hp.hp.quniform('c', 0.1, 5, 0.1),
+            "c": hp.hp.quniform('c', 0.1, 3, 0.1),
             "alpha": hp.hp.quniform('alpha', 0, 0.99, 0.01)}
     else:
         parameter_space = {
-            "c": hp.hp.quniform('c', 0.1, 5, 0.1),}
+            "c": hp.hp.quniform('c', 0.1, 3, 0.1),}
     old = [{'alpha': 0.49, 'c': 1.6, 'temp': 0.05}, {'alpha': 0.99, 'c': 0.5, 'temp': 0.15}]
 
     start_time = time.time()
