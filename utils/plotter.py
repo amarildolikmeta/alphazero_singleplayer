@@ -111,3 +111,7 @@ if __name__ == '__main__':
     path = "/Users/edoardovittori/Code/alphazero_singleplayer/logs/Trading-v0/2020-07-13_14-56-33/state_action/11204837701962185700.csv"
     data_p(path)
 
+    ## loading pickle file
+    # h = pickle.load(open("/Users/edoardovittori/Code/alphazero_singleplayer/logs/Trading-v0/p_uct/12_particles/hyperopt/1594974487.065585/trials.pickle", 'rb'))
+    # file = open("/Users/edoardovittori/Code/alphazero_singleplayer/logs/Trading-v0/p_uct/12_particles/hyperopt/1594974487.065585/trials.pickle", 'rb')
+    # data = pickle.load(file)

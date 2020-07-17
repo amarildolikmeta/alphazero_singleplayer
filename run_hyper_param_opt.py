@@ -108,7 +108,7 @@ if __name__ == '__main__':
         else:
             alg = 'pf_uct/'
         alg += str(args.particles) + '_particles/'
-    out_dir = "logs/" + args.game + '/ ' + alg + "hyperopt/" + time_str + '/'
+    out_dir = "logs/" + args.game + '/' + alg + "hyperopt/" + time_str + '/'
 
     best = hp.fmin(fn=partial(objective, keywords=keys), algo=hp.tpe.suggest, max_evals=args.opt_iters, space=parameter_space,
                    trials=trials) #, points_to_evaluate=old

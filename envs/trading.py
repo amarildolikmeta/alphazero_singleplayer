@@ -49,7 +49,7 @@ class Trade(gym.Env):
                     raise  # This was not a "directory exist" error..
             self.file_name = os.path.join(save_dir, 'state_action', str(sd[0]) + '.csv')
 
-            print('writing actions in ' + self.file_name)
+            # print('writing actions in ' + self.file_name)
             text_file = open(self.file_name, 'w')
             s = ''
             for j in range(time_lag):
