@@ -10,11 +10,23 @@ class TimedOutExc(Exception):
 def signal_handler(signum, frame):
     raise TimedOutExc("Timed out!")
 
+def schedule(x, k=1, width=1, mid=0):
+    if x == 0:
+        return 0
+    elif x == width:
+        return 1
+
+    width = float(width)
+    norm_x = x / width
+    parenth = norm_x / (1 - norm_x)
+    denom = 1 + parenth ** -k
+    return 1/denom
+
 
 class Wrapper(object):
     def __init__(self, root_index, mcts_maker, model_save_file, model_wrapper_params,
                  mcts_params, is_atari, n_mcts, budget, mcts_env, c_dpw,
-                 temp, game_maker=None, Env=None, mcts_only=True):
+                 temp, game_maker=None, Env=None, mcts_only=True, scheduler_params=None):
 
         assert game_maker is not None or Env is not None, "No environment or maker provided to the wrapper"
 
@@ -39,11 +51,22 @@ class Wrapper(object):
         self.mcts_only = mcts_only
         self.c_dpw = c_dpw
         self.temp = temp
+        self.scheduler_params = scheduler_params
+        self.scheduler_budget = np.inf
 
         if not self.is_atari:
             self.mcts_env = None
 
-    def pi_wrapper(self, s, max_depth):
+    def pi_wrapper(self, s, current_depth, max_depth):
+        # Compute the reduced budget as function of the search root depth
+        if self.scheduler_params:
+            l = schedule(current_depth,
+                         k=self.scheduler_params["slope"],
+                         mid=self.scheduler_params["mid"],
+                         width=current_depth+max_depth)
+            self.scheduler_budget = max(int(self.budget * (1 - l)), self.scheduler_params["min_budget"])
+            print("\nDepth: {}\nBudget: {}".format(current_depth, self.scheduler_budget))
+
         if self.mcts_only:
             self.search(self.n_mcts, self.c_dpw, self.mcts_env, max_depth)
             state, pi, V = self.return_results(self.temp)  # TODO put 0 if the network is enabled
@@ -116,7 +139,7 @@ class Wrapper(object):
                                Env=self.get_env(),
                                mcts_env=mcts_env,
                                max_depth=max_depth,
-                               budget=self.budget)
+                               budget=min(self.budget, self.scheduler_budget))
         # self.get_mcts().visualize()
 
     def return_results(self, temp):

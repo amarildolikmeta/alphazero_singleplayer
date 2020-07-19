@@ -74,7 +74,7 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=
     inf = {}
     while t <= max_len:
         s = np.concatenate([s, [0]]) if add_terminal else s
-        a = wrapper.pi_wrapper(s, max_depth=max_len - t)
+        a = wrapper.pi_wrapper(s, t, max_len - t)
 
         # Check if the action is a pit_stop
         if a == 0:

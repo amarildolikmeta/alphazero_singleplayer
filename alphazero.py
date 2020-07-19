@@ -78,6 +78,17 @@ if __name__ == '__main__':
         else:
             agent_name += "alphazero"
 
+        # If required, prepare the budget scheduler parameters
+        scheduler_params = None
+
+        if args.budget_scheduler:
+            assert args.min_budget < args.budget, "Minimum budget for the scheduler cannot be larger " \
+                                                  "than the overall budget"
+            assert args.slope >= 1.0, "Slope lesser than 1 causes weird schedule function shapes"
+            scheduler_params = {"slope": args.slope,
+                                "min_budget": args.min_budget,
+                                "mid": args.mid}
+
         # Run experiments
         for i in range(args.n_experiments):
 
@@ -123,7 +134,8 @@ if __name__ == '__main__':
                                                       unbiased=args.unbiased,
                                                       variance=args.variance,
                                                       depth_based_bias=args.depth_based_bias,
-                                                      max_workers=args.max_workers)
+                                                      max_workers=args.max_workers,
+                                                      scheduler_params=scheduler_params)
 
             total_rewards = offline_scores[0][0]
             undiscounted_returns = offline_scores[0][1]
