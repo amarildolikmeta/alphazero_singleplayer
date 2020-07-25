@@ -17,7 +17,7 @@ def generate_trade(**game_params):
 
 
 class Trade(gym.Env):
-    def __init__(self, fees=0.0001, time_lag=2, horizon=50, log_actions=True, save_dir='', process = "ARMA"):
+    def __init__(self, fees=0.0001, time_lag=2, horizon=50, log_actions=True, save_dir='', process = "vasicek"):
         # Initialize parameter
 
         # price history, previous portfolio, time
@@ -38,7 +38,7 @@ class Trade(gym.Env):
         # self.actions = []
         # self.current_ret = [0]
         self.process = process
-        if self.process == 'ARMA':
+        if self.process == 'arma':
             self.ARMA_vec = []
         self._t = 0
         # self.seed()
@@ -100,7 +100,7 @@ class Trade(gym.Env):
             new_ret = self.gmb()
         elif self.process == 'vasicek':
             new_ret = self.vasicek()
-        elif self.process == 'ARMA':
+        elif self.process == 'arma':
             new_ret = self.ARMA()
         else:
             print('select an implemented process')
@@ -174,12 +174,12 @@ class Trade(gym.Env):
     def reset(self):
         self._t = 0
 
-        if self.process == 'ARMA':
+        if self.process == 'arma':
             arparams = np.array([0.10034001, -0.18860634, -0.82178623])
             maparams = np.array([-0.09202774, 0.13069337, 0.94766374, -0.06252217, 0.05726013])
             ar = np.r_[55, -arparams]
             ma = np.r_[100, maparams]
-            self.ARMA_vec = arma_generate_sample(ar, ma, self.horizon, scale=1)
+            self.ARMA_vec = arma_generate_sample(ar, ma, self.horizon, distrvs = self.np_random.normal, scale=1)
 
         self.previous_portfolio = 0
         self.current_portfolio = 0
