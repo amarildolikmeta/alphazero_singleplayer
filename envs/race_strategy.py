@@ -16,7 +16,7 @@ class Race(gym.Env):
 
     def __init__(self, gamma=0.95, horizon=55, mean_lap=60., std_lap=1., mean_pit_stop=10., std_pit_stop=0.5,
                  slow_lap_degradation=0.5, fast_lap_degradation=1.2, slow_lap_time=4, fast_lap_time=1, max_lap_time=100,
-                 scale_reward=True, positive_reward=True, random_event=0.):
+                 scale_reward=False, positive_reward=True, random_event=0.):
 
         self.horizon = horizon
         self.gamma = gamma
@@ -44,6 +44,9 @@ class Race(gym.Env):
         self.scale_reward = scale_reward
         self.seed()
         self.reset()
+
+        if self.scale_reward:
+            print("Reward is being normalized")
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
