@@ -44,8 +44,6 @@ def setup_parser():
     parser.add_argument('--max_workers', type=int, default=100, help='Maximum number of parallel workers')
     parser.add_argument('--budget', type=int, default=1000, help='Computational budget')
     parser.add_argument('--depth_based_bias', action='store_true', help='use depth based bias')
-    parser.add_argument('--opt_iters', type=int, default=20, help='Number of hyperparameter tries,'
-                                                                  ' only used in hyperparameter tuning')
 
     # Budget scheduler args
     parser.add_argument('--budget_scheduler', action='store_true', help='Enable budget scheduler')
@@ -53,7 +51,13 @@ def setup_parser():
                                                                  'decay')
     parser.add_argument('--min_budget', type=int, default=1, help='Minimum budget value to be returned by the '
                                                                   'scheduler')
+
+    # Hyperparameter optimization args
+    parser.add_argument('--opt_iters', type=int, default=20, help='Number of hyperparameter tries,'
+                                                                  ' only used in hyperparameter tuning')
     parser.add_argument('--mid', type=float, default=0.0, help='Constant regulating the middle point of the slope')
+    parser.add_argument('--db', action='store_true', help="Use MongoDB parallelization for hyperparameters tuning")
+    parser.add_argument('--dbname', type=str, default="exp_0", help="Name of the db to be used for the experiment")
 
 
     return parser.parse_args()

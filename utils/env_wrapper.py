@@ -65,7 +65,7 @@ class Wrapper(object):
                          mid=self.scheduler_params["mid"],
                          width=current_depth+max_depth)
             self.scheduler_budget = max(int(self.budget * (1 - l)), self.scheduler_params["min_budget"])
-            print("\nDepth: {}\nBudget: {}".format(current_depth, self.scheduler_budget))
+            # print("\nDepth: {}\nBudget: {}".format(current_depth, self.scheduler_budget))
 
         if self.mcts_only:
             self.search(self.n_mcts, self.c_dpw, self.mcts_env, max_depth)
