@@ -2,14 +2,12 @@ import os, pickle
 import numpy as np
 import hyperopt as hp
 from functools import partial
+
+from hyperopt.mongoexp import MongoTrials
+
 from agent import agent
 from utils.parser_setup import setup_parser
 import time
-
-parameter_space = {#"temp": hp.hp.quniform('temp', 0.05, 0.5, 0.05),
-                   # "lr": hp.hp.qloguniform('lr', np.log(0.0001), np.log(0.1)),
-                   "c": hp.hp.quniform('c', 0.1, 5, 0.4),
-                   "alpha": hp.hp.quniform('alpha', 0, 0.99, 0.01)}
 
 
 def objective(params, keywords):
@@ -53,6 +51,17 @@ if __name__ == '__main__':
         game_params['dim'] = args.chain_dim
         game_params['fail'] = args.fail_prob
 
+    # Setup budget schedule parameters
+    scheduler_params = None
+
+    if args.budget_scheduler:
+        assert args.min_budget < args.budget, "Minimum budget for the scheduler cannot be larger " \
+                                              "than the overall budget"
+        assert args.slope >= 1.0, "Slope lesser than 1 causes weird schedule function shapes"
+        scheduler_params = {"slope": args.slope,
+                            "min_budget": args.min_budget,
+                            "mid": args.mid}
+
     keys = {"game": args.game,
             "n_ep": args.n_ep,
             "n_mcts": args.n_mcts,
@@ -83,10 +92,15 @@ if __name__ == '__main__':
             "variance": args.variance,
             "unbiased": args.unbiased,
             "depth_based_bias": args.depth_based_bias,
-            "max_workers": args.max_workers
+            "max_workers": args.max_workers,
+            "scheduler_params": scheduler_params
     }
 
-    trials = hp.Trials()
+    # If a DB is available allocate accordingly the Trials object
+    if args.db:
+        trials = MongoTrials('mongo://localhost:1234/foo_db/jobs', exp_key=args.dbname)
+    else:
+        trials = hp.Trials()
 
     if args.stochastic:
         parameter_space = {
@@ -117,6 +131,8 @@ if __name__ == '__main__':
         os.makedirs(out_dir)
     print(hp.space_eval(parameter_space, best))
 
-    with open(out_dir + "trials.pickle", "wb") as dumpfile:
-        pickle.dump(trials, dumpfile)
-        dumpfile.close()
+    # Save the trials file to resume
+    if not args.db:
+        with open(out_dir + "trials.pickle", "wb") as dumpfile:
+            pickle.dump(trials, dumpfile)
+            dumpfile.close()

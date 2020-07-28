@@ -6,6 +6,8 @@ from gym import register
 import time
 import errno
 import os
+from statsmodels.tsa.arima_process import arma_generate_sample
+
 
 
 def generate_trade(**game_params):
@@ -15,7 +17,7 @@ def generate_trade(**game_params):
 
 
 class Trade(gym.Env):
-    def __init__(self, fees=0.0001, time_lag=2, horizon=20, log_actions=True, save_dir=''):
+    def __init__(self, fees=0.0001, time_lag=2, horizon=50, log_actions=True, save_dir='', process = "vasicek"):
         # Initialize parameter
 
         # price history, previous portfolio, time
@@ -35,7 +37,9 @@ class Trade(gym.Env):
         self.rates = 100
         # self.actions = []
         # self.current_ret = [0]
-
+        self.process = process
+        if self.process == 'arma':
+            self.ARMA_vec = []
         self._t = 0
         # self.seed()
         # start logging file
@@ -92,8 +96,14 @@ class Trade(gym.Env):
         return np.append(self.ret_window, self.current_portfolio)
 
     def get_reward(self):
-        # new_ret = self.gmb()
-        new_ret = self.vasicek()
+        if self.process == 'gbm':
+            new_ret = self.gmb()
+        elif self.process == 'vasicek':
+            new_ret = self.vasicek()
+        elif self.process == 'arma':
+            new_ret = self.ARMA()
+        else:
+            print('select an implemented process')
 
         pl = self.current_portfolio * new_ret - \
                 abs(self.current_portfolio - self.previous_portfolio) * self.fees
@@ -103,6 +113,9 @@ class Trade(gym.Env):
         return pl
 
     def gmb(self, sigma=0.2, r=0, days=2, ppd=1):
+        # sigma: percentage volatility
+        # r: percentage drift
+
         dt = 1 / (365 * ppd)
         tmp_exp = r - 0.5 * sigma ** 2
         bm = self.np_random.normal(0, 1)
@@ -126,6 +139,22 @@ class Trade(gym.Env):
         # rates.append(rates[-1] + dr)
         return s_ret
 
+    def ARMA(self):
+        # parameters taken from fitting to SP500, see test2
+        # scale gives noise variance
+        # arparams = np.array([ 0.10034001, -0.18860634, -0.82178623])
+        # maparams = np.array([-0.09202774,  0.13069337,  0.94766374, -0.06252217,  0.05726013])
+        # ar = np.r_[55, -arparams]
+        # ma = np.r_[100, maparams]
+
+        # dr = arma_generate_sample(ar, ma, 1, scale=1)[0]
+        dr = self.ARMA_vec[self._t]
+        s_ret = dr/self.rates
+        self.rates = self.rates + dr
+        self.ret_window = np.append(self.ret_window[1:],s_ret)
+
+        return s_ret
+
     def step(self, action):
         if self._t >= self.horizon:
             return self.get_state(), 0, True, {}
@@ -144,6 +173,13 @@ class Trade(gym.Env):
 
     def reset(self):
         self._t = 0
+
+        if self.process == 'arma':
+            arparams = np.array([0.10034001, -0.18860634, -0.82178623])
+            maparams = np.array([-0.09202774, 0.13069337, 0.94766374, -0.06252217, 0.05726013])
+            ar = np.r_[55, -arparams]
+            ma = np.r_[100, maparams]
+            self.ARMA_vec = arma_generate_sample(ar, ma, self.horizon, distrvs = self.np_random.normal, scale=1)
 
         self.previous_portfolio = 0
         self.current_portfolio = 0

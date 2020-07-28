@@ -105,17 +105,16 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     # Setup the parameters for generating the search environments
     mcts_params = dict(gamma=gamma)
     if particles:
+        mcts_maker = PFMCTS
         mcts_params['particles'] = particles
         mcts_params['sampler'] = sampler
+        mcts_params['depth_based_bias'] = depth_based_bias
         if unbiased:
             mcts_params['variance'] = variance
-    if stochastic:
+    elif stochastic:
         mcts_params['alpha'] = alpha
         mcts_params['depth_based_bias'] = depth_based_bias
         mcts_maker = MCTSStochastic
-    elif particles:
-        mcts_maker = PFMCTS
-        mcts_params['depth_based_bias'] = depth_based_bias
     else:
         mcts_maker = MCTS
 
