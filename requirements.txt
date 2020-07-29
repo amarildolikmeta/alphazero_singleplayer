@@ -17,3 +17,4 @@ git+https://github.com/eleurent/rl-agents
 git+https://github.com/eleurent/gym-minigrid
 mpi4py
 pandas
+statsmodels
