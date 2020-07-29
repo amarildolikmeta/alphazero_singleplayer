@@ -17,7 +17,6 @@ class KeySet(object):
                 elif type(self.state[k]) == list:
                     self.state[k] = str(self.state[k])
 
-
     def __hash__(self):
         return hash(tuple(sorted(self.state.items())))
 
