@@ -21,7 +21,14 @@ class KeySet(object):
         return hash(tuple(sorted(self.state.items())))
 
     def __eq__(self, other):
-        return self.__hash__() == other.__hash__()
+        if not hasattr(other, 'state'):
+            return False
+
+        for k in self.state:
+            if not (k in other.state and other.state[k] == self.state[k]):
+                return False
+
+        return True
 
 
 if __name__ == '__main__':
