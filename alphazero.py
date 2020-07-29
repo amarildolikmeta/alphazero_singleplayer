@@ -65,6 +65,8 @@ if __name__ == '__main__':
             # TODO modify this to return to original taxi problem
         elif args.game == 'RiverSwim-continuous':
             game_params['dim'] = args.chain_dim
+            game_params['fail'] = args.fail_prob
+
         # Define the name of the agent to be stored in the dataframe
         if args.stochastic:
             agent_name = "dpw_"
@@ -186,7 +188,10 @@ if __name__ == '__main__':
                 else:
                     alg = 'pf_uct/'
                 alg += str(args.particles) + '_particles/'
-            out_dir = "logs/" + args.game + "/" + alg + time_str + '/'
+            out_dir = "logs/" + args.game
+            if args.game == 'RiverSwim-continuous':
+                out_dir += "/" + "fail_" + str(args.fail_prob)
+            out_dir += "/" + alg + time_str + '/'
             if not os.path.exists(out_dir):
                 os.makedirs(out_dir)
             # Write the dataframe to csv

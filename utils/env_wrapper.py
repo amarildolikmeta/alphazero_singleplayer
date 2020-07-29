@@ -10,17 +10,21 @@ class TimedOutExc(Exception):
 def signal_handler(signum, frame):
     raise TimedOutExc("Timed out!")
 
-def schedule(x, k=1, width=1, mid=0):
-    if x == 0:
-        return 0
-    elif x == width:
-        return 1
 
-    width = float(width)
-    norm_x = x / width
-    parenth = norm_x / (1 - norm_x)
-    denom = 1 + parenth ** -k
-    return 1/denom
+def schedule(x, k=1, width=1, mid=0):
+    # if x == 0:
+    #     return 0
+    # elif x == width:
+    #     return 1
+
+    # width = float(width)
+    # norm_x = x / width
+    # parenth = norm_x / (1 - norm_x)
+    # denom = 1 + parenth ** -k
+    # return 1/denom
+    max_depth = float(width)
+    return (1 - 5 / max_depth) ** (x)
+
 
 
 class Wrapper(object):
@@ -64,8 +68,9 @@ class Wrapper(object):
                          k=self.scheduler_params["slope"],
                          mid=self.scheduler_params["mid"],
                          width=current_depth+max_depth)
-            self.scheduler_budget = max(int(self.budget * (1 - l)), self.scheduler_params["min_budget"])
-            # print("\nDepth: {}\nBudget: {}".format(current_depth, self.scheduler_budget))
+            #self.scheduler_budget = max(int(self.budget * (1 - l)), self.scheduler_params["min_budget"])
+            self.scheduler_budget = max(int(self.budget * l), self.scheduler_params["min_budget"])
+            print("\nDepth: {}\nBudget: {}".format(current_depth, self.scheduler_budget))
 
         if self.mcts_only:
             self.search(self.n_mcts, self.c_dpw, self.mcts_env, max_depth)

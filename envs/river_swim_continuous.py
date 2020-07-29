@@ -106,22 +106,24 @@ register(
 )
 
 if __name__ == '__main__':
-    mdp = RiverSwimContinuous(horizon=20, dim=7)
-    gamma = 0.99
-    num_episodes = 1000
-    rets = []
-    for i in range(num_episodes):
-        ret = 0
-        t = 0
-        done = False
-        s = mdp.reset()
-        while not done:
-            a = 0
-            s, r, done, _ = mdp.step(a)
-            ret += r
-            t += 1
-        rets.append(ret)
-    print("Return = %.2f +/- %.2f" %(np.mean(rets), np.std(rets) / np.sqrt(num_episodes)))
-    print("Max Return:", np.max(rets))
-    print("Returns:")
-    print(rets)
+    fail = [i * 0.1 for i in range(10)]
+    for f in fail:
+        mdp = RiverSwimContinuous(horizon=40, dim=10, fail=f)
+        gamma = 0.99
+        num_episodes = 1000
+        rets = []
+        for i in range(num_episodes):
+            ret = 0
+            t = 0
+            done = False
+            s = mdp.reset()
+            while not done:
+                a = 1
+                s, r, done, _ = mdp.step(a)
+                ret += r
+                t += 1
+            rets.append(ret)
+        print("Return = %.2f +/- %.2f" %(np.mean(rets), np.std(rets) / np.sqrt(num_episodes)))
+        print("Max Return:", np.max(rets))
+        print("Returns:")
+        print(rets)

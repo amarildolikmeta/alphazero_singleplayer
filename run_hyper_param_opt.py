@@ -49,6 +49,7 @@ if __name__ == '__main__':
         # TODO modify this to return to original taxi problem
     elif args.game == 'RiverSwim-continuous':
         game_params['dim'] = args.chain_dim
+        game_params['fail'] = args.fail_prob
 
     # Setup budget schedule parameters
     scheduler_params = None
