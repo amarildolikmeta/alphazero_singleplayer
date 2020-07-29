@@ -21,6 +21,10 @@ class KeySet(object):
     def __hash__(self):
         return hash(tuple(sorted(self.state.items())))
 
+    def __eq__(self, other):
+        return self.__hash__() == other.__hash__()
+
+
 if __name__ == '__main__':
     h = KeySet([1, 0.5, 2])
     h.__hash__()

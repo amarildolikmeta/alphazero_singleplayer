@@ -234,6 +234,7 @@ class MCTS(object):
         print("A")
 
 
+
     def inorderTraversal(self, root, g, vertex_index, parent_index, v_label, a_label):
         if root:
             g.add_vertex(vertex_index)
@@ -248,6 +249,7 @@ class MCTS(object):
                 if hasattr(a, 'child_state'):
                     vertex_index = self.inorderTraversal(a.child_state, g, vertex_index, par_index, v_label, a_label)
         return vertex_index
+
 
     def print_index(self):
         print(self.count)

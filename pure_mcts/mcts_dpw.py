@@ -24,6 +24,7 @@ class StochasticAction(Action):
         sk = KeySet(s1)
 
         # s1_hash = s1.tostring()
+        # self.state_indeces[sk.__hash__()] = self.n_children
         self.state_indeces[sk] = self.n_children
         self.n_children += 1
         return child_state, child_state.remaining_budget
@@ -32,6 +33,7 @@ class StochasticAction(Action):
         # s1_hash = s1.tostring()
         sk = KeySet(s1)
         try:
+            #index = self.state_indeces[sk.__hash__()]
             index = self.state_indeces[sk]
             return index
         except KeyError:
