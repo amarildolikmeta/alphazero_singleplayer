@@ -20,7 +20,7 @@ USE_TQDM = True
 def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, temp, n_hidden_layers, n_hidden_units,
           stochastic=False, eval_freq=-1, eval_episodes=100, alpha=0.6, n_epochs=100, c_dpw=1, numpy_dump_dir='../',
           pre_process=None, visualize=False, game_params={}, parallelize_evaluation=False, mcts_only=False,
-          particles=0, show_plots=False, n_workers=1, use_sampler=False, budget=np.inf, unbiased=False,
+          particles=0, show_plots=False, n_workers=1, use_sampler=False, budget=np.inf, unbiased=False, biased=False,
           max_workers=100, variance=False, depth_based_bias=False, scheduler_params=None):
     visualizer = None
 
@@ -31,10 +31,12 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         from mcts import MCTS
         from mcts_dpw import MCTSStochastic
     elif particles:
-        if not unbiased:
-            from particle_filtering.pf_mcts_edo import PFMCTS
-        else:
+        if unbiased:
+            from particle_filtering.ol_uct import PFMCTS
+        elif biased:
             from particle_filtering.pf_uct import PFMCTS
+        else:
+            from particle_filtering.pf_mcts_edo import PFMCTS
     else:
         from pure_mcts.mcts import MCTS
         from pure_mcts.mcts_dpw import MCTSStochastic
@@ -106,8 +108,11 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     mcts_params = dict(gamma=gamma)
     if particles:
         mcts_maker = PFMCTS
-        mcts_params['particles'] = particles
-        mcts_params['sampler'] = sampler
+        if not biased:
+            mcts_params['particles'] = particles
+            mcts_params['sampler'] = sampler
+        elif biased:
+            mcts_params['alpha'] = alpha
         mcts_params['depth_based_bias'] = depth_based_bias
         if unbiased:
             mcts_params['variance'] = variance

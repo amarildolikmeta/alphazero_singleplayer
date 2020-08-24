@@ -50,6 +50,8 @@ if __name__ == '__main__':
     elif args.game == 'RiverSwim-continuous':
         game_params['dim'] = args.chain_dim
         game_params['fail'] = args.fail_prob
+    elif args.game == 'RaceStrategy':
+            game_params['scale_reward'] = args.scale_reward
 
     # Setup budget schedule parameters
     scheduler_params = None
@@ -91,6 +93,7 @@ if __name__ == '__main__':
             "particles": args.particles,
             "variance": args.variance,
             "unbiased": args.unbiased,
+            "biased": args.biased,
             "depth_based_bias": args.depth_based_bias,
             "max_workers": args.max_workers,
             "scheduler_params": scheduler_params

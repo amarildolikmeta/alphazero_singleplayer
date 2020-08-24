@@ -60,9 +60,10 @@ class StochasticState(State):
 class MCTSStochastic(MCTS):
     ''' MCTS object '''
 
-    def __init__(self, root, root_index, na, gamma, alpha=0.6, model=None, depth_based_bias=False):
+    def __init__(self, root, root_index, na, gamma, alpha=0.6, model=None, depth_based_bias=False, beta=1):
         super(MCTSStochastic, self).__init__(root, root_index, na, gamma, depth_based_bias=depth_based_bias)
         self.alpha = alpha
+        self.beta = beta
 
     def search(self, n_mcts, c, Env, mcts_env, budget, max_depth=200):
         ''' Perform the MCTS search from the root '''
@@ -110,7 +111,7 @@ class MCTSStochastic(MCTS):
                 bias = c * self.gamma ** st / (1 - self.gamma) if self.depth_based_bias else c
                 action = state.select(c=bias)
                 st += 1
-                k = np.ceil(c * action.n ** self.alpha)
+                k = np.ceil(self.beta * action.n ** self.alpha)
                 if k >= action.n_children:
                     s1, r, t, _ = mcts_env.step(action.index)
                     # if action.index == 0 and not np.array_equal(s1.flatten(), action.parent_state.index.flatten()):

@@ -66,6 +66,8 @@ if __name__ == '__main__':
         elif args.game == 'RiverSwim-continuous':
             game_params['dim'] = args.chain_dim
             game_params['fail'] = args.fail_prob
+        elif args.game == 'RaceStrategy':
+            game_params['scale_reward'] = args.scale_reward
 
         # Define the name of the agent to be stored in the dataframe
         if args.stochastic:
@@ -134,6 +136,7 @@ if __name__ == '__main__':
                                                       n_workers=args.n_workers,
                                                       use_sampler=args.use_sampler,
                                                       unbiased=args.unbiased,
+                                                      biased=args.biased,
                                                       variance=args.variance,
                                                       depth_based_bias=args.depth_based_bias,
                                                       max_workers=args.max_workers,

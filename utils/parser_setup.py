@@ -41,6 +41,7 @@ def setup_parser():
     parser.add_argument('--particles', type=int, default=0,
                         help='Numbers of particles to approximate state distributions')
     parser.add_argument('--unbiased', action='store_true', help='Use the unbiased particle algorithm')
+    parser.add_argument('--biased', action='store_true', help='Use the biased particle algorithm')
     parser.add_argument('--variance', action='store_true', help='use variance based selection policy')
     parser.add_argument('--max_workers', type=int, default=100, help='Maximum number of parallel workers')
     parser.add_argument('--budget', type=int, default=1000, help='Computational budget')
@@ -60,5 +61,6 @@ def setup_parser():
     parser.add_argument('--db', action='store_true', help="Use MongoDB parallelization for hyperparameters tuning")
     parser.add_argument('--dbname', type=str, default="exp_0", help="Name of the db to be used for the experiment")
 
+    parser.add_argument('--scale_reward', action='store_true', help='scale the reward of the race environment')
 
     return parser.parse_args()

@@ -26,7 +26,6 @@ def schedule(x, k=1, width=1, mid=0):
     return (1 - 5 / max_depth) ** (x)
 
 
-
 class Wrapper(object):
     def __init__(self, root_index, mcts_maker, model_save_file, model_wrapper_params,
                  mcts_params, is_atari, n_mcts, budget, mcts_env, c_dpw,
