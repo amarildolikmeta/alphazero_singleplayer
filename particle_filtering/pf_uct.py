@@ -43,7 +43,7 @@ def sample_from_parent_state(state, action, env, budget):
 
 
 def sample_from_particle(source_particle, action, env, budget):
-    s, r, done, _ = env.step(action)
+    s, r, done, _ = env.step(action.index)
     budget -= 1
     if source_particle is None:
         print("What")
@@ -122,14 +122,14 @@ class Action(object):
         self.rewards = []
         # self.child_state = None
 
-    def add_child_state(self, state, env, budget, action,  max_depth=200, source_particle=None,
+    def add_child_state(self, state, env, budget,  max_depth=200, source_particle=None,
                         depth=0):
         if source_particle is not None:
-            new_particle, budget = sample_from_particle(source_particle, action, env, budget)
+            new_particle, budget = sample_from_particle(source_particle, self, env, budget)
         else:
             # parent_particle = np.random.choice(self.parent_state.particles)
             # new_particle = generate_new_particle(env, self.index, parent_particle)
-            new_particle, budget = sample_from_parent_state(state, action, env, budget)
+            new_particle, budget = sample_from_parent_state(state, self, env, budget)
 
         self.child_state = State(parent_action=self,
                                  na=self.parent_state.na,
@@ -330,7 +330,7 @@ class PFMCTS(object):
                     state, budget, source_particle = action.add_child_state(state, mcts_envs[0], budget,
                                                                             max_depth=rollout_depth,
                                                                             source_particle=source_particle,
-                                                                            action=action, depth=st)  # expand
+                                                                            depth=st)  # expand
                     break
 
             # Back-up

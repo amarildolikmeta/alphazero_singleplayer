@@ -144,7 +144,10 @@ class Trade(gym.Env):
     def step(self, action):
         if self._t >= self.horizon:
             return self.get_state(), 0, True, {}
-        action = int(action) - 1
+        try:
+            action = int(action) - 1
+        except:
+            print("What")
         self.previous_portfolio, self.current_portfolio = self.current_portfolio, action
         # if self.log_actions == True:
         #     self.write_file(self.get_state())
