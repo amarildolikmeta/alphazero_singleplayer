@@ -11,22 +11,43 @@ import json
 def sample_particle(root_state, actions, env, budget):
     env.set_signature(root_state)
     env.seed()
+    parent_particle = None
     for i, action in enumerate(actions):
         s, r, done, _ = env.step(action.index)
         budget -= 1
-        new_particle = Particle(env.get_signature(), None, r, done, info=s)
+        new_particle = Particle(env.get_signature(), None, r, done, info=s, parent_particle=parent_particle)
         if hasattr(action, 'child_state'):
             action.child_state.add_particle(new_particle)
             #if we finish an episode in the middle of the tree
             if done:
                 i += 1
+                parent_particle = new_particle
                 while i < len(actions):
                     action = actions[i]
-                    new_particle = Particle(env.get_signature(), None, 0, done, info=s)
+                    new_particle = Particle(env.get_signature(), None, 0, done, info=s, parent_particle=parent_particle)
                     if hasattr(action, 'child_state'):
                         action.child_state.add_particle(new_particle)
                     i += 1
+                    parent_particle = new_particle
                 break
+            else:
+                parent_particle = new_particle
+    return new_particle, budget
+
+
+def sample_from_parent_state(state, action, env, budget):
+    parent_particle = np.random.choice(state.particles)
+    new_particle = generate_new_particle(env, action.index, parent_particle)
+    budget -= 1
+    return new_particle, budget
+
+
+def sample_from_particle(source_particle, action, env, budget):
+    s, r, done, _ = env.step(action)
+    budget -= 1
+    if source_particle is None:
+        print("What")
+    new_particle = Particle(env.get_signature(), source_particle.seed, r, done, info=s, parent_particle=source_particle)
     return new_particle, budget
 
 
@@ -61,7 +82,7 @@ def generate_new_particle(env, action, particle):
     """Generate the successor particle for a given particle"""
     # Do not give any reward if a particle is being generated from a terminal state particle
     if particle.terminal:
-        return Particle(particle.state, particle.seed, 0, True)
+        return Particle(particle.state, particle.seed, 0, True, parent_particle=particle)
 
     # Apply the selected action to the state encapsulated by the particle and store the new state and reward
     env = copy.deepcopy(env)
@@ -69,18 +90,19 @@ def generate_new_particle(env, action, particle):
     env.seed(particle.seed)
     s, r, done, _ = env.step(action)
 
-    return Particle(env.get_signature(), particle.seed, r, done, info=s)
+    return Particle(env.get_signature(), particle.seed, r, done, info=s, parent_particle=particle)
 
 
 class Particle(object):
     """Class storing information about a particle"""
 
-    def __init__(self, state, seed, reward, terminal, info=None):
+    def __init__(self, state, seed, reward, terminal, info=None, parent_particle=None):
         self.state = state
         self.seed = seed
         self.reward = reward
         self.terminal = terminal
         self.info = info
+        self.parent_particle = parent_particle
 
     def __str__(self):
         return str(self.info)
@@ -100,14 +122,14 @@ class Action(object):
         self.rewards = []
         # self.child_state = None
 
-    def add_child_state(self, state, root_state, env, budget, actions,  max_depth=200, add_particle=False,
+    def add_child_state(self, state, env, budget, action,  max_depth=200, source_particle=None,
                         depth=0):
-        if add_particle:
-            new_particle, budget = sample_particle(root_state, actions, env, budget)
+        if source_particle is not None:
+            new_particle, budget = sample_from_particle(source_particle, action, env, budget)
         else:
-            parent_particle = np.random.choice(self.parent_state.particles)
-            new_particle = generate_new_particle(env, self.index, parent_particle)
-            budget -= 1
+            # parent_particle = np.random.choice(self.parent_state.particles)
+            # new_particle = generate_new_particle(env, self.index, parent_particle)
+            new_particle, budget = sample_from_parent_state(state, action, env, budget)
 
         self.child_state = State(parent_action=self,
                                  na=self.parent_state.na,
@@ -118,7 +140,7 @@ class Action(object):
                                  budget=budget,
                                  depth=depth)
 
-        return self.child_state, self.child_state.remaining_budget
+        return self.child_state, self.child_state.remaining_budget, new_particle
 
     def update(self, R):
         self.n += 1
@@ -253,9 +275,10 @@ class PFMCTS(object):
             if callable(to_box):
                 box = Env.index_to_box(signature["state"])
 
-            particles = [Particle(state=signature, seed=random.randint(0, 1e7), reward=0, terminal=False, info=box)]
-            self.root = State(parent_action=None, na=self.na, env=Envs[0], particles=particles, root=True, budget=budget,
-                              depth=0)
+            particles = [Particle(state=signature, seed=random.randint(0, 1e7), reward=0, terminal=False, info=box,
+                                  parent_particle=None)]
+            self.root = State(parent_action=None, na=self.na, env=Envs[0], particles=particles, root=True,
+                              budget=budget, depth=0)
         else:
             self.root.parent_action = None  # continue from current root
         root_signature = Env.get_signature()
@@ -276,34 +299,48 @@ class PFMCTS(object):
                 restore_atari_state(mcts_env, snapshot)
             st = 0
             actions = []
+            flag = False
+            source_particle = None
             while not state.terminal:
                 bias = c * self.gamma ** st / (1 - self.gamma) if self.depth_based_bias else c
                 action = state.select(c=bias, variance=self.variance)
                 st += 1
                 actions.append(action)
                 k = np.ceil(self.beta * action.n ** self.alpha)
-                add_particle = k >= state.get_n_particles()
+
                 # s1, r, t, _ = mcts_env.step(action.index)
                 if hasattr(action, 'child_state'):
                     state = action.child_state  # select
-                    if state.terminal:
-                        #budget -= 1
-                        if add_particle:
-                            new_particle, budget = sample_particle(root_signature, actions, mcts_envs[0], budget)
-                            state.add_particle(new_particle)
+                    add_particle = k >= state.get_n_particles()
+                    if add_particle and not flag:
+                        flag = True
+                        source_particle, budget = sample_from_parent_state(action.parent_state, action, mcts_envs[0],
+                                                                           budget)
+                        state.add_particle(source_particle)
+                    elif flag:
+                        source_particle, budget = sample_from_particle(source_particle, action, mcts_envs[0], budget)
+                        state.add_particle(source_particle)
+                    elif state.terminal:
+                        source_particle = np.random.choice(state.particles)  # sample from the terminal states particles
                     continue
                 else:
                     rollout_depth = max_depth if fixed_depth else max_depth - st
-                    state, budget = action.add_child_state(state, root_signature, mcts_envs[0], budget,
-                                                           max_depth=rollout_depth, add_particle=add_particle,
-                                                           actions=actions, depth=st)  # expand
+                    state, budget, source_particle = action.add_child_state(state, mcts_envs[0], budget,
+                                                                            max_depth=rollout_depth,
+                                                                            source_particle=source_particle,
+                                                                            action=action, depth=st)  # expand
                     break
 
             # Back-up
             R = state.V
             state.update()
+            particle = source_particle
             while state.parent_action is not None:  # loop back-up until root is reached
-                r = state.r if add_particle else np.random.choice([p.reward for p in state.particles])
+                # r = state.r if add_particle else np.random.choice([p.reward for p in state.particles])
+                try:
+                    r = particle.reward
+                except:
+                    print("What")
                 if not state.terminal:
                     R = r + self.gamma * R
                 else:
@@ -312,6 +349,7 @@ class PFMCTS(object):
                 action.update(R)
                 state = action.parent_state
                 state.update()
+                particle = particle.parent_particle
 
     def return_results(self, temp, on_visits=False):
         """ Process the output at the root node """
