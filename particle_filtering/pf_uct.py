@@ -190,7 +190,9 @@ class State(object):
     def to_json(self):
         inf = {
             "V": str(self.V) + '<br>',
-            "n": str(self.n) + '<br>'}
+            "n": str(self.n) + '<br>',
+            "d": str(self.depth) + '<br>'
+        }
         return json.dumps(inf)
 
     def get_n_particles(self):
@@ -213,8 +215,8 @@ class State(object):
         if not variance:
 
             uct_upper_bound = np.array(
-                [child_action.Q + c * (np.sqrt(self.n + 1) / (child_action.n + 1)) for child_action in
-                 self.child_actions])
+                [child_action.Q + c * np.sqrt(np.log(self.n) / (child_action.n)) if child_action.n > 0 else np.inf
+                 for child_action in self.child_actions])
             winner = argmax(uct_upper_bound)
             return self.child_actions[winner]
 
@@ -404,7 +406,7 @@ class PFMCTS(object):
                                  mode='markers',
                                  name='bla',
                                  marker=dict(symbol='circle-dot',
-                                             size=18,
+                                             size=5,
                                              color='#6175c1',  # '#DB4551',
                                              line=dict(color='rgb(50,50,50)', width=1)
                                              ),

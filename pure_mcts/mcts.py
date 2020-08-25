@@ -67,7 +67,8 @@ class State(object):
         """ Select one of the child actions based on UCT rule """
         # TODO check here
         UCT = np.array(
-            [child_action.Q + c * (np.sqrt(self.n + 1) / (child_action.n + 1)) for child_action in self.child_actions])
+            [child_action.Q + c * np.sqrt(np.log(self.n) / (child_action.n)) if child_action.n > 0 else np.inf
+             for child_action in self.child_actions])
         winner = argmax(UCT)
         return self.child_actions[winner]
 

@@ -156,10 +156,9 @@ class State(object):
          :param b: parameter such that the rewards belong to [0, b]
          """
         if not variance:
-
             uct_upper_bound = np.array(
-                [child_action.Q + c * (np.sqrt(self.n + 1) / (child_action.n + 1)) for child_action in
-                 self.child_actions])
+                [child_action.Q + c * np.sqrt(np.log(self.n) / (child_action.n)) if child_action.n > 0 else np.inf
+                 for child_action in self.child_actions])
             winner = argmax(uct_upper_bound)
             return self.child_actions[winner]
 
