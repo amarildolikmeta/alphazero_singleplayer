@@ -43,6 +43,7 @@ def sample_from_parent_state(state, action, env, budget):
 
 
 def sample_from_particle(source_particle, action, env, budget):
+    env.set_signature(source_particle.state)
     s, r, done, _ = env.step(action.index)
     budget -= 1
     if source_particle is None:
@@ -85,7 +86,7 @@ def generate_new_particle(env, action, particle):
         return Particle(particle.state, None, 0, True, parent_particle=particle)
 
     # Apply the selected action to the state encapsulated by the particle and store the new state and reward
-    env = copy.deepcopy(env)
+    #env = copy.deepcopy(env)
     env.set_signature(particle.state)
     env.seed(particle.seed)
     s, r, done, _ = env.step(action)
@@ -241,6 +242,7 @@ class State(object):
 
         results = []
         if budget > 0:
+            env.set_signature(particle.state)
             particle_return, budget = random_rollout(actions, env, budget, max_depth, particle.terminal)
             results.append(particle_return)
         else:
@@ -314,8 +316,6 @@ class PFMCTS(object):
                     add_particle = k >= state.get_n_particles()
                     if add_particle and not flag:
                         flag = True
-                        if st != 1:
-                            print("What")
                         source_particle, budget = sample_from_parent_state(action.parent_state, action, mcts_envs[0],
                                                                            budget)
                         state.add_particle(source_particle)
