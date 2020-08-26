@@ -47,7 +47,7 @@ def sample_from_particle(source_particle, action, env, budget):
     budget -= 1
     if source_particle is None:
         print("What")
-    new_particle = Particle(env.get_signature(), source_particle.seed, r, done, info=s, parent_particle=source_particle)
+    new_particle = Particle(env.get_signature(), None, r, done, info=s, parent_particle=source_particle)
     return new_particle, budget
 
 
@@ -82,14 +82,14 @@ def generate_new_particle(env, action, particle):
     """Generate the successor particle for a given particle"""
     # Do not give any reward if a particle is being generated from a terminal state particle
     if particle.terminal:
-        return Particle(particle.state, particle.seed, 0, True, parent_particle=particle)
+        return Particle(particle.state, None, 0, True, parent_particle=particle)
 
     # Apply the selected action to the state encapsulated by the particle and store the new state and reward
     env = copy.deepcopy(env)
     env.set_signature(particle.state)
     env.seed(particle.seed)
     s, r, done, _ = env.step(action)
-    return Particle(env.get_signature(), particle.seed, r, done, info=s, parent_particle=particle)
+    return Particle(env.get_signature(), None, r, done, info=s, parent_particle=particle)
 
 
 class Particle(object):
@@ -258,7 +258,7 @@ class PFMCTS(object):
         self.na = na
         self.gamma = gamma
         self.depth_based_bias = depth_based_bias
-        assert 0 < alpha < 1, "Alpha must be between 0 and 1"
+        assert 0 < alpha <= 1, "Alpha must be between 0 and 1"
         self.alpha = alpha
         self.beta = beta
         self.variance = variance
@@ -276,7 +276,7 @@ class PFMCTS(object):
             if callable(to_box):
                 box = Env.index_to_box(signature["state"])
 
-            particles = [Particle(state=signature, seed=random.randint(0, 1e7), reward=0, terminal=False, info=box,
+            particles = [Particle(state=signature, seed=None, reward=0, terminal=False, info=box,
                                   parent_particle=None)]
             self.root = State(parent_action=None, na=self.na, env=Envs[0], particles=particles, root=True,
                               budget=budget, depth=0)
@@ -314,6 +314,8 @@ class PFMCTS(object):
                     add_particle = k >= state.get_n_particles()
                     if add_particle and not flag:
                         flag = True
+                        if st != 1:
+                            print("What")
                         source_particle, budget = sample_from_parent_state(action.parent_state, action, mcts_envs[0],
                                                                            budget)
                         state.add_particle(source_particle)
