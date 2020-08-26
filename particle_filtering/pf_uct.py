@@ -89,7 +89,6 @@ def generate_new_particle(env, action, particle):
     env.set_signature(particle.state)
     env.seed(particle.seed)
     s, r, done, _ = env.step(action)
-
     return Particle(env.get_signature(), particle.seed, r, done, info=s, parent_particle=particle)
 
 
@@ -291,7 +290,6 @@ class PFMCTS(object):
         if is_atari:
             raise NotImplementedError
             snapshot = copy_atari_state(Env)  # for Atari: snapshot the root at the beginning
-
         while budget > 0:
             state = self.root  # reset to root for new trace
             if not is_atari:
