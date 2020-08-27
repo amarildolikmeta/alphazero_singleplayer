@@ -52,7 +52,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                       "game_params": game_params, "n_workers": n_workers, "use_sampler": use_sampler,
                       "variance": variance, "depth_based_bias": depth_based_bias, "unbiased": unbiased}
 
-    logger = Logger(parameter_list, game, show=show_plots)
+    #logger = Logger(parameter_list, game, show=show_plots)
 
     if DEBUG_TAXI:
         from utils.visualization.taxi import TaxiVisualizer
@@ -82,7 +82,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
     # Environments
     if game == 'Trading-v0':
-        game_params['save_dir'] = logger.save_dir
+        game_params['save_dir'] = out_dir #logger.save_dir
     Env = make_game(game, game_params)
     num_actions = Env.action_space.n
     sampler = None
@@ -167,7 +167,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 penv = Env
                 pgame = None
 
-            model_file = os.path.join(logger.save_dir, "model.h5")
+            model_file = os.path.join(out_dir, "model.h5")
 
             # model_wrapper.save(model_file)
 
@@ -196,7 +196,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             avgs.append(np.mean(total_reward))
             stds.append(np.std(total_reward))
 
-            logger.plot_evaluation_mean_and_variance(avgs, stds)
+            #logger.plot_evaluation_mean_and_variance(avgs, stds)
 
         ##### Policy improvement step #####
 
@@ -284,7 +284,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                                                                                                          1)))
             # Plot the online return over training episodes
 
-            logger.plot_online_return(online_scores)
+            #logger.plot_online_return(online_scores)
 
             if R > R_best:
                 a_best = a_store
@@ -326,7 +326,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
                     # Plot the loss over training epochs
 
-                    logger.plot_loss(ep, ep_V_loss, ep_pi_loss)
+                    #logger.plot_loss(ep, ep_V_loss, ep_pi_loss)
 
                 except Exception as e:
                     print("Something wrong while training:", e)
@@ -334,7 +334,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 # model.save(out_dir + 'model')
 
                 # Plot the loss over different episodes
-                logger.plot_training_loss_over_time()
+                #logger.plot_training_loss_over_time()
 
                 pi_start = model_wrapper.predict_pi(start_s)
                 V_start = model_wrapper.predict_V(start_s)
@@ -342,7 +342,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 print("\nStart policy: ", pi_start)
                 print("Start value:", V_start)
 
-                logger.log_start(ep, pi_start, V_start, start_targets)
+                #logger.log_start(ep, pi_start, V_start, start_targets)
 
     # Return results
     if use_sampler:
