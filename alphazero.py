@@ -96,16 +96,25 @@ if __name__ == '__main__':
         # Run experiments
         for i in range(args.n_experiments):
 
-            # Compute the actual number of mcts searches for each step
-            # if args.particles > 0:
-            #     n_mcts = int(args.budget / (args.max_ep_len * args.particles))
-            # else:
-            #     n_mcts = int(args.budget / args.max_ep_len)
-
             n_mcts = np.inf
 
             out_dir_i = out_dir + str(i) + '/'
-
+            alg = "dpw/"
+            if not args.stochastic:
+                if args.unbiased:
+                    if args.variance:
+                        alg = 'p_uct_var/'
+                    else:
+                        alg = 'p_uct/'
+                else:
+                    alg = 'pf_uct/'
+                alg += str(args.particles) + '_particles/'
+            out_dir = "logs/" + args.game
+            if args.game == 'RiverSwim-continuous':
+                out_dir += "/" + "fail_" + str(args.fail_prob)
+            out_dir += "/" + alg + time_str + '/'
+            if not os.path.exists(out_dir):
+                os.makedirs(out_dir)
             # Run the algorithm
             episode_returns, timepoints, a_best, \
             seed_best, R_best, offline_scores = agent(game=args.game,
@@ -140,7 +149,8 @@ if __name__ == '__main__':
                                                       variance=args.variance,
                                                       depth_based_bias=args.depth_based_bias,
                                                       max_workers=args.max_workers,
-                                                      scheduler_params=scheduler_params)
+                                                      scheduler_params=scheduler_params,
+                                                      out_dir=out_dir)
 
             total_rewards = offline_scores[0][0]
             undiscounted_returns = offline_scores[0][1]
@@ -181,22 +191,7 @@ if __name__ == '__main__':
             # Store the count of pit stops only if analyzing Race Strategy problem
             if "RaceStrategy" in args.game:
                 data["pit_count"] = counts
-            alg = "dpw/"
-            if not args.stochastic:
-                if args.unbiased:
-                    if args.variance:
-                        alg = 'p_uct_var/'
-                    else:
-                        alg = 'p_uct/'
-                else:
-                    alg = 'pf_uct/'
-                alg += str(args.particles) + '_particles/'
-            out_dir = "logs/" + args.game
-            if args.game == 'RiverSwim-continuous':
-                out_dir += "/" + "fail_" + str(args.fail_prob)
-            out_dir += "/" + alg + time_str + '/'
-            if not os.path.exists(out_dir):
-                os.makedirs(out_dir)
+
             # Write the dataframe to csv
             df = pd.DataFrame(data)
             df.to_csv(out_dir + "{}_{}_{}_data_exp_{}.csv".format(agent_name, args.game, args.budget
