@@ -166,8 +166,8 @@ class Trade(gym.Env):
         if self.process == 'arma':
             arparams = np.array([0.10034001, -0.18860634, -0.82178623])
             maparams = np.array([-0.09202774, 0.13069337, 0.94766374, -0.06252217, 0.05726013])
-            ar = np.r_[55, -arparams]
-            ma = np.r_[100, maparams]
+            ar = np.r_[1, -arparams]
+            ma = np.r_[1, maparams]
             self.ARMA_vec = arma_generate_sample(ar, ma, self.horizon, distrvs=self.np_random.normal, scale=1)
 
         self.previous_portfolio = 0
