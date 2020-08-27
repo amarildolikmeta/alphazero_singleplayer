@@ -45,8 +45,8 @@ class Race(gym.Env):
         self.seed()
         self.reset()
 
-        if self.scale_reward:
-            print("Reward is being normalized")
+        # if self.scale_reward:
+        #     print("Reward is being normalized")
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
