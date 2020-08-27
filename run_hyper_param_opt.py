@@ -113,7 +113,7 @@ if __name__ == '__main__':
         parameter_space = {
             "c": hp.hp.quniform('c', 0.1, 3, 0.1)}
         if args.biased:
-            parameter_space["alpha"] = hp.hp.quniform('alpha', 0, 0.99, 0.01)
+            parameter_space["alpha"] = hp.hp.quniform('alpha', 0.85, 0.99, 0.01)
     old = [{'alpha': 0.49, 'c': 1.6, 'temp': 0.05}, {'alpha': 0.99, 'c': 0.5, 'temp': 0.15}]
 
     start_time = time.time()
