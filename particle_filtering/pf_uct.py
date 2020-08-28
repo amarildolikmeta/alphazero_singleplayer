@@ -44,6 +44,7 @@ def sample_from_parent_state(state, action, env, budget):
 
 def sample_from_particle(source_particle, action, env, budget):
     env.set_signature(source_particle.state)
+    env.seed()
     s, r, done, _ = env.step(action.index)
     budget -= 1
     if source_particle is None:
@@ -158,17 +159,10 @@ class State(object):
         self.mean_r = self.r
         self.sum_r = np.sum([particle.reward for particle in particles])
         self.depth = depth
-        self.terminal = True  # whether the domain terminated in this state
-
-        # A state is terminal only if all of its particles are terminal
-        # for p in particles:
-        #     self.terminal = self.terminal and p.terminal
-        #     if not self.terminal:
-        #         break
         self.terminal = depth == max_depth
         self.parent_action = parent_action
         self.particles = particles
-
+        self.root = root
         # Child actions
         self.na = na
 
@@ -176,7 +170,6 @@ class State(object):
 
         if self.terminal or root:
             self.V = 0
-            #self.remaining_budget -= len(self.particles)
         elif env is None:
             print("Warning, no environment was provided, initializing to 0 the value of the state!")
             self.V = 0
@@ -213,7 +206,6 @@ class State(object):
          :param b: parameter such that the rewards belong to [0, b]
          """
         if not variance:
-
             uct_upper_bound = np.array(
                 [child_action.Q + c * np.sqrt(np.log(self.n) / (child_action.n)) if child_action.n > 0 else np.inf
                  for child_action in self.child_actions])
@@ -239,7 +231,6 @@ class State(object):
 
     def evaluate(self, particle, env, budget, max_depth=200):
         actions = np.arange(self.na, dtype=int)
-
         results = []
         if budget > 0:
             env.set_signature(particle.state)
@@ -283,8 +274,8 @@ class PFMCTS(object):
             self.root = State(parent_action=None, na=self.na, env=Envs[0], particles=particles, root=True,
                               budget=budget, depth=0)
         else:
-            self.root.parent_action = None  # continue from current root
-        root_signature = Env.get_signature()
+            raise (NotImplementedError("Need to reset the tree"))
+
         if self.root.terminal:
             raise (ValueError("Can't do tree search from a terminal state"))
 
@@ -300,14 +291,12 @@ class PFMCTS(object):
                 raise NotImplementedError
                 restore_atari_state(mcts_env, snapshot)
             st = 0
-            actions = []
             flag = False
             source_particle = None
             while not state.terminal:
                 bias = c * self.gamma ** st / (1 - self.gamma) if self.depth_based_bias else c
                 action = state.select(c=bias, variance=self.variance)
                 st += 1
-                actions.append(action)
                 k = np.ceil(self.beta * action.n ** self.alpha)
 
                 # s1, r, t, _ = mcts_env.step(action.index)
@@ -351,7 +340,7 @@ class PFMCTS(object):
                 action.update(R)
                 state = action.parent_state
                 state.update()
-                particle = particle.parent_particle
+
 
     def return_results(self, temp, on_visits=False):
         """ Process the output at the root node """
@@ -450,7 +439,6 @@ class PFMCTS(object):
         return vertex_index
 
     def print_index(self):
-        print(self.count)
         self.count += 1
 
     def print_tree(self, root):
