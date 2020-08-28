@@ -46,7 +46,7 @@ game_to_env = {
     "RiverSwim-continuous": generate_river_continuous,
     "RaceStrategy": generate_race,
     "Trading-v0": generate_trade,
-    "Cliff-v0": generate_cliff}
+    "Cliff": generate_cliff}
 
 
 def get_base_env(env):
