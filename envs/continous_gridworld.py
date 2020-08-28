@@ -20,7 +20,7 @@ class GridWorld(gym.Env):
     }
 
     def __init__(self, shape=[4., 4.], horizon=30, fail_prob=0.1, goal=None, start=None, gamma=0.99,
-                 rew_weights=None, randomized_initial=True, n_bases=[4, 4]):
+                 rew_weights=None, randomized_initial=False, n_bases=[4, 4]):
 
         assert shape[0] >= 3 and shape[1] >= 3, "The grid must be at least 3x3"
         assert horizon >= 1, "The horizon must be at least 1"
@@ -187,3 +187,39 @@ class GridWorld(gym.Env):
         agent.add_attr(transform)
 
         return self.viewer.render(return_rgb_array=mode == 'rgb_array')
+
+
+if __name__ == '__main__':
+    mdp = GridWorld(randomized_initial=False)
+    s = mdp.reset()
+    rets = []
+    timesteps = 5000
+    count = 0
+    n = 1000
+    for i in range(10):
+        t = 0
+        ret = 0
+        s = mdp.reset()
+        mdp._render()
+        while t < 30:
+            print("State: ", s)
+            #a = 3
+            a = int(input())
+            s, r, done, _ = mdp.step(a)
+            count += 1
+            print("Reward: ", r)
+            ret += r
+            t += 1
+            if done:
+                print(" Return:" + str(ret))
+                input()
+                break
+            mdp._render()
+        if count <= timesteps:
+            print("Return:", ret)
+            rets.append(ret)
+        else:
+            break
+    print("Average Return:", np.mean(rets))
+    print("Average error:", np.std(rets) / np.sqrt(len(rets)))
+    print("Nume episodes:", len(rets))
