@@ -118,14 +118,14 @@ register(
 )
 
 if __name__ == '__main__':
-    mdp = CliffWorldContinuousMono(sigma_noise=0.)
+    mdp = CliffWorldContinuousMono(sigma_noise=0., horizon=20)
 
     s = mdp.reset()
     rets = []
     timesteps = 5000
     count = 0
     n = 1000
-    while True:
+    for i in range(n):
         t = 0
         ret = 0
         s = mdp.reset()
@@ -138,7 +138,7 @@ if __name__ == '__main__':
             ret += r
             t += 1
             if done:
-                print(" Reached Goal!")
+
                 break
             if count > timesteps:
                 break

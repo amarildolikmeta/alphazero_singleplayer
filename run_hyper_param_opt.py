@@ -63,6 +63,19 @@ if __name__ == '__main__':
         scheduler_params = {"slope": args.slope,
                             "min_budget": args.min_budget,
                             "mid": args.mid}
+    alg = "dpw/"
+    if not args.stochastic:
+        if args.unbiased:
+            if args.variance:
+                alg = 'p_uct_var/'
+            else:
+                alg = 'p_uct/'
+        else:
+            alg = 'pf_uct/'
+        alg += str(args.particles) + '_particles/'
+    start_time = time.time()
+    time_str = str(start_time)
+    out_dir = "logs/" + args.game + '/' + alg + "hyperopt/" + time_str + '/'
 
     keys = {"game": args.game,
             "n_ep": args.n_ep,
@@ -96,7 +109,8 @@ if __name__ == '__main__':
             "biased": args.biased,
             "depth_based_bias": args.depth_based_bias,
             "max_workers": args.max_workers,
-            "scheduler_params": scheduler_params
+            "scheduler_params": scheduler_params,
+            'out_dir': out_dir
     }
 
     # If a DB is available allocate accordingly the Trials object
@@ -116,19 +130,8 @@ if __name__ == '__main__':
             parameter_space["alpha"] = hp.hp.quniform('alpha', 0.85, 0.99, 0.01)
     old = [{'alpha': 0.49, 'c': 1.6, 'temp': 0.05}, {'alpha': 0.99, 'c': 0.5, 'temp': 0.15}]
 
-    start_time = time.time()
-    time_str = str(start_time)
-    alg = "dpw/"
-    if not args.stochastic:
-        if args.unbiased:
-            if args.variance:
-                alg = 'p_uct_var/'
-            else:
-                alg = 'p_uct/'
-        else:
-            alg = 'pf_uct/'
-        alg += str(args.particles) + '_particles/'
-    out_dir = "logs/" + args.game + '/' + alg + "hyperopt/" + time_str + '/'
+
+
 
     best = hp.fmin(fn=partial(objective, keywords=keys), algo=hp.tpe.suggest, max_evals=args.opt_iters, space=parameter_space,
                    trials=trials) #, points_to_evaluate=old
