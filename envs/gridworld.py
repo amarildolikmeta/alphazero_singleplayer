@@ -5,7 +5,8 @@ from builtins import AttributeError
 from math import floor
 from envs.FiniteMDP import FiniteMDP
 
-def generate_gridworld(shape=(5,5),horizon=100, gamma=0.99,randomized_initial=False):
+
+def generate_gridworld(shape=(4, 4), horizon=30, gamma=0.99, randomized_initial=False):
     return GridWorld(shape=shape, horizon=horizon, gamma=gamma, randomized_initial=randomized_initial)
 
 
@@ -34,11 +35,11 @@ class GridWorld(gym.Env):
         'video.frames_per_second': 30
     }
 
-    def __init__(self, shape=(7, 7), horizon=100, fail_prob=0.1, goal=None, start=None, gamma=0.99,
+    def __init__(self, shape=(4, 4), horizon=100, fail_prob=0.1, goal=None, start=None, gamma=0.99,
                  rew_weights=None, randomized_initial=True, extended_features=False):
 
         assert shape[0] >= 3 and shape[1] >= 3, "The grid must be at least 3x3"
-        self.H = 2 * shape[0] +1 #mirrored grid
+        self.H = 2 * shape[0] + 1 #mirrored grid
         self.W = shape[1]
         assert horizon >= 1, "The horizon must be at least 1"
         self.horizon = horizon

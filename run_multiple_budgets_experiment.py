@@ -18,6 +18,7 @@ from agent import agent
 colors = ['r', 'b', 'g', 'orange', 'c', 'k', 'purple', 'y']
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
 budgets = [1000, 5000, 10000, 20000, 35000, 50000, 70000, 85000, 100000]
+# budgets = [ 70000, 85000]
 
 if __name__ == '__main__':
 
