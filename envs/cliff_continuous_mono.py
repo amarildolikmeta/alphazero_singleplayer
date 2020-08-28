@@ -93,7 +93,7 @@ class CliffWorldContinuousMono(gym.Env):
             done = True
         self.state = new_state
         reward /= abs(self.large)
-        reward += 1
+        #reward += 1
         self.done = done
         return self.state, reward, done, {}
 

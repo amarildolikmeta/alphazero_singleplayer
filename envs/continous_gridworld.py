@@ -117,7 +117,7 @@ class GridWorld(gym.Env):
         features = self.get_rew_features()
         reward = np.sum(self.rew_weights * features)
         reward /= np.max(self.rew_weights)
-        reward += 1
+        #reward += 1
 
         self._t += 1
         terminal = True if self._t >= self.horizon else False
