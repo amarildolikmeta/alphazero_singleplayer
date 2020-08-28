@@ -16,7 +16,7 @@ def generate_trade(**game_params):
 
 
 class Trade(gym.Env):
-    def __init__(self, fees=0.01, time_lag=2, horizon=50, log_actions=True, save_dir='', process = "arma"):
+    def __init__(self, fees=0.001, time_lag=2, horizon=50, log_actions=True, save_dir='', process = "arma"):
         # price history, previous portfolio, time
         observation_low = np.concatenate([np.full(time_lag, -1), [-1.0]])
         observation_high = np.concatenate([np.full(time_lag, +1), [+1.0]])
