@@ -105,7 +105,7 @@ class GridWorld(gym.Env):
             return self.get_state(rbf=rbf, ohe=ohe), 0, 1, {'features': np.zeros(3)}
 
         a = self.action_to_direction(a)
-        self.state += self.speed * self.time_step * np.array(a).clip([-1,-1],[1,1])
+        self.state += self.speed * self.time_step * np.array(a)
         # Add noise
         if self.noise > 0:
             self.state += np.random.normal(scale=self.noise, size=(2,))
@@ -133,15 +133,17 @@ class GridWorld(gym.Env):
         return self.state
 
     def get_signature(self):
-        sig = {'agent_pos': np.copy(self.state), 't': copy(self._t)}
+        sig = {'agent_pos': np.copy(self.state), 't': copy(self._t), 'done': self.done}
         return sig
 
     def set_signature(self, sig):
         self.state = np.copy(sig['agent_pos'])
         self._t = copy(sig['t'])
+        self.done = sig['done']
 
     def reset(self, state=None, rbf=False, ohe=False):
         self.done = False
+        self._t = 0
         if state is None:
             if self.randomized_initial:
                 self.state = np.copy(self.goal)
@@ -152,7 +154,6 @@ class GridWorld(gym.Env):
         else:
             self.state = np.array(state)
 
-        self._t = 0
         return self.get_state(rbf=rbf, ohe=ohe)
 
     def _render(self, mode='human', close=False, a=None):
