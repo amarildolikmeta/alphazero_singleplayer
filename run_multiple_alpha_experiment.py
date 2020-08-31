@@ -18,9 +18,8 @@ from agent import agent
 colors = ['r', 'b', 'g', 'orange', 'c', 'k', 'purple', 'y']
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
 
-budgets = [1000] #, 5000, 10000
-# budgets = [ 70000, 85000]
-
+budgets = [5000, 10000]
+budgets = [1000, 5000, 10000]
 if __name__ == '__main__':
 
     # Obtain the command_line arguments
@@ -74,7 +73,7 @@ if __name__ == '__main__':
         agent_name += "mcts_only"
     else:
         agent_name += "alphazero"
-    alpha = 0.1
+    alpha = 0.5
     delta_alpha = 0.1
     max_alpha = 1.
     for budget in budgets:
@@ -99,7 +98,10 @@ if __name__ == '__main__':
                         alg = 'p_uct/'
                 else:
                     alg = 'pf_uct/'
-            out_dir = "logs/" + args.game + "/alpha_experiment/" + str(alpha)[:3]
+            out_dir = "logs/" + args.game + "/alpha_experiment/"
+            if not args.budget_scheduler:
+                out_dir += 'no_scheduler/'
+            out_dir += str(alpha)[:3]
             if args.game == 'RiverSwim-continuous':
                 out_dir += "/" + "fail_" + str(args.fail_prob)
             out_dir += "/" + alg + str(budget) + '/' + time_str + '/'

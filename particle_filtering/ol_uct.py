@@ -1,5 +1,5 @@
 import copy
-from helpers import stable_normalizer, copy_atari_state, restore_atari_state, argmax, max_Q
+from helpers import stable_normalizer, argmax, max_Q
 from rl.make_game import is_atari_game
 import numpy as np
 from igraph import Graph
@@ -7,29 +7,19 @@ import plotly.graph_objects as go
 import json
 
 
-def sample(envs, action, terminals, budget):
-        rewards = []
-        dones = []
-        for i, env in enumerate(envs):
-            if terminals[i]:
-                r = 0
-                done = 1
-            else:
-                _, r, done, _ = env.step(action)
-                budget -=1
-            rewards.append(r)
-            dones.append(done)
-        terminals = np.array(dones)
-        return rewards, terminals, budget
+def sample(env, action, budget):
+        env.seed(np.random.randint(1e7))
+        _, r, done, _ = env.step(action)
+        budget -= 1
+        return r, done, budget
 
 
 def random_rollout(actions, env, budget, max_depth=200, terminal=False):
     """Rollout from the current state following a random policy up to hitting a terminal state"""
     done = False
     if terminal:
-        #budget -= 1
         return 0, budget
-    env.seed()
+    env.seed(np.random.randint(1e7))
     ret = 0
     t = 0
     while budget > 0 and t < max_depth and not done:
@@ -53,32 +43,24 @@ class Action(object):
         self.Q = 0
         self.sigma = np.inf
         self.rewards = []
-        # self.child_state = None
+        self.child_state = None
 
-    def add_child_state(self, state, envs, terminals, budget, sampler=None, max_depth=200):
-        rewards, terminals, budget = sample(envs, self.index, terminals, budget)
-        rollout_budget_bound = len(envs) * max_depth
-        if budget < rollout_budget_bound * 0.5:
-            return state, 0
-
-        elif 0.5 * rollout_budget_bound <= budget < rollout_budget_bound:
-            budget = rollout_budget_bound
-
+    def add_child_state(self, env, budget,  max_depth=200, depth=0):
+        reward, terminal, budget = sample(env, self.index,  budget)
         self.child_state = State(parent_action=self,
                                  na=self.parent_state.na,
-                                 envs=envs,
-                                 sampler=sampler,
+                                 env=env,
                                  root=False,
                                  max_depth=max_depth,
                                  budget=budget,
-                                 rewards=rewards,
-                                 terminals=terminals)
+                                 reward=reward,
+                                 terminal=terminal,
+                                 depth=depth)
 
         return self.child_state, self.child_state.remaining_budget
 
     def update(self, R):
-        for r in R:
-            self.update_aggregate(r)
+        self.update_aggregate(R)
         self.finalize_aggregate()
 
     def update_aggregate(self, new_sample):
@@ -93,60 +75,45 @@ class Action(object):
             self.sigma = np.inf
         else:
             self.sigma = self.M2 / self.n
-            # sample_variance = self.M2 / (self.n - 1)
 
 
 class State(object):
     """ State object """
 
-    def __init__(self, parent_action, na, envs, budget, sampler=None, root=False, max_depth=200, rewards=None,
-                 terminals=None):
+    def __init__(self, parent_action, na, env, budget,  root=False, max_depth=200, reward=0, terminal=False, depth=0):
 
         """ Initialize a new state """
         self.parent_action = parent_action
         # Child actions
         self.na = na
-        self.terminal = False
         self.remaining_budget = budget
-        if terminals is None:
-            terminals = np.zeros(len(envs))
-        if rewards is None:
-            rewards = np.zeros(len(envs))
-        self.terminals = terminals
-        self.rewards = rewards
-        if root:
+        self.depth = depth
+        self.terminal = depth == max_depth
+        self.reward = reward
+        self.root = root
+        self.n = 0
+        self.child_actions = [Action(a, parent_state=self) for a in range(na)]
+
+        if self.terminal or root or terminal:
             self.V = 0.
-        elif envs is None:
+        elif env is None:
             print("Warning, no environment was provided, initializing to 0 the value of the state!")
             self.V = 0
         else:
-            returns, self.remaining_budget = self.evaluate(envs, terminals, budget, max_depth)
-            self.V = np.mean(returns)
-            self.returns = returns
-        self.n = 0
-        self.V = np.array(self.V)
-        self.child_actions = [Action(a, parent_state=self) for a in range(na)]
+            self.V, self.remaining_budget = self.evaluate(env, budget, max_depth, terminal)
 
     def to_json(self):
         inf = {
             "V": str(self.V) + '<br>',
-            "n": str(self.n) + '<br>'}
+            "n": str(self.n) + '<br>',
+            "d": str(self.depth) + '<br>'
+        }
         return json.dumps(inf)
 
-    def sample(self, envs, action, terminals, budget):
-        self.rewards = []
-        dones = []
-        for i, env in enumerate(envs):
-            if terminals[i] != 0:
-                r = 0
-                done = 1
-            else:
-                _, r, done, _ = env.step(action)
-                budget -= 1
-            self.rewards.append(r)
-            dones.append(done)
-        self.terminals = np.array(dones)
-        return self.terminals, budget
+    def sample(self, env, action,  budget):
+        r, done, budget = sample(env, action, budget)
+        self.reward = r
+        return done, budget
 
     def select(self, c=1.5, csi=1., b=1., variance=False):
         """
@@ -175,112 +142,84 @@ class State(object):
         winner = argmax(bound)
         return self.child_actions[winner]
 
-    def update(self, n):
+    def update(self):
         """ update count on backward pass """
-        self.n += n
+        self.n += 1
 
-    def evaluate(self, envs, terminals, budget, max_depth=200):
+    def evaluate(self, env, budget, max_depth=200, terminal=False):
         actions = np.arange(self.na, dtype=int)
-        results = []
-        for i in range(len(envs)):
-            assert budget > 0, "Running out of budget during evaluation of a state should never happen"
-            return_, budget = random_rollout(actions, envs[i], budget, max_depth, terminals[i])
-            results.append(return_)
-        return results, budget
+        if budget > 0:
+            return_, budget = random_rollout(actions, env, budget, max_depth, terminal)
+        else:
+            return_ = 0
+        return return_, budget
 
 
-class PFMCTS(object):
+class OL_MCTS(object):
     ''' MCTS object '''
-
-    def __init__(self, root, root_index, na, gamma, model=None, particles=2, sampler=None, variance=False,
+    def __init__(self, root, root_index, na, gamma, model=None, variance=False,
                  depth_based_bias=False):
         self.root = root
         self.root_index = root_index
         self.na = na
         self.gamma = gamma
-        self.n_particles = particles
-        self.sampler = sampler
-        self.variance = variance
         self.depth_based_bias = depth_based_bias
+        self.variance = variance
 
-    def reset_root(self, envs, Env):
-        for i in range(len(envs)):
-            envs[i] = copy.deepcopy(Env)
-            envs[i].seed()
-
-    def search(self, n_mcts, c, Env, mcts_env, budget, max_depth=200, fixed_depth=True):
-        """ Perform the MCTS search from the root """
-        Envs = None
-        if not self.sampler:
-            Envs = [copy.deepcopy(Env) for _ in range(self.n_particles)]
-
+    def create_root(self, env, budget):
         if self.root is None:
-            # initialize new root with many equal particles
-            signature = Env.get_signature()
+            signature = env.get_signature()
             self.root_signature = signature
-            box = None
-            to_box = getattr(self, "index_to_box", None)
-            if callable(to_box):
-                box = Env.index_to_box(signature["state"])
-            self.root = State(parent_action=None, na=self.na, envs=Envs, sampler=self.sampler,
-                              root=True, budget=budget)
+            self.root = State(parent_action=None, na=self.na, env=env, root=True, budget=budget)
         else:
             raise (NotImplementedError("Need to reset the tree"))
 
+    def search(self, n_mcts, c, Env, mcts_env, budget, max_depth=200, fixed_depth=True):
+        """ Perform the MCTS search from the root """
+        env = copy.deepcopy(Env)
+        self.create_root(env, budget)
         if self.root.terminal:
             raise (ValueError("Can't do tree search from a terminal state"))
 
-        is_atari = is_atari_game(Env)
+        is_atari = is_atari_game(env)
         if is_atari:
             raise NotImplementedError
-            snapshot = copy_atari_state(Env)  # for Atari: snapshot the root at the beginning
-
         while budget > 0:
             state = self.root  # reset to root for new trace
-            # reset to root state
-            self.reset_root(Envs, Env)
-
             if not is_atari:
-                mcts_envs = None
-                if not self.sampler:
-                    mcts_envs = Envs
+                mcts_env = copy.deepcopy(Env)  # copy original Env to rollout from
             else:
                 raise NotImplementedError
-                restore_atari_state(mcts_env, snapshot)
+            mcts_env.seed(np.random.randint(1e7))
             st = 0
             terminal = False
-            terminals = np.zeros(self.n_particles, dtype=np.int8)
-            while not terminal:
+            while not state.terminal:
                 bias = c * self.gamma ** st / (1 - self.gamma) if self.depth_based_bias else c
                 action = state.select(c=bias, variance=self.variance)
                 st += 1
-                # s1, r, t, _ = mcts_env.step(action.index)
-                if hasattr(action, 'child_state'):
+                if action.child_state is not None:
                     state = action.child_state  # select
-                    terminals, budget = state.sample(mcts_envs, action.index, terminals, budget)
-                    if np.all(terminals):
+                    terminal, budget = state.sample(mcts_env, action.index, budget)
+                    if terminal:
                         break
                 else:
                     rollout_depth = max_depth if fixed_depth else max_depth - st
-                    child_state, budget = action.add_child_state(state, mcts_envs, terminals, budget, self.sampler,
-                                                                 rollout_depth)  # expand
-                    if id(state) == id(child_state):
-                        backup_ward = False
-                    else:
-                        backup_ward = True
-                        state = child_state
+                    state, budget = action.add_child_state(mcts_env,  budget, rollout_depth, depth=st)  # expand
                     break
 
             # Back-up
-            if backup_ward:
-                returns = np.array(state.returns) * (1 - state.terminals)
-                state.update(self.n_particles)
-                while state.parent_action is not None:  # loop back-up until root is reached
-                    returns = state.rewards + self.gamma * returns
-                    action = state.parent_action
-                    action.update(returns)
-                    state = action.parent_state
-                    state.update(self.n_particles)
+
+            R = state.V
+            state.update()
+            while state.parent_action is not None:  # loop back-up until root is reached
+                if not terminal:
+                    R = state.reward + self.gamma * R
+                else:
+                    R = state.reward
+                action = state.parent_action
+                action.update(R)
+                state = action.parent_state
+                state.update()
 
     def return_results(self, temp, on_visits=False):
         """ Process the output at the root node """
@@ -335,7 +274,7 @@ class PFMCTS(object):
                                  mode='markers',
                                  name='bla',
                                  marker=dict(symbol='circle-dot',
-                                             size=18,
+                                             size=5,
                                              color='#6175c1',  # '#DB4551',
                                              line=dict(color='rgb(50,50,50)', width=1)
                                              ),
@@ -379,13 +318,12 @@ class PFMCTS(object):
         return vertex_index
 
     def print_index(self):
-        print(self.count)
         self.count += 1
 
     def print_tree(self, root):
         self.print_index()
         for i, a in enumerate(root.child_actions):
-            if hasattr(a, 'child_state'):
+            if a.child_state is not None:
                 self.print_tree(a.child_state)
 
 

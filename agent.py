@@ -32,7 +32,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         from mcts_dpw import MCTSStochastic
     elif particles:
         if unbiased:
-            from particle_filtering.ol_uct import PFMCTS
+            from particle_filtering.ol_uct import OL_MCTS
         elif biased:
             from particle_filtering.pf_uct import PFMCTS
         else:
@@ -86,7 +86,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     Env = make_game(game, game_params)
     num_actions = Env.action_space.n
     sampler = None
-    if use_sampler and not unbiased:
+    if use_sampler and not (unbiased or biased):
         def make_pi(action_space):
             def pi(s):
                 return np.random.randint(low=0, high=action_space.n)
@@ -107,15 +107,18 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     # Setup the parameters for generating the search environments
     mcts_params = dict(gamma=gamma)
     if particles:
-        mcts_maker = PFMCTS
-        if not biased:
+        if not (biased or unbiased):
             mcts_params['particles'] = particles
             mcts_params['sampler'] = sampler
         elif biased:
             mcts_params['alpha'] = alpha
+            mcts_maker = PFMCTS
+
         mcts_params['depth_based_bias'] = depth_based_bias
         if unbiased:
             mcts_params['variance'] = variance
+            mcts_maker = OL_MCTS
+
     elif stochastic:
         mcts_params['alpha'] = alpha
         mcts_params['depth_based_bias'] = depth_based_bias
