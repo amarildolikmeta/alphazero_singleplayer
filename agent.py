@@ -6,7 +6,7 @@ from helpers import is_atari_game, store_safely, Database
 from rl.make_game import make_game
 from models.model_tf2 import ModelWrapper
 from policies.eval_policy import eval_policy, parallelize_eval_policy
-from utils.logging.logger import Logger
+import json
 from utils.env_wrapper import Wrapper
 from particle_filtering.parallel_sampler import ParallelSampler
 import os
@@ -51,7 +51,11 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                       "out_dir": numpy_dump_dir, "pre_process": pre_process, "visualize": visualize,
                       "game_params": game_params, "n_workers": n_workers, "use_sampler": use_sampler,
                       "variance": variance, "depth_based_bias": depth_based_bias, "unbiased": unbiased}
-
+    if out_dir is not None:
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+        with open(os.path.join(out_dir, "parameters.txt"), 'w') as d:
+            d.write(json.dumps(parameter_list))
     #logger = Logger(parameter_list, game, show=show_plots)
 
     if DEBUG_TAXI:

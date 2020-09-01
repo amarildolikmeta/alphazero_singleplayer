@@ -18,8 +18,7 @@ from agent import agent
 colors = ['r', 'b', 'g', 'orange', 'c', 'k', 'purple', 'y']
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
 
-budgets = [5000, 10000]
-budgets = [1000, 5000, 10000]
+budgets = [1000, 5000, 10000, 20000, 35000]
 if __name__ == '__main__':
 
     # Obtain the command_line arguments
@@ -73,10 +72,11 @@ if __name__ == '__main__':
         agent_name += "mcts_only"
     else:
         agent_name += "alphazero"
-    alpha = 0.5
+    min_alpha = 0.5
     delta_alpha = 0.1
     max_alpha = 1.
     for budget in budgets:
+        alpha = min_alpha
         while alpha <= max_alpha + 0.01:
             # If required, prepare the budget scheduler parameters
             scheduler_params = None
@@ -192,3 +192,4 @@ if __name__ == '__main__':
             df = pd.DataFrame(data)
             df.to_csv(out_dir + "/data.csv", header=True, index=False)
             alpha += delta_alpha
+            alpha = round(alpha, 1)
