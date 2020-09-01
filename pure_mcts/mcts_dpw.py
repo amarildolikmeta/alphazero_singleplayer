@@ -120,11 +120,7 @@ class MCTSStochastic(MCTS):
                     if action.get_state_ind(s1) != -1:
                         state = action.child_states[action.get_state_ind(s1)]  # select
                         state.r = r
-                        # if state.terminal:
-                        #     budget -= 1
                     else:
-                        # if action.index == 0 and len(action.child_states) > 0:
-                        #     print("Error")
                         state, budget = action.add_child_state(s1, r, t, mcts_env.get_signature(), budget, env=mcts_env,
                                                                max_depth=max_depth - st)  # expand
                         break
@@ -133,10 +129,6 @@ class MCTSStochastic(MCTS):
                     mcts_env.set_signature(state.signature)
                     if state.terminal:
                         budget -= 1
-                    # obs = mcts_env._get_obs().flatten()
-                    # flattened_State = state.index.flatten()
-                    # if not np.array_equal(flattened_State, obs):
-                    #     print("WHATTTTTT")
 
             # Back-up
             R = state.V
