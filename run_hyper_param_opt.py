@@ -9,15 +9,16 @@ from agent import agent
 from utils.parser_setup import setup_parser
 import time
 results = []
-
+base_dir = ''
 
 def objective(params, keywords):
     # keywords["eval_freq"] = 1
     # keywords["n_ep"] = 1
     for k in params:
         keywords[k] = params[k]
-    keywords['out_dir'] = keywords['out_dir'] + '/' + str(time.time()) + '/'
+    keywords['out_dir'] = base_dir + '/' + str(time.time()) + '/'
     print("Evaluating with params:", params)
+    print("Saving results in:" + keywords['out_dir'])
     _, _, _, _, _, offline_scores = agent(**keywords)
     means = []
     # Take all the average returns for evaluation
@@ -72,11 +73,11 @@ if __name__ == '__main__':
                 alg = 'p_uct/'
         else:
             alg = 'pf_uct/'
-        alg += str(args.particles) + '_particles/'
+        #alg += str(args.particles) + '_particles/'
     start_time = time.time()
     time_str = str(start_time)
     out_dir = "logs/hyperopt/" + args.game + '/' + alg + str(args.budget) + "/" + time_str + '/'
-
+    base_dir = out_dir
     keys = {"game": args.game,
             "n_ep": args.n_ep,
             "n_mcts": args.n_mcts,
