@@ -16,7 +16,7 @@ def objective(params, keywords):
     # keywords["n_ep"] = 1
     for k in params:
         keywords[k] = params[k]
-
+    keywords['out_dir'] = keywords['out_dir'] + '/' + str(time.time()) + '/'
     print("Evaluating with params:", params)
     _, _, _, _, _, offline_scores = agent(**keywords)
     means = []
@@ -26,7 +26,7 @@ def objective(params, keywords):
     means = offline_scores[0][0]
     # print("Mean return:", np.mean(means))
     # print("Standard deviation:", np.std(means))
-    results.append((params, np.mean(means), np.std(means), np.len(means)))
+    results.append((params, np.mean(means), np.std(means), means.shape[0]))
     return -np.mean(means)
 
 
