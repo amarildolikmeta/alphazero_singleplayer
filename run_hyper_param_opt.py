@@ -26,7 +26,7 @@ def objective(params, keywords):
     means = offline_scores[0][0]
     # print("Mean return:", np.mean(means))
     # print("Standard deviation:", np.std(means))
-    results.append((params, np.mean(means), np.std(means), means.shape[0]))
+    results.append((params, np.mean(means), np.std(means), len(means)))
     return -np.mean(means)
 
 
