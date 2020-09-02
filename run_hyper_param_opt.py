@@ -8,10 +8,10 @@ from hyperopt.mongoexp import MongoTrials
 from agent import agent
 from utils.parser_setup import setup_parser
 import time
+results = []
 
 
 def objective(params, keywords):
-
     # keywords["eval_freq"] = 1
     # keywords["n_ep"] = 1
     for k in params:
@@ -26,7 +26,7 @@ def objective(params, keywords):
     means = offline_scores[0][0]
     # print("Mean return:", np.mean(means))
     # print("Standard deviation:", np.std(means))
-
+    results.append((params, np.mean(means), np.std(means), np.len(means)))
     return -np.mean(means)
 
 
@@ -75,7 +75,7 @@ if __name__ == '__main__':
         alg += str(args.particles) + '_particles/'
     start_time = time.time()
     time_str = str(start_time)
-    out_dir = "logs/" + args.game + '/' + alg + "hyperopt/" + time_str + '/'
+    out_dir = "logs/hyperopt/" + args.game + '/' + alg + str(args.budget) + "/" + time_str + '/'
 
     keys = {"game": args.game,
             "n_ep": args.n_ep,
@@ -127,11 +127,8 @@ if __name__ == '__main__':
         parameter_space = {
             "c": hp.hp.quniform('c', 0.1, 3, 0.1)}
         if args.biased:
-            parameter_space["alpha"] = hp.hp.quniform('alpha', 0.85, 0.99, 0.01)
+            parameter_space["alpha"] = hp.hp.quniform('alpha', 0.5, 0.99, 0.01)
     old = [{'alpha': 0.49, 'c': 1.6, 'temp': 0.05}, {'alpha': 0.99, 'c': 0.5, 'temp': 0.15}]
-
-
-
 
     best = hp.fmin(fn=partial(objective, keywords=keys), algo=hp.tpe.suggest, max_evals=args.opt_iters, space=parameter_space,
                    trials=trials) #, points_to_evaluate=old
@@ -143,4 +140,7 @@ if __name__ == '__main__':
     if not args.db:
         with open(out_dir + "trials.pickle", "wb") as dumpfile:
             pickle.dump(trials, dumpfile)
+            dumpfile.close()
+        with open(out_dir + "results.pickle", "wb") as dumpfile:
+            pickle.dump(results, dumpfile)
             dumpfile.close()

@@ -161,6 +161,7 @@ class PFMCTS(OL_MCTS):
                     elif state.terminal:
                         source_particle = np.random.choice(state.particles)
                         budget -= 1  # sample from the terminal states particles
+
                 else:
                     rollout_depth = max_depth if fixed_depth else max_depth - st
                     state, budget, source_particle = action.add_child_state(mcts_env, budget, max_depth=rollout_depth,
