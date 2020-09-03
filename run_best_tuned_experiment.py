@@ -19,9 +19,9 @@ from agent import agent
 #### Command line call, parsing and plotting ##
 colors = ['r', 'b', 'g', 'orange', 'c', 'k', 'purple', 'y']
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
-envs = ['RaceStrategy', 'Trading-v0',  'RiverSwim-continuous',]
+envs = ['RaceStrategy',]
 budgets = [1000, 5000, 10000, 20000]
-settings = ['dpw', 'p_uct', 'pf_uct', ]
+settings = ['p_uct', 'pf_uct', ]
 setting_to_sub = {
     'dpw': '',
     'p_uct': '1_particles/',
@@ -42,7 +42,7 @@ setting_to_label = {
 }
 env_to_sub = {
     'RaceStrategy':'',
-    'RiverSwim-continuous':'fail_0.1/',
+    'RiverSwim-continuous': '',
     'Trading-v0':'',
     'Gridworld':'',
     'Cliff':'',
@@ -132,7 +132,7 @@ if __name__ == '__main__':
                 elif setting in ['p_uct', 'pf_uct']:
                     stochastic = False
                     particles = 1
-                    if setting == ['p_uct']:
+                    if setting in ['p_uct']:
                         unbiased = True
                         biased = False
                         alpha = 1.
