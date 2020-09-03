@@ -75,7 +75,7 @@ def setup_parser():
     parser.add_argument('--mid', type=float, default=0.0, help='Constant regulating the middle point of the slope')
     parser.add_argument('--db', action='store_true', help="Use MongoDB parallelization for hyperparameters tuning")
     parser.add_argument('--dbname', type=str, default="exp_0", help="Name of the db to be used for the experiment")
-    parser.add_argument('--min_alpha', type=float, default=0.5, help='Minimum alpha in hyperopt for pf_uct')
+    parser.add_argument('--min_alpha_hp', type=float, default=0.5, help='Minimum alpha in hyperopt for pf_uct')
 
     parser.add_argument('--scale_reward', action='store_true', help='scale the reward of the race environment')
 
