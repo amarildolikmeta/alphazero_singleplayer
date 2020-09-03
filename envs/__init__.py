@@ -14,3 +14,4 @@ from envs.trading import generate_trade
 from envs.toy_env import generate_toy
 from envs.continous_gridworld import generate_gridworld
 from envs.continuous_mountaincar import generate_mountain
+from envs.carpole import generate_cartpole

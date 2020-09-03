@@ -34,9 +34,9 @@ class ContinuousMountainCar(gym.Env):
         self.max_speed = 0.07
         self.goal_position = goal_position
         self.power = 0.0015
-
+        self.seed()
         if start_state is None:
-            start_state = np.random.uniform(low=[-0.6, 0], high=[-0.4, 0])
+            start_state = self.np_random.uniform(low=[-0.6, 0], high=[-0.4, 0])
         self.start_state = start_state
         self.low_state = np.array([self.min_position, -self.max_speed])
         self.high_state = np.array([self.max_position, self.max_speed])
@@ -45,7 +45,6 @@ class ContinuousMountainCar(gym.Env):
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(2,))
         self.size = {'position': [self.min_position, self.max_position],
                      'speed': [-self.max_speed, self.max_speed]}
-        self.seed()
         self.reset()
 
     def seed(self, seed=None):
@@ -72,14 +71,14 @@ class ContinuousMountainCar(gym.Env):
 
         velocity += force * self.power - 0.0025 * math.cos(3*position)
         if self.noise >= 0.:
-            velocity += np.random.uniform(low=-self.noise, high=self.noise)
+            velocity += self.np_random.uniform(low=-self.noise, high=self.noise)
 
         if velocity > self.max_speed: velocity = self.max_speed
         if velocity < -self.max_speed: velocity = -self.max_speed
         position += velocity
 
         if self.noise >= 0.:
-            position += np.random.uniform(low=-self.noise, high=self.noise)
+            position += self.np_random.uniform(low=-self.noise, high=self.noise)
         if position > self.max_position: position = self.max_position
         if position < self.min_position: position = self.min_position
         if position == self.min_position and velocity < 0: velocity = 0
@@ -109,7 +108,7 @@ class ContinuousMountainCar(gym.Env):
             if self.randomized_start:
                 self.state = np.array([self.goal_position, 0])
                 while self.reached_goal():
-                    self.state = np.random.uniform(low=[self.min_position, 0], high=[self.max_position, 0])
+                    self.state = self.np_random.uniform(low=[self.min_position, 0], high=[self.max_position, 0])
             else:
                 self.state = np.copy(self.start_state)
         else:

@@ -8,7 +8,7 @@ def parse_game_params(args):
         game_params['grid'] = args.grid
         game_params['box'] = True
         # TODO modify this to return to original taxi problem
-    elif args.game in ['RiverSwim-continuous', 'MountainCar']:
+    elif args.game in ['RiverSwim-continuous', 'MountainCar', 'Cartpole']:
         game_params['fail'] = args.fail_prob
         if args.game in ['RiverSwim-continuous']:
             game_params['dim'] = args.chain_dim

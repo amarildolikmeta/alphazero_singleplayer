@@ -5,13 +5,13 @@ Custom game generation function
 """
 import gym
 import numpy as np
-# Register deterministic FrozenLakes
 from gym.envs.registration import register
-import gym_minigrid
 
 from envs import generate_taxi, generate_taxi_easy, generate_arms, generate_river, generate_loop, generate_chain, \
     generate_three_arms, generate_collect_stochastic, generate_bridge_stochastic, generate_river_continuous, \
-    generate_race, generate_cliff, generate_trade, generate_toy, generate_gridworld, generate_mountain
+    generate_race, generate_cliff, generate_trade, generate_toy, generate_gridworld, generate_mountain, \
+    generate_cartpole
+
 
 from rl.wrappers import NormalizeWrapper, ReparametrizeWrapper, PILCOWrapper, ScaleRewardWrapper, ClipRewardWrapper, \
     ScaledObservationWrapper
@@ -47,7 +47,8 @@ game_to_env = {
     "RaceStrategy": generate_race,
     "Trading-v0": generate_trade,
     "Cliff": generate_cliff,
-    "MountainCar": generate_mountain}
+    "MountainCar": generate_mountain,
+    "Cartpole": generate_cartpole}
 
 
 def get_base_env(env):
