@@ -19,9 +19,9 @@ from agent import agent
 #### Command line call, parsing and plotting ##
 colors = ['r', 'b', 'g', 'orange', 'c', 'k', 'purple', 'y']
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
-envs = ['RaceStrategy',]
+envs = [ 'Trading-v0', 'RiverSwim-continuous',]
 budgets = [1000, 5000, 10000, 20000]
-settings = ['p_uct', 'pf_uct', ]
+settings = ['dpw', 'p_uct', 'pf_uct', ]
 setting_to_sub = {
     'dpw': '',
     'p_uct': '1_particles/',
