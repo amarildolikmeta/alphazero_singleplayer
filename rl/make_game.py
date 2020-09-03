@@ -11,7 +11,7 @@ import gym_minigrid
 
 from envs import generate_taxi, generate_taxi_easy, generate_arms, generate_river, generate_loop, generate_chain, \
     generate_three_arms, generate_collect_stochastic, generate_bridge_stochastic, generate_river_continuous, \
-    generate_race, generate_cliff, generate_trade, generate_toy, generate_gridworld
+    generate_race, generate_cliff, generate_trade, generate_toy, generate_gridworld, generate_mountain
 
 from rl.wrappers import NormalizeWrapper, ReparametrizeWrapper, PILCOWrapper, ScaleRewardWrapper, ClipRewardWrapper, \
     ScaledObservationWrapper
@@ -46,7 +46,8 @@ game_to_env = {
     "RiverSwim-continuous": generate_river_continuous,
     "RaceStrategy": generate_race,
     "Trading-v0": generate_trade,
-    "Cliff": generate_cliff}
+    "Cliff": generate_cliff,
+    "MountainCar": generate_mountain}
 
 
 def get_base_env(env):

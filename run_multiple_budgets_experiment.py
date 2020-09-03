@@ -10,7 +10,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 import time
-from utils.parser_setup import setup_parser
+from utils.parser_setup import setup_parser, parse_game_params
 plt.style.use('ggplot')
 from agent import agent
 
@@ -48,18 +48,7 @@ if __name__ == '__main__':
                 args.data_size, args.batch_size, args.temp, args.n_hidden_layers, args.n_hidden_units,
                 True, args.eval_freq, args.eval_episodes, args.n_epochs]
     exps = []
-    game_params = {'horizon': args.max_ep_len}
-
-    # Accept custom grid if the environment requires it
-    if args.game == 'Taxi' or args.game == 'TaxiEasy':
-        game_params['grid'] = args.grid
-        game_params['box'] = True
-        # TODO modify this to return to original taxi problem
-    elif args.game == 'RiverSwim-continuous':
-        game_params['dim'] = args.chain_dim
-        game_params['fail'] = args.fail_prob
-    elif args.game == 'RaceStrategy':
-        game_params['scale_reward'] = args.scale_reward
+    game_params = parse_game_params(args)
 
     # Define the name of the agent to be stored in the dataframe
     if args.stochastic:

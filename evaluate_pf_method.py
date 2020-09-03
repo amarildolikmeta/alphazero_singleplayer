@@ -7,7 +7,7 @@ import pandas as pd
 import os
 import matplotlib.pyplot as plt
 import time
-from utils.parser_setup import setup_parser
+from utils.parser_setup import setup_parser, parse_game_params
 plt.style.use('ggplot')
 from agent import agent
 from gym.envs.registration import register
@@ -56,31 +56,9 @@ if __name__ == '__main__':
                                          str(alpha + i * delta_alpha) + '/', pre_process]))
             for i in range(n))
 
-        # fig, ax = plt.subplots(1, figsize=[7, 5])
-        # for j in range(len(out)):
-        #     episode_returns, timepoints, a_best, seed_best, R_best, offline_scores = out[j]
-        #     total_eps = len(episode_returns)
-        #     episode_returns = smooth(episode_returns, args.window, mode='valid')
-        #     ax.plot(symmetric_remove(np.arange(total_eps), args.window - 1), episode_returns, color=colors[j],
-        #         marker =markers[j], label='a-'+ str(alpha + j * delta_alpha))
-        #     model.save(out_dir+'/alpha_' + str(alpha + j * delta_alpha) + '/')
-        # ax.set_ylabel('Return')
-        # ax.set_xlabel('Episode', color='darkred')
-        # name = 'learning_curve_dpw_alpha_test.png'
-        # lgd = fig.legend(loc='lower center', ncol=n/2, fancybox=True, shadow=True)
-        # plt.savefig(out_dir + name, bbox_inches="tight", bbox_extra_artists=(lgd,))
     else:
         exps = []
-        game_params = {'horizon': args.max_ep_len}
-
-        if args.game == 'Taxi' or args.game == 'TaxiEasy':
-            game_params['grid'] = args.grid
-            game_params['box'] = True
-        elif args.game == 'RiverSwim-continuous':
-            game_params['dim'] = args.chain_dim
-            game_params['fail'] = args.fail_prob
-        elif args.game == 'RaceStrategy':
-            game_params['scale_reward'] = args.scale_reward
+        game_params = parse_game_params(args)
 
         # particles = [5, 10, 25, 50, 100, 250, 500]
 

@@ -6,10 +6,11 @@ from functools import partial
 from hyperopt.mongoexp import MongoTrials
 
 from agent import agent
-from utils.parser_setup import setup_parser
+from utils.parser_setup import setup_parser, parse_game_params
 import time
 results = []
 base_dir = ''
+
 
 def objective(params, keywords):
     # keywords["eval_freq"] = 1
@@ -41,18 +42,8 @@ if __name__ == '__main__':
 
     if not args.gpu:
         os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-    game_params = {'horizon': args.max_ep_len}
 
-    # Accept custom grid if the environment requires it
-    if args.game == 'Taxi' or args.game == 'TaxiEasy':
-        game_params['grid'] = args.grid
-        game_params['box'] = True
-        # TODO modify this to return to original taxi problem
-    elif args.game == 'RiverSwim-continuous':
-        game_params['dim'] = args.chain_dim
-        game_params['fail'] = args.fail_prob
-    elif args.game == 'RaceStrategy':
-            game_params['scale_reward'] = args.scale_reward
+    game_params = parse_game_params(args)
 
     # Setup budget schedule parameters
     scheduler_params = None
@@ -128,7 +119,7 @@ if __name__ == '__main__':
         parameter_space = {
             "c": hp.hp.quniform('c', 0.1, 3, 0.1)}
         if args.biased:
-            parameter_space["alpha"] = hp.hp.quniform('alpha', 0.5, 0.99, 0.01)
+            parameter_space["alpha"] = hp.hp.quniform('alpha', args.min_alpha, 0.99, 0.01)
     old = [{'alpha': 0.49, 'c': 1.6, 'temp': 0.05}, {'alpha': 0.99, 'c': 0.5, 'temp': 0.15}]
 
     best = hp.fmin(fn=partial(objective, keywords=keys), algo=hp.tpe.suggest, max_evals=args.opt_iters, space=parameter_space,

@@ -1,6 +1,21 @@
 import argparse
 
 
+def parse_game_params(args):
+    game_params = {'horizon': args.max_ep_len}
+    # Accept custom grid if the environment requires it
+    if args.game == 'Taxi' or args.game == 'TaxiEasy':
+        game_params['grid'] = args.grid
+        game_params['box'] = True
+        # TODO modify this to return to original taxi problem
+    elif args.game in ['RiverSwim-continuous', 'MountainCar']:
+        game_params['fail'] = args.fail_prob
+        if args.game in ['RiverSwim-continuous']:
+            game_params['dim'] = args.chain_dim
+    elif args.game == 'RaceStrategy':
+        game_params['scale_reward'] = args.scale_reward
+
+
 def setup_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--game', default='Blackjack_pi-v0', help='Training environment')
@@ -60,6 +75,7 @@ def setup_parser():
     parser.add_argument('--mid', type=float, default=0.0, help='Constant regulating the middle point of the slope')
     parser.add_argument('--db', action='store_true', help="Use MongoDB parallelization for hyperparameters tuning")
     parser.add_argument('--dbname', type=str, default="exp_0", help="Name of the db to be used for the experiment")
+    parser.add_argument('--min_alpha', type=float, default=0.5, help='Minimum alpha in hyperopt for pf_uct')
 
     parser.add_argument('--scale_reward', action='store_true', help='scale the reward of the race environment')
 
