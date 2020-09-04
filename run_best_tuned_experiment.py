@@ -19,13 +19,13 @@ from agent import agent
 colors = ['r', 'b', 'g', 'orange', 'c', 'k', 'purple', 'y']
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
 envs = [ 'MountainCar',]
-budgets = [1000, 5000, 10000]
+budgets = [1000, 3000, 5000, 7000, 10000]
 settings = ['dpw', 'p_uct', 'pf_uct', ]
 setting_to_sub = {
     'dpw': '',
     'p_uct': '1_particles/',
     'pf_uct': '1_particles/',
-    'pf_uct_2':'1_particles/',
+    'pf_uct_2': '1_particles/',
 }
 setting_to_agent = {
     'dpw': 'dpw',

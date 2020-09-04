@@ -20,14 +20,15 @@ def objective(params, keywords):
     keywords['out_dir'] = base_dir + '/' + str(time.time()) + '/'
     print("Evaluating with params:", params)
     print("Saving results in:" + keywords['out_dir'])
+    np.random.seed()
     _, _, _, _, _, offline_scores = agent(**keywords)
     means = []
     # Take all the average returns for evaluation
     # for score in offline_scores:
     #     means.append(score[2])
     means = offline_scores[0][0]
-    # print("Mean return:", np.mean(means))
-    # print("Standard deviation:", np.std(means))
+    print("Mean return:", np.mean(means))
+    print("Standard deviation:", np.std(means))
     results.append((params, np.mean(means), np.std(means), len(means)))
     return -np.mean(means)
 
