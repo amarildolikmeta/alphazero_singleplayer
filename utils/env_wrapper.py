@@ -121,6 +121,15 @@ class Wrapper(object):
     def visualize(self):
         self.get_mcts().visualize()
 
+    def render(self):
+        try:
+            env = self.render_env
+        except:
+            env = copy.deepcopy(self.get_env())
+            self.render_env = env
+        env.set_signature(self.get_env().get_signature())
+        env._render()
+
     def reset(self):
         s = self.get_env().reset()
         self.make_mcts()

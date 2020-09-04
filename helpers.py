@@ -34,7 +34,7 @@ def argmax(x):
         print('Warning: Cannot argmax when vector contains nans, results will be wrong')
     try:
         winners = np.argwhere(x == np.max(x)).flatten()
-        winner = random.choice(winners)
+        winner = np.random.choice(winners)
     except:
         winner = np.argmax(x)  # numerical instability ?
     return winner

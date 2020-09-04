@@ -2,6 +2,15 @@ import numpy as np
 import gym
 from gym import spaces
 from feature.rbf import build_features_gw_state
+from gym.utils import seeding
+from copy import copy
+
+
+def generate_gridworld(**game_params):
+    if game_params is None:
+        game_params = {}
+    return GridWorld(**game_params)
+
 
 class GridWorld(gym.Env):
 
@@ -10,8 +19,8 @@ class GridWorld(gym.Env):
         'video.frames_per_second': 30
     }
 
-    def __init__(self, shape=[7., 7.], horizon=100, fail_prob=0.1, goal=None, start=None, gamma=0.99,
-                 rew_weights=None, randomized_initial=True, n_bases=[7, 7]):
+    def __init__(self, shape=[4., 4.], horizon=30, fail_prob=0.1, goal=None, start=None, gamma=0.99,
+                 rew_weights=None, randomized_initial=False, n_bases=[4, 4]):
 
         assert shape[0] >= 3 and shape[1] >= 3, "The grid must be at least 3x3"
         assert horizon >= 1, "The horizon must be at least 1"
@@ -19,7 +28,6 @@ class GridWorld(gym.Env):
         self.horizon = horizon
         self.noise = fail_prob
         self.state_dim = 2
-        self.action_dim = 2
         self.time_step = 1.
         self.speed = 1.
 
@@ -29,7 +37,6 @@ class GridWorld(gym.Env):
             start = np.array([0, shape[0]], dtype=np.float64)
         size = np.array(shape)
         size[1] = 2*size[1]
-
         self.size = size
         self.goal_radius = 0.5
         self.done = False
@@ -39,10 +46,11 @@ class GridWorld(gym.Env):
 
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(n_bases[0] * n_bases[1],))
         #delta_x, delta_y
-        self.action_space = spaces.Box(low=np.array([-1., -1.]), high=np.array((1., 1.)))
-
+        self.action_space = spaces.Discrete(4)
         self.PrettyTable = None
         self.rendering = None
+
+        self._t = 0
         self.gamma = gamma
         if rew_weights is None:
             rew_weights = [1, 10, 0]
@@ -52,7 +60,12 @@ class GridWorld(gym.Env):
         self.viewer = None
         self.feat_func = build_features_gw_state(self.size, n_bases, 2)
         # initialize state
+        self.seed()
         self.reset()
+
+    def seed(self, seed=None):
+        self.np_random, seed = seeding.np_random(seed)
+        return [seed]
 
     def get_rew_features(self, state=None):
         if state is None:
@@ -75,20 +88,24 @@ class GridWorld(gym.Env):
 
         return np.linalg.norm(state - self.goal) < self.goal_radius
 
+    def action_to_direction(self, a):
+        if a == 0:
+            action = np.array([0, 1])  # up
+        elif a == 1:
+            action = np.array([1, 0])  # right
+        elif a == 2:
+            action = np.array([0, -1])  # down
+        elif a == 3:
+            action = np.array([-1, 0])  # left
+
+        return action
+
     def step(self, a, rbf=False, ohe=False):
         if self.reached_goal():
             return self.get_state(rbf=rbf, ohe=ohe), 0, 1, {'features': np.zeros(3)}
 
-
-
-        '''
-        dx, dy = a
-        if dx != 0 or dy != 0:
-            theta = np.arctan2(dy, dx)
-
-            self.state += self.speed * self.time_step * np.array([np.cos(theta), np.sin(theta)])
-        '''
-        self.state += self.speed * self.time_step * np.array(a).clip([-1,-1],[1,1])
+        a = self.action_to_direction(a)
+        self.state += self.speed * self.time_step * np.array(a)
         # Add noise
         if self.noise > 0:
             self.state += np.random.normal(scale=self.noise, size=(2,))
@@ -96,27 +113,37 @@ class GridWorld(gym.Env):
         # Clip to make sure the agent is inside the grid
 
         self.state = self.state.clip([0., 0.], self.size - 1e-8)
-
-
         # Compute reward
         features = self.get_rew_features()
         reward = np.sum(self.rew_weights * features)
-        self.done = 1 if self.reached_goal() else 0
+        reward /= np.max(self.rew_weights)
+        #reward += 1
 
-        return self.get_state(rbf=rbf,ohe=ohe), reward, self.done, {'features': features}
+        self._t += 1
+        terminal = True if self._t >= self.horizon else False
+        self.done = 1 if self.reached_goal() else 0
+        self.done = self.done or terminal
+
+        return self.get_state(rbf=rbf, ohe=ohe), reward, self.done, {'features': features}
 
     def get_state(self, rbf=False,ohe=False):
         if rbf or ohe:
             s = self.feat_func(self.state)
-            '''if np.isnan(s).any():
-                print("State:", s)
-                print("basis:")
-                print(s)'''
             return s
         return self.state
 
-    def reset(self, state=None,rbf =False, ohe=False):
+    def get_signature(self):
+        sig = {'agent_pos': np.copy(self.state), 't': copy(self._t), 'done': self.done}
+        return sig
+
+    def set_signature(self, sig):
+        self.state = np.copy(sig['agent_pos'])
+        self._t = copy(sig['t'])
+        self.done = sig['done']
+
+    def reset(self, state=None, rbf=False, ohe=False):
         self.done = False
+        self._t = 0
         if state is None:
             if self.randomized_initial:
                 self.state = np.copy(self.goal)
@@ -126,6 +153,7 @@ class GridWorld(gym.Env):
                 self.state = np.copy(self.start)
         else:
             self.state = np.array(state)
+
         return self.get_state(rbf=rbf, ohe=ohe)
 
     def _render(self, mode='human', close=False, a=None):
@@ -148,27 +176,6 @@ class GridWorld(gym.Env):
         if self.state is None:
             return None
 
-        '''c = self.viewer.draw_circle(radius=0.2)
-        c.set_color(0, 0, 0)
-        if a == 0:
-            c.set_color(0.8, 0.8, 0)
-        c.add_attr(rendering.Transform(translation=(1, self.size[1] - 0.5)))
-        c = self.viewer.draw_circle(radius=0.2)
-        c.set_color(0, 0, 0)
-        if a == 1:
-            c.set_color(0.8, 0.8, 0)
-        c.add_attr(rendering.Transform(translation=(1.5, self.size[1] - 1)))
-        c = self.viewer.draw_circle(radius=0.2)
-        c.set_color(0, 0, 0)
-        if a == 2:
-            c.set_color(0.8, 0.8, 0)
-        c.add_attr(rendering.Transform(translation=(1, self.size[1] - 1.5)))
-        c = self.viewer.draw_circle(radius=0.2)
-        c.set_color(0, 0, 0)
-        if a == 3:
-            c.set_color(0.8, 0.8, 0)
-        c.add_attr(rendering.Transform(translation=(0.5, self.size[1] - 1)))'''
-
         goal = self.viewer.draw_circle(radius=self.goal_radius)
         goal.set_color(0, 0.8, 0)
         goal.add_attr(rendering.Transform(translation=(self.goal[0], self.goal[1])))
@@ -180,3 +187,39 @@ class GridWorld(gym.Env):
         agent.add_attr(transform)
 
         return self.viewer.render(return_rgb_array=mode == 'rgb_array')
+
+
+if __name__ == '__main__':
+    mdp = GridWorld(randomized_initial=False)
+    s = mdp.reset()
+    rets = []
+    timesteps = 5000
+    count = 0
+    n = 1000
+    for i in range(10):
+        t = 0
+        ret = 0
+        s = mdp.reset()
+        mdp._render()
+        while t < 30:
+            print("State: ", s)
+            #a = 3
+            a = int(input())
+            s, r, done, _ = mdp.step(a)
+            count += 1
+            print("Reward: ", r)
+            ret += r
+            t += 1
+            if done:
+                print(" Return:" + str(ret))
+                input()
+                break
+            mdp._render()
+        if count <= timesteps:
+            print("Return:", ret)
+            rets.append(ret)
+        else:
+            break
+    print("Average Return:", np.mean(rets))
+    print("Average error:", np.std(rets) / np.sqrt(len(rets)))
+    print("Nume episodes:", len(rets))

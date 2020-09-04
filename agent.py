@@ -6,7 +6,7 @@ from helpers import is_atari_game, store_safely, Database
 from rl.make_game import make_game
 from models.model_tf2 import ModelWrapper
 from policies.eval_policy import eval_policy, parallelize_eval_policy
-from utils.logging.logger import Logger
+import json
 from utils.env_wrapper import Wrapper
 from particle_filtering.parallel_sampler import ParallelSampler
 import os
@@ -21,7 +21,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
           stochastic=False, eval_freq=-1, eval_episodes=100, alpha=0.6, n_epochs=100, c_dpw=1, numpy_dump_dir='../',
           pre_process=None, visualize=False, game_params={}, parallelize_evaluation=False, mcts_only=False,
           particles=0, show_plots=False, n_workers=1, use_sampler=False, budget=np.inf, unbiased=False, biased=False,
-          max_workers=100, variance=False, depth_based_bias=False, scheduler_params=None):
+          max_workers=100, variance=False, depth_based_bias=False, scheduler_params=None, out_dir=None,
+          render=False):
     visualizer = None
 
     # if particles:
@@ -32,7 +33,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         from mcts_dpw import MCTSStochastic
     elif particles:
         if unbiased:
-            from particle_filtering.ol_uct import PFMCTS
+            from particle_filtering.ol_uct import OL_MCTS
         elif biased:
             from particle_filtering.pf_uct import PFMCTS
         else:
@@ -51,8 +52,12 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                       "out_dir": numpy_dump_dir, "pre_process": pre_process, "visualize": visualize,
                       "game_params": game_params, "n_workers": n_workers, "use_sampler": use_sampler,
                       "variance": variance, "depth_based_bias": depth_based_bias, "unbiased": unbiased}
-
-    logger = Logger(parameter_list, game, show=show_plots)
+    if out_dir is not None:
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+        with open(os.path.join(out_dir, "parameters.txt"), 'w') as d:
+            d.write(json.dumps(parameter_list))
+    #logger = Logger(parameter_list, game, show=show_plots)
 
     if DEBUG_TAXI:
         from utils.visualization.taxi import TaxiVisualizer
@@ -72,21 +77,21 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     if pre_process is not None:
         pre_process()
 
-    numpy_dump_dir = logger.numpy_dumps_dir
-
-    if not os.path.exists(numpy_dump_dir):
-        os.makedirs(numpy_dump_dir)
+    # numpy_dump_dir = logger.numpy_dumps_dir
+    #
+    # if not os.path.exists(numpy_dump_dir):
+    #     os.makedirs(numpy_dump_dir)
 
     episode_returns = []  # storage
     timepoints = []
 
     # Environments
     if game == 'Trading-v0':
-        game_params['save_dir'] = logger.save_dir
+        game_params['save_dir'] = out_dir #logger.save_dir
     Env = make_game(game, game_params)
     num_actions = Env.action_space.n
     sampler = None
-    if use_sampler and not unbiased:
+    if use_sampler and not (unbiased or biased):
         def make_pi(action_space):
             def pi(s):
                 return np.random.randint(low=0, high=action_space.n)
@@ -107,15 +112,18 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     # Setup the parameters for generating the search environments
     mcts_params = dict(gamma=gamma)
     if particles:
-        mcts_maker = PFMCTS
-        if not biased:
+        if not (biased or unbiased):
             mcts_params['particles'] = particles
             mcts_params['sampler'] = sampler
         elif biased:
             mcts_params['alpha'] = alpha
+            mcts_maker = PFMCTS
+
         mcts_params['depth_based_bias'] = depth_based_bias
         if unbiased:
             mcts_params['variance'] = variance
+            mcts_maker = OL_MCTS
+
     elif stochastic:
         mcts_params['alpha'] = alpha
         mcts_params['depth_based_bias'] = depth_based_bias
@@ -167,7 +175,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 penv = Env
                 pgame = None
 
-            model_file = os.path.join(logger.save_dir, "model.h5")
+            model_file = os.path.join(out_dir, "model.h5")
 
             # model_wrapper.save(model_file)
 
@@ -179,24 +187,24 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             if parallelize_evaluation:
                 total_reward, reward_per_timestep, lens, action_counts = \
                     parallelize_eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False, max_len=max_ep_len,
-                                            max_workers=max_workers)
+                                            max_workers=max_workers, out_dir=out_dir)
             else:
                 total_reward, reward_per_timestep, lens, action_counts = \
                     eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False, max_len=max_ep_len,
-                                visualize=visualize)
+                                visualize=visualize, out_dir=out_dir, render=render)
 
             # offline_scores.append([np.min(rews), np.max(rews), np.mean(rews), np.std(rews),
             #                        len(rews), np.mean(lens)])
 
             offline_scores.append([total_reward, reward_per_timestep, lens, action_counts])
 
-            np.save(numpy_dump_dir + '/offline_scores.npy', offline_scores)
+            #np.save(numpy_dump_dir + '/offline_scores.npy', offline_scores)
 
             # Store and plot data
             avgs.append(np.mean(total_reward))
             stds.append(np.std(total_reward))
 
-            logger.plot_evaluation_mean_and_variance(avgs, stds)
+            #logger.plot_evaluation_mean_and_variance(avgs, stds)
 
         ##### Policy improvement step #####
 
@@ -273,8 +281,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             episode_returns.append(R)  # store the total episode return
             online_scores.append(R)
             timepoints.append(t_total)  # store the timestep count of the episode return
-            store_safely(numpy_dump_dir, '/result', {'R': episode_returns, 't': timepoints})
-            np.save(numpy_dump_dir + '/online_scores.npy', online_scores)
+            #store_safely(numpy_dump_dir, '/result', {'R': episode_returns, 't': timepoints})
+            #np.save(numpy_dump_dir + '/online_scores.npy', online_scores)
 
             if DEBUG or True:
                 print('Finished episode {} in {} steps, total return: {}, total time: {} sec'.format(ep, ep_steps,
@@ -284,7 +292,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                                                                                                          1)))
             # Plot the online return over training episodes
 
-            logger.plot_online_return(online_scores)
+            #logger.plot_online_return(online_scores)
 
             if R > R_best:
                 a_best = a_store
@@ -326,7 +334,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
                     # Plot the loss over training epochs
 
-                    logger.plot_loss(ep, ep_V_loss, ep_pi_loss)
+                    #logger.plot_loss(ep, ep_V_loss, ep_pi_loss)
 
                 except Exception as e:
                     print("Something wrong while training:", e)
@@ -334,7 +342,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 # model.save(out_dir + 'model')
 
                 # Plot the loss over different episodes
-                logger.plot_training_loss_over_time()
+                #logger.plot_training_loss_over_time()
 
                 pi_start = model_wrapper.predict_pi(start_s)
                 V_start = model_wrapper.predict_V(start_s)
@@ -342,7 +350,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 print("\nStart policy: ", pi_start)
                 print("Start value:", V_start)
 
-                logger.log_start(ep, pi_start, V_start, start_targets)
+                #logger.log_start(ep, pi_start, V_start, start_targets)
 
     # Return results
     if use_sampler:

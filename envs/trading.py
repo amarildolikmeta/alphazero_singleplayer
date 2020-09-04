@@ -16,7 +16,7 @@ def generate_trade(**game_params):
 
 
 class Trade(gym.Env):
-    def __init__(self, fees=0.0001, time_lag=2, horizon=300, log_actions=True, save_dir='', process = "arma"):
+    def __init__(self, fees=0.001, time_lag=2, horizon=50, log_actions=True, save_dir='', process = "arma"):
         # price history, previous portfolio, time
         observation_low = np.concatenate([np.full(time_lag, -1), [-1.0]])
         observation_high = np.concatenate([np.full(time_lag, +1), [+1.0]])
@@ -91,7 +91,7 @@ class Trade(gym.Env):
 
     def get_reward(self):
         if self.process == 'gbm':
-            new_ret = self.gmb()
+            new_ret = self.gbm()
         elif self.process == 'vasicek':
             new_ret = self.vasicek()
         elif self.process == 'arma':
@@ -106,7 +106,7 @@ class Trade(gym.Env):
         pl = 1/(1+np.exp(-4*pl))
         return pl
 
-    def gmb(self, sigma=0.2, r=0, days=2, ppd=1):
+    def gbm(self, sigma=0.2, r=0, days=2, ppd=1):
         # sigma: percentage volatility
         # r: percentage drift
 
@@ -166,8 +166,8 @@ class Trade(gym.Env):
         if self.process == 'arma':
             arparams = np.array([0.10034001, -0.18860634, -0.82178623])
             maparams = np.array([-0.09202774, 0.13069337, 0.94766374, -0.06252217, 0.05726013])
-            ar = np.r_[55, -arparams]
-            ma = np.r_[100, maparams]
+            ar = np.r_[1, -arparams]
+            ma = np.r_[1, maparams]
             self.ARMA_vec = arma_generate_sample(ar, ma, self.horizon, distrvs=self.np_random.normal, scale=1)
 
         self.previous_portfolio = 0

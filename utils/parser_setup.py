@@ -1,11 +1,26 @@
 import argparse
 
 
+def parse_game_params(args):
+    game_params = {'horizon': args.max_ep_len}
+    # Accept custom grid if the environment requires it
+    if args.game == 'Taxi' or args.game == 'TaxiEasy':
+        game_params['grid'] = args.grid
+        game_params['box'] = True
+        # TODO modify this to return to original taxi problem
+    elif args.game in ['RiverSwim-continuous', 'MountainCar', 'Cartpole']:
+        game_params['fail_prob'] = args.fail_prob
+        if args.game in ['RiverSwim-continuous']:
+            game_params['dim'] = args.chain_dim
+    elif args.game == 'RaceStrategy':
+        game_params['scale_reward'] = args.scale_reward
+
+
 def setup_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--game', default='Blackjack_pi-v0', help='Training environment')
     parser.add_argument('--grid', type=str, default="grid.txt", help='TXT file specfying the game grid')
-    parser.add_argument('--n_ep', type=int, default=1000, help='Number of episodes')
+    parser.add_argument('--n_ep', type=int, default=1, help='Number of episodes')
     parser.add_argument('--n_mcts', type=int, default=20, help='Number of MCTS traces per step')
     parser.add_argument('--chain_dim', type=int, default=10, help='Chain dimension')
     parser.add_argument('--fail_prob', type=float, default=0.4, help='Fail probability in riverswim')
@@ -19,7 +34,7 @@ def setup_parser():
     parser.add_argument('--alpha', type=float, default=0.6, help='progressive widening parameter')
     parser.add_argument('--data_size', type=int, default=1000, help='Dataset size (FIFO)')
     parser.add_argument('--batch_size', type=int, default=32, help='Minibatch size')
-    parser.add_argument('--n_experiments', type=int, default=10, help='Number of experiments')
+    parser.add_argument('--n_experiments', type=int, default=1, help='Number of experiments')
     parser.add_argument('--window', type=int, default=25, help='Smoothing window for visualization')
     parser.add_argument('--stochastic', action='store_true')
     parser.add_argument('--alpha_test', action='store_true')
@@ -60,7 +75,9 @@ def setup_parser():
     parser.add_argument('--mid', type=float, default=0.0, help='Constant regulating the middle point of the slope')
     parser.add_argument('--db', action='store_true', help="Use MongoDB parallelization for hyperparameters tuning")
     parser.add_argument('--dbname', type=str, default="exp_0", help="Name of the db to be used for the experiment")
+    parser.add_argument('--min_alpha_hp', type=float, default=0.5, help='Minimum alpha in hyperopt for pf_uct')
 
     parser.add_argument('--scale_reward', action='store_true', help='scale the reward of the race environment')
+    parser.add_argument('--render', action='store_true', help='render the environment')
 
     return parser.parse_args()

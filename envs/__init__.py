@@ -12,3 +12,6 @@ from envs.race_strategy import generate_race
 from envs.cliff_continuous_mono import generate_cliff
 from envs.trading import generate_trade
 from envs.toy_env import generate_toy
+from envs.continous_gridworld import generate_gridworld
+from envs.continuous_mountaincar import generate_mountain
+from envs.carpole import generate_cartpole

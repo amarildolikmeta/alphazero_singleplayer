@@ -4,11 +4,12 @@ import multiprocessing
 from tqdm import trange
 import copy
 from utils import plotter
+import os
 USE_TQDM = True
 
 
 def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, interactive=False,
-                            max_len=200, max_workers=12):
+                            max_len=200, max_workers=12, out_dir=None):
     rewards_per_timestep = []
     ep_lengths = []
     action_counts = []
@@ -17,20 +18,46 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
     start = time.time()
     n_workers = min(n_episodes, multiprocessing.cpu_count())
     n_workers = min(n_workers, max_workers)
-    p = multiprocessing.Pool(n_workers)
 
-    results = p.starmap(evaluate, [(add_terminal, copy.deepcopy(wrapper), i, interactive, max_len, verbose) for i in
-                                   range(n_episodes)])
-    print("Time to perform evaluation episodes:", time.time() - start, "s")
+    if out_dir is not None:
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+        res = []
+    iterations = max(n_episodes // n_workers, 1)
+    remainder = n_episodes % n_workers if n_workers < n_episodes else 0
 
-    # Unpack results
-    for r in results:
-        rewards_per_timestep.append(np.array(r[0]))
-        ep_lengths.append(np.array(r[1]))
-        action_counts.append(r[2])
+    for it in range(iterations):
+        p = multiprocessing.Pool(n_workers)
+        results = p.starmap(evaluate, [(add_terminal, copy.deepcopy(wrapper), i, interactive, max_len, verbose) for i in
+                                   range(n_workers)])
+        print("Time to perform evaluation episodes:", time.time() - start, "s")
 
-    # p.join()
-    p.close()
+        # Unpack results
+        for r in results:
+            rewards_per_timestep.append(np.array(r[0]))
+            ep_lengths.append(np.array(r[1]))
+            action_counts.append(r[2])
+            if out_dir is not None:
+                res.append(np.sum(r[0]))
+                np.save(out_dir + '/results.npy', res)
+        # p.join()
+        p.close()
+    if remainder > 0:
+        p = multiprocessing.Pool(remainder)
+        results = p.starmap(evaluate, [(add_terminal, copy.deepcopy(wrapper), i, interactive, max_len, verbose) for i in
+                                       range(remainder)])
+        print("Time to perform evaluation episodes:", time.time() - start, "s")
+
+        # Unpack results
+        for r in results:
+            rewards_per_timestep.append(np.array(r[0]))
+            ep_lengths.append(np.array(r[1]))
+            action_counts.append(r[2])
+            if out_dir is not None:
+                res.append(np.sum(r[0]))
+                np.save(out_dir + '/results.npy', res)
+        # p.join()
+        p.close()
 
     total_rewards = [np.sum(rew) for rew in rewards_per_timestep]
     avg = np.mean(total_rewards)
@@ -42,17 +69,24 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
 
 
 def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, interactive=False, max_len=200,
-                visualize=False):
+                visualize=False, out_dir=None, render=False):
     rewards_per_timestep = []
     ep_lengths = []
     action_counts = []
-    print()
+    if out_dir is not None:
+        if not os.path.exists(out_dir):
+            os.makedirs(out_dir)
+        res = []
     for i in trange(n_episodes) if USE_TQDM else range(n_episodes):
         if not USE_TQDM:
             print('Evaluated ' + str(i) + ' of ' + str(n_episodes), end='\r')
 
-        rew, t, count = evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=visualize)
+        rew, t, count = evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=visualize,
+                                 render=render)
         rewards_per_timestep.append(np.array(rew))
+        if out_dir is not None:
+            res.append(np.sum(rew))
+            np.save(out_dir + '/results.npy', res)
         ep_lengths.append(t)
         action_counts.append(count)
 
@@ -65,7 +99,7 @@ def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, inter
     return total_rewards, rewards_per_timestep, ep_lengths, action_counts
 
 
-def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=False):
+def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=False, render=False):
     action_counter = 0
     start = time.time()
     s = wrapper.reset()
@@ -92,6 +126,8 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=
 
         if visualize:
             wrapper.visualize()
+        if render:
+            wrapper.render()
 
         s = ns
         if interactive:

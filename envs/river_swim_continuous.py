@@ -14,7 +14,7 @@ def generate_river_continuous(**game_params):
 
 class RiverSwimContinuous(gym.Env):
 
-    def __init__(self, dim=6, gamma=0.95, small=5, large=10000, horizon=10, fail=0.4, scale_reward=True):
+    def __init__(self, dim=6, gamma=0.95, small=5, large=10000, horizon=10, fail_prob=0.4, scale_reward=True):
 
         self.horizon = horizon
         self.small = small
@@ -25,7 +25,7 @@ class RiverSwimContinuous(gym.Env):
         self.max_action = 1.0
         self.min_position = 0
         self.max_position = dim
-        self.fail_prob = fail
+        self.fail_prob = fail_prob
         self.viewer = None
 
         self._t = 0

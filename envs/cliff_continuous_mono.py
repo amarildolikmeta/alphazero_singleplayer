@@ -3,20 +3,22 @@ from gym import spaces
 from gym.utils import seeding
 import numpy as np
 from gym import register
+from copy import copy
 
 
 def generate_cliff(**kwargs):
+    if kwargs is None:
+        kwargs = {}
     return CliffWorldContinuousMono(**kwargs)
 
 
 class CliffWorldContinuousMono(gym.Env):
-    def __init__(self, dim=(12,), gamma=0.99, small=-1, large=-5, max_action=1, sigma_noise=0.05, horizon=np.inf):
+    def __init__(self, dim=(7,), gamma=0.99, small=-1, large=-5, max_action=1, sigma_noise=0.1, horizon=np.inf):
         self.horizon = horizon
         self.small = small
         self.large = large
         self.gamma = gamma
         self.dim = dim
-
         self.min_action = np.array([-max_action])
         self.max_action = np.array([max_action])
         self.min_position = np.array([0])
@@ -27,8 +29,8 @@ class CliffWorldContinuousMono(gym.Env):
 
         self.sigma_noise = sigma_noise
         self.viewer = None
-        self.cliff = np.array([5., 5.7])
-        self.action_space = spaces.Box(low=self.min_action, high=self.max_action, dtype=np.float32)
+        self.cliff = np.array([3., 3.5])
+        self.action_space = spaces.Discrete(3)
         self.observation_space = spaces.Box(low=self.min_position, high=self.max_position, dtype=np.float32)
 
         self.seed()
@@ -52,13 +54,24 @@ class CliffWorldContinuousMono(gym.Env):
             retry = self._is_cliff(new_state)
         return new_state
 
-    def step(self, action):
+    def action_traslation(self, a):
+        if a == 0:
+            action = np.array(0.)  # do not move
+        elif a == 1:
+            action = np.array(1.)  # move forward
+        elif a == 2:
+            action = np.array(-1.)  # move backward
+        return action
 
-        is_goal = self._is_goal(self.state)
-        if is_goal or self.t >= self.horizon:
+    def step(self, action):
+        if self._t >= self.horizon or self.done:
             return self.state, 0, True, {}
 
-        action = np.clip(action, self.action_space.low, self.action_space.high)
+        is_goal = self._is_goal(self.state)
+        if is_goal or self._t >= self.horizon:
+            return self.state, 0, True, {}
+        action = self.action_traslation(action)
+
         new_state = self.state + action + self.np_random.randn(1) * self.sigma_noise
         new_state = np.clip(new_state, self.observation_space.low, self.observation_space.high)
 
@@ -66,7 +79,7 @@ class CliffWorldContinuousMono(gym.Env):
         is_goal = self._is_goal(new_state)
 
         reward = self.small
-        self.t += 1
+        self._t += 1
         done = False
 
         if is_cliff:
@@ -76,16 +89,28 @@ class CliffWorldContinuousMono(gym.Env):
         if is_goal:
             done = True
 
-        if self.t >= self.horizon:
+        if self._t >= self.horizon:
             done = True
         self.state = new_state
         reward /= abs(self.large)
+        #reward += 1
+        self.done = done
         return self.state, reward, done, {}
 
     def reset(self):
-        self.t = 0
+        self._t = 0
         self.state = self._generate_initial_state()
+        self.done = False
         return self.state
+
+    def get_signature(self):
+        sig = {'agent_pos': np.copy(self.state), 't': copy(self._t), 'done': self.done}
+        return sig
+
+    def set_signature(self, sig):
+        self.state = np.copy(sig['agent_pos'])
+        self._t = copy(sig['t'])
+        self.done = sig['done']
 
 register(
     id='Cliff-v0',
@@ -93,14 +118,14 @@ register(
 )
 
 if __name__ == '__main__':
-    mdp = CliffWorldContinuousMono(sigma_noise=0.)
+    mdp = CliffWorldContinuousMono(sigma_noise=0., horizon=20)
 
     s = mdp.reset()
     rets = []
     timesteps = 5000
     count = 0
     n = 1000
-    while True:
+    for i in range(n):
         t = 0
         ret = 0
         s = mdp.reset()
@@ -113,7 +138,7 @@ if __name__ == '__main__':
             ret += r
             t += 1
             if done:
-                print(" Reached Goal!")
+
                 break
             if count > timesteps:
                 break

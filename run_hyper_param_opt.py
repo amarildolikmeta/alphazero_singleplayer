@@ -6,27 +6,30 @@ from functools import partial
 from hyperopt.mongoexp import MongoTrials
 
 from agent import agent
-from utils.parser_setup import setup_parser
+from utils.parser_setup import setup_parser, parse_game_params
 import time
+results = []
+base_dir = ''
 
 
 def objective(params, keywords):
-
     # keywords["eval_freq"] = 1
     # keywords["n_ep"] = 1
     for k in params:
         keywords[k] = params[k]
-
+    keywords['out_dir'] = base_dir + '/' + str(time.time()) + '/'
     print("Evaluating with params:", params)
+    print("Saving results in:" + keywords['out_dir'])
+    np.random.seed()
     _, _, _, _, _, offline_scores = agent(**keywords)
     means = []
     # Take all the average returns for evaluation
     # for score in offline_scores:
     #     means.append(score[2])
     means = offline_scores[0][0]
-    # print("Mean return:", np.mean(means))
-    # print("Standard deviation:", np.std(means))
-
+    print("Mean return:", np.mean(means))
+    print("Standard deviation:", np.std(means))
+    results.append((params, np.mean(means), np.std(means), len(means)))
     return -np.mean(means)
 
 
@@ -40,18 +43,8 @@ if __name__ == '__main__':
 
     if not args.gpu:
         os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-    game_params = {'horizon': args.max_ep_len}
 
-    # Accept custom grid if the environment requires it
-    if args.game == 'Taxi' or args.game == 'TaxiEasy':
-        game_params['grid'] = args.grid
-        game_params['box'] = True
-        # TODO modify this to return to original taxi problem
-    elif args.game == 'RiverSwim-continuous':
-        game_params['dim'] = args.chain_dim
-        game_params['fail'] = args.fail_prob
-    elif args.game == 'RaceStrategy':
-            game_params['scale_reward'] = args.scale_reward
+    game_params = parse_game_params(args)
 
     # Setup budget schedule parameters
     scheduler_params = None
@@ -63,7 +56,20 @@ if __name__ == '__main__':
         scheduler_params = {"slope": args.slope,
                             "min_budget": args.min_budget,
                             "mid": args.mid}
-
+    alg = "dpw/"
+    if not args.stochastic:
+        if args.unbiased:
+            if args.variance:
+                alg = 'p_uct_var/'
+            else:
+                alg = 'p_uct/'
+        else:
+            alg = 'pf_uct/'
+        #alg += str(args.particles) + '_particles/'
+    start_time = time.time()
+    time_str = str(start_time)
+    out_dir = "logs/hyperopt/" + args.game + '/' + alg + str(args.budget) + "/" + time_str + '/'
+    base_dir = out_dir
     keys = {"game": args.game,
             "n_ep": args.n_ep,
             "n_mcts": args.n_mcts,
@@ -96,7 +102,8 @@ if __name__ == '__main__':
             "biased": args.biased,
             "depth_based_bias": args.depth_based_bias,
             "max_workers": args.max_workers,
-            "scheduler_params": scheduler_params
+            "scheduler_params": scheduler_params,
+            'out_dir': out_dir
     }
 
     # If a DB is available allocate accordingly the Trials object
@@ -113,22 +120,8 @@ if __name__ == '__main__':
         parameter_space = {
             "c": hp.hp.quniform('c', 0.1, 3, 0.1)}
         if args.biased:
-            parameter_space["alpha"] = hp.hp.quniform('alpha', 0.85, 0.99, 0.01)
+            parameter_space["alpha"] = hp.hp.quniform('alpha', args.min_alpha_hp, 0.99, 0.01)
     old = [{'alpha': 0.49, 'c': 1.6, 'temp': 0.05}, {'alpha': 0.99, 'c': 0.5, 'temp': 0.15}]
-
-    start_time = time.time()
-    time_str = str(start_time)
-    alg = "dpw/"
-    if not args.stochastic:
-        if args.unbiased:
-            if args.variance:
-                alg = 'p_uct_var/'
-            else:
-                alg = 'p_uct/'
-        else:
-            alg = 'pf_uct/'
-        alg += str(args.particles) + '_particles/'
-    out_dir = "logs/" + args.game + '/' + alg + "hyperopt/" + time_str + '/'
 
     best = hp.fmin(fn=partial(objective, keywords=keys), algo=hp.tpe.suggest, max_evals=args.opt_iters, space=parameter_space,
                    trials=trials) #, points_to_evaluate=old
@@ -140,4 +133,7 @@ if __name__ == '__main__':
     if not args.db:
         with open(out_dir + "trials.pickle", "wb") as dumpfile:
             pickle.dump(trials, dumpfile)
+            dumpfile.close()
+        with open(out_dir + "results.pickle", "wb") as dumpfile:
+            pickle.dump(results, dumpfile)
             dumpfile.close()

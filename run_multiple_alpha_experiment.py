@@ -4,7 +4,6 @@
 One-player Alpha Zero
 @author: Thomas Moerland, Delft University of Technology
 """
-from joblib import Parallel, delayed
 import pandas as pd
 import numpy as np
 import os
@@ -18,6 +17,7 @@ from agent import agent
 colors = ['r', 'b', 'g', 'orange', 'c', 'k', 'purple', 'y']
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
 
+budgets = [1000, 5000, 10000, 20000, 35000]
 if __name__ == '__main__':
 
     # Obtain the command_line arguments
@@ -45,49 +45,39 @@ if __name__ == '__main__':
     fun_args = [args.game, args.n_ep, args.n_mcts, args.max_ep_len, args.lr, args.c, args.gamma,
                 args.data_size, args.batch_size, args.temp, args.n_hidden_layers, args.n_hidden_units,
                 True, args.eval_freq, args.eval_episodes, args.n_epochs]
-    if args.alpha_test:
-        alpha = args.min_alpha
-        delta_alpha = args.delta_alpha
-        n = int((args.max_alpha - args.min_alpha) / delta_alpha)
-        affinity = min(min(len(os.sched_getaffinity(0)), n), 4)
-        out = Parallel(n_jobs=affinity)(
-            delayed(agent)(*(fun_args + [alpha + i * delta_alpha, out_dir + '/alpha_' +
-                                         str(alpha + i * delta_alpha) + '/', pre_process]))
-            for i in range(n))
+    exps = []
+
+    game_params = parse_game_params(args)
+
+    # Define the name of the agent to be stored in the dataframe
+    if args.stochastic:
+        agent_name = "dpw_"
+    elif args.particles > 0:
+        agent_name = str(args.particles) + "_pf_"
     else:
-        exps = []
-        game_params = parse_game_params(args)
+        agent_name = "classic_"
 
-        # Define the name of the agent to be stored in the dataframe
-        if args.stochastic:
-            agent_name = "dpw_"
-        elif args.particles > 0:
-            agent_name = str(args.particles) + "_pf_"
-        else:
-            agent_name = "classic_"
-
-        if args.mcts_only:
-            agent_name += "mcts_only"
-        else:
-            agent_name += "alphazero"
-
-        # If required, prepare the budget scheduler parameters
-        scheduler_params = None
-
-        if args.budget_scheduler:
-            assert args.min_budget < args.budget, "Minimum budget for the scheduler cannot be larger " \
-                                                  "than the overall budget"
-            assert args.slope >= 1.0, "Slope lesser than 1 causes weird schedule function shapes"
-            scheduler_params = {"slope": args.slope,
-                                "min_budget": args.min_budget,
-                                "mid": args.mid}
-
-        # Run experiments
-        for i in range(args.n_experiments):
-
-            n_mcts = np.inf
-
-            out_dir_i = out_dir + str(i) + '/'
+    if args.mcts_only:
+        agent_name += "mcts_only"
+    else:
+        agent_name += "alphazero"
+    min_alpha = 0.5
+    delta_alpha = 0.1
+    max_alpha = 1.
+    for budget in budgets:
+        alpha = min_alpha
+        while alpha <= max_alpha + 0.01:
+            # If required, prepare the budget scheduler parameters
+            scheduler_params = None
+            print("Performing experiment with budget " + str(budget) + " alpha:" + str(alpha) + "!")
+            print()
+            if args.budget_scheduler:
+                assert args.min_budget < budget, "Minimum budget for the scheduler cannot be larger " \
+                                                      "than the overall budget"
+                assert args.slope >= 1.0, "Slope lesser than 1 causes weird schedule function shapes"
+                scheduler_params = {"slope": args.slope,
+                                    "min_budget": args.min_budget,
+                                    "mid": args.mid}
             alg = "dpw/"
             if not args.stochastic:
                 if args.unbiased:
@@ -97,20 +87,26 @@ if __name__ == '__main__':
                         alg = 'p_uct/'
                 else:
                     alg = 'pf_uct/'
-                alg += str(args.particles) + '_particles/'
-            out_dir = "logs/" + args.game
+            out_dir = "logs/" + args.game + "/alpha_experiment/"
+            if not args.budget_scheduler:
+                out_dir += 'no_scheduler/'
+            out_dir += str(alpha)[:3]
             if args.game == 'RiverSwim-continuous':
                 out_dir += "/" + "fail_" + str(args.fail_prob)
-            out_dir += "/" + alg + time_str + '/'
+            out_dir += "/" + alg + str(budget) + '/' + time_str + '/'
             if not os.path.exists(out_dir):
                 os.makedirs(out_dir)
+
+            # Run experiments
+            n_mcts = np.inf
+            out_dir_i = out_dir + '/'
             # Run the algorithm
             episode_returns, timepoints, a_best, \
             seed_best, R_best, offline_scores = agent(game=args.game,
                                                       n_ep=args.n_ep,
                                                       n_mcts=n_mcts,
                                                       max_ep_len=args.max_ep_len,
-                                                      budget=args.budget,
+                                                      budget=budget,
                                                       lr=args.lr,
                                                       c=args.c,
                                                       gamma=args.gamma,
@@ -120,9 +116,9 @@ if __name__ == '__main__':
                                                       n_hidden_layers=args.n_hidden_layers,
                                                       n_hidden_units=args.n_hidden_units,
                                                       stochastic=args.stochastic,
-                                                      alpha=args.alpha,
+                                                      alpha=alpha,
                                                       numpy_dump_dir=out_dir_i,
-                                                      visualize=args.visualize,
+                                                      visualize=False,
                                                       eval_freq=args.eval_freq,
                                                       eval_episodes=args.eval_episodes,
                                                       pre_process=None,
@@ -139,8 +135,7 @@ if __name__ == '__main__':
                                                       depth_based_bias=args.depth_based_bias,
                                                       max_workers=args.max_workers,
                                                       scheduler_params=scheduler_params,
-                                                      out_dir=out_dir,
-                                                      render=args.render)
+                                                      out_dir=out_dir)
 
             total_rewards = offline_scores[0][0]
             undiscounted_returns = offline_scores[0][1]
@@ -176,7 +171,7 @@ if __name__ == '__main__':
                     "total_reward": returns,
                     "discounted_reward": rews,
                     "length": lens,
-                    "budget": [args.budget] * len(indices)}
+                    "budget": [budget] * len(indices)}
 
             # Store the count of pit stops only if analyzing Race Strategy problem
             if "RaceStrategy" in args.game:
@@ -184,10 +179,6 @@ if __name__ == '__main__':
 
             # Write the dataframe to csv
             df = pd.DataFrame(data)
-            df.to_csv(out_dir + "{}_{}_{}_data_exp_{}.csv".format(agent_name, args.game, args.budget
-                                                                                   , i), header=True, index=False)
-
-            # TODO FIX THIS
-            # exps.append(offline_scores)
-            # scores = np.stack(exps, axis=0)
-            # np.save(out_dir + "scores.npy", scores)
+            df.to_csv(out_dir + "/data.csv", header=True, index=False)
+            alpha += delta_alpha
+            alpha = round(alpha, 1)

@@ -1,11 +1,15 @@
 import math
-
-import numpy as np
-
 import gym
 from gym import spaces
-from feature.rbf import build_features_mch_state
 from gym.utils import seeding
+import numpy as np
+from copy import copy
+
+
+def generate_mountain(**kwargs):
+    if kwargs is None:
+        kwargs = {}
+    return ContinuousMountainCar(**kwargs)
 
 
 class ContinuousMountainCar(gym.Env):
@@ -14,8 +18,7 @@ class ContinuousMountainCar(gym.Env):
         'video.frames_per_second': 30
     }
 
-    def __init__(self, horizon=1000, fail_prob=0.1, goal_position=None, start_state=None,
-                 rew_weights=None, randomized_start=False, n_bases=[10, 10], rew_basis=[3, 3]):
+    def __init__(self, horizon=250, fail_prob=0.05, goal_position=None, start_state=None, randomized_start=False):
 
         assert 0 <= fail_prob <= 1, "The probability of failure must be in [0,1]"
         self.horizon = horizon
@@ -31,103 +34,95 @@ class ContinuousMountainCar(gym.Env):
         self.max_speed = 0.07
         self.goal_position = goal_position
         self.power = 0.0015
-
+        self.seed()
         if start_state is None:
-            start_state = np.random.uniform(low=[-0.6, 0], high=[-0.4, 0])
+            start_state = self.np_random.uniform(low=[-0.6, 0], high=[-0.4, 0])
         self.start_state = start_state
-
         self.low_state = np.array([self.min_position, -self.max_speed])
         self.high_state = np.array([self.max_position, self.max_speed])
-
         self.viewer = None
-
-        self.action_space = spaces.Box(low=self.min_action, high=self.max_action,
-                                       shape=(1,), dtype=np.float32)
-        #self.observation_space = spaces.Box(low=self.low_state, high=self.high_state,
-        #                                    dtype=np.float32)
-
-        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(n_bases[0] * n_bases[1],))
-
+        self.action_space = spaces.Discrete(3)
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(2,))
         self.size = {'position': [self.min_position, self.max_position],
                      'speed': [-self.max_speed, self.max_speed]}
-        self.feat_func = build_features_mch_state(self.size, n_bases, 2)
-        self.n_bases = n_bases
-
-        self.rew_feat_func = build_features_mch_state(self.size, rew_basis, 2)
-        self.rew_basis = rew_basis
-        self.rew_weights = rew_weights
-        self.seed()
         self.reset()
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def step(self, action, rbf=False, ohe=False):
+    def action_to_force(self, action):
+        if action == 0:
+            force = 0.
+        elif action == 1:
+            force = 1.
+        else:
+            force = -1
+        return force
 
-        if self.done:
-            return self.get_state(rbf=rbf, ohe=ohe), 0, self.done, {'features': np.zeros(self.rew_basis[0]*self.rew_basis[1])}
+    def step(self, action):
+
+        if self.done or self._t >= self.horizon:
+            return self.get_state(), 0, self.done, {}
         position = self.state[0]
         velocity = self.state[1]
-        force = min(max(action[0], -1.0), 1.0)
+        force = self.action_to_force(action)
+        # force = min(max(action[0], -1.0), 1.0)
 
         velocity += force * self.power - 0.0025 * math.cos(3*position)
+        if self.noise >= 0.:
+            velocity += self.np_random.uniform(low=-self.noise, high=self.noise)
+
         if velocity > self.max_speed: velocity = self.max_speed
         if velocity < -self.max_speed: velocity = -self.max_speed
         position += velocity
+
+        if self.noise >= 0.:
+            position += self.np_random.uniform(low=-self.noise, high=self.noise)
         if position > self.max_position: position = self.max_position
         if position < self.min_position: position = self.min_position
         if position == self.min_position and velocity < 0: velocity = 0
 
-        self.t += 1
-        self.done = bool(position >= self.goal_position) or self.t >= self.horizon
-
-        features = self.get_rew_features()
-        if self.rew_weights is None:
-            reward = 0
-            if bool(position >= self.goal_position):
-                reward = 100.0
-            reward -= (action[0] ** 2) * 0.1
-        else:
-            reward = (features * self.rew_weights).sum()
-        
+        self._t += 1
+        self.done = bool(position >= self.goal_position) or self._t >= self.horizon
+        reward = 0
+        if bool(position >= self.goal_position):
+            reward = 100.0
+        reward -= (force ** 2) * 0.1
+        reward /= 100
         self.state = np.array([position, velocity])
-
-
-
-        return self.get_state(rbf=rbf, ohe=ohe), reward, self.done, {'features': features}
-
-    def get_rew_features(self, state=None):
-        if state is None:
-            state = self.state
-        if self.done:
-            return np.zeros(self.rew_basis[0]*self.rew_basis[1])
-        state = self.rew_feat_func(state)
-        return state
+        return self.get_state(), reward, self.done, {}
 
     def reached_goal(self, state=None):
         if state is None:
             state = self.state
         return state[0] >= self.goal_position
 
-    def get_state(self, rbf=False, ohe=False):
-        if rbf or ohe:
-            return self.feat_func(self.state)
+    def get_state(self):
         return self.state
 
     def reset(self, state=None, rbf=False, ohe=False):
         self.done = False
-        self.t = 0
+        self._t = 0
         if state is None:
             if self.randomized_start:
                 self.state = np.array([self.goal_position, 0])
                 while self.reached_goal():
-                    self.state = np.random.uniform(low=[self.min_position, 0], high=[self.max_position, 0])
+                    self.state = self.np_random.uniform(low=[self.min_position, 0], high=[self.max_position, 0])
             else:
                 self.state = np.copy(self.start_state)
         else:
             self.state = np.array(state)
-        return self.get_state(rbf=rbf, ohe=ohe)
+        return self.get_state()
+
+    def get_signature(self):
+        sig = {'agent_pos': np.copy(self.state), 't': copy(self._t), 'done': self.done}
+        return sig
+
+    def set_signature(self, sig):
+        self.state = np.copy(sig['agent_pos'])
+        self._t = copy(sig['t'])
+        self.done = sig['done']
 
     def _height(self, xs):
         return np.sin(3 * xs)*.45+.55
@@ -183,7 +178,7 @@ class ContinuousMountainCar(gym.Env):
         self.cartrans.set_translation((pos-self.min_position)*scale, self._height(pos)*scale)
         self.cartrans.set_rotation(math.cos(3 * pos))
 
-        return self.viewer.render(return_rgb_array = mode=='rgb_array')
+        return self.viewer.render(return_rgb_array=mode=='rgb_array')
 
     def close(self):
         if self.viewer:
