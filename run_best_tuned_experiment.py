@@ -97,7 +97,7 @@ if __name__ == '__main__':
                 start_time = time.time()
                 time_str = str(start_time)
                 out_dir += env + '/' + time_str + '/'
-                game_params = {'horizon': args.max_ep_len}
+                game_params = {}
 
                 # Accept custom grid if the environment requires it
                 if env == 'Taxi' or env == 'TaxiEasy':
@@ -119,7 +119,7 @@ if __name__ == '__main__':
                     game_params['fail_prob'] = 0.05
                 else:
                     max_ep_len = 20
-
+                game_params['horizon'] = max_ep_len
                 fun_args = [env, args.n_ep, args.n_mcts, max_ep_len, args.lr, args.c, args.gamma,
                             args.data_size, args.batch_size, args.temp, args.n_hidden_layers, args.n_hidden_units,
                             True, args.eval_freq, args.eval_episodes, args.n_epochs]
