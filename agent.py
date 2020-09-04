@@ -187,7 +187,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             if parallelize_evaluation:
                 total_reward, reward_per_timestep, lens, action_counts = \
                     parallelize_eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False, max_len=max_ep_len,
-                                            max_workers=max_workers, out_dir=out_dir, render=render)
+                                            max_workers=max_workers, out_dir=out_dir)
             else:
                 total_reward, reward_per_timestep, lens, action_counts = \
                     eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False, max_len=max_ep_len,
