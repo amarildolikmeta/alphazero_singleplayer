@@ -119,7 +119,7 @@ class RaceModel(gym.Env):
         self.positive_reward = positive_reward
         self.viewer = None
 
-        with open('./race_strategy_model/active_drivers.csv', newline='') as f:
+        with open('./envs/race_strategy_model/active_drivers.csv', newline='') as f:
             reader = csv.reader(f)
             line = reader.__next__()
             self._active_drivers = np.asarray(line[1:], dtype=int)
@@ -134,7 +134,8 @@ class RaceModel(gym.Env):
 
         self._t = -start_lap
 
-        self._model = None
+        self._model = RaceStrategyModel(year=self._year)
+        self._model.load()
 
         self._drivers_number = 0
 
@@ -415,8 +416,9 @@ class RaceModel(gym.Env):
 
     def reset(self):
         self._t = -self.start_lap
-        self._model = RaceStrategyModel(self._year, self.start_lap)
-        self._model.train()
+        self._model = RaceStrategyModel(self._year)
+        self._model.load()
+        self._model.resplit()
 
         # Take the base time, the predictions will be deltas from this time
         self._base_time = self._model.test_race['pole'].values[0]
@@ -446,7 +448,7 @@ class RaceModel(gym.Env):
 
         self._pit_model = get_pit_stop_models(self._model.test_race)
 
-        assert set(self._active_drivers).issubset(set(self._drivers)), "Not all active drivers were in the current race"
+        assert set(self._active_drivers).issubset(set(self._drivers)), "Not all active drivers were in the current race: {}".format(set(self._drivers))
         self._drivers_mapping = {}
         self._active_drivers_mapping = {}
 

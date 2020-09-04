@@ -14,7 +14,7 @@ def load_dataset():
     """ Load the dataset and build the pandas dataframe """
 
     # TODO load from absolute path
-    data_complete = pd.read_csv('race_strategy_model/dataset/finalDataset.csv', delimiter=',')
+    data_complete = pd.read_csv('./envs/race_strategy_model/dataset/finalDataset.csv', delimiter=',')
 
     data_complete = pd.concat([data_complete, pd.get_dummies(data_complete['tyre'], prefix='tyre')], axis=1).drop(
         ['tyre'], axis=1)
@@ -64,13 +64,13 @@ def discard_suspended_races(data):
 
 
 class RaceStrategyModel(object):
-    def __init__(self, year: int, start_lap: int):
+    def __init__(self, year: int):
         self.regular_model = None
         self.pit_model = None
         self.safety_model = None
         self.test_race = None
         self.scaler = None
-        self.start_lap = start_lap
+        # self.start_lap = start_lap
 
         if year == 2014:
             year = "year_1"
@@ -174,7 +174,7 @@ class RaceStrategyModel(object):
 
         train_data = self.normalize_dataset(dataset)
 
-        train_data = train_data[train_data['unnorm_lap'] > self.start_lap]  # Take laps after a threshold
+        # train_data = train_data[train_data['unnorm_lap'] > self.start_lap]  # Take laps after a threshold
 
         # Remove columns used only to identify the laps in testing
         train_data = train_data.drop(columns=['unnorm_lap', "raceId", "driverId", "race_length"])
@@ -215,61 +215,67 @@ class RaceStrategyModel(object):
 
         print('Done!\n')
 
+    def resplit(self):
+        # TODO fix the invalidation of scaler to avoid the normalization of test races
+        self.scaler = None
+        dataset = load_dataset()
+        self.__process_dataset(dataset)
+
     def load(self):
         """ Restore prediction models from previously pickled files to avoid retraining """
 
         print("Loading prediction models from pickled files...")
-        if not os.path.isfile("pickled_models/regular.pickle"):
+        if not os.path.isfile("./envs/race_strategy_model/pickled_models/regular.pickle"):
             print("ERROR: regular.pickle is missing")
             exit(-1)
         else:
-            with open('pickled_models/regular.pickle', 'rb') as regular_file:
+            with open('./envs/race_strategy_model/pickled_models/regular.pickle', 'rb') as regular_file:
                 self.regular_model = pickle.load(regular_file)
                 regular_file.close()
 
-        if not os.path.isfile("pickled_models/safety.pickle"):
+        if not os.path.isfile("./envs/race_strategy_model/pickled_models/safety.pickle"):
             print("ERROR: safety.pickle is missing")
             exit(-1)
         else:
-            with open('pickled_models/safety.pickle', 'rb') as safety_file:
+            with open('./envs/race_strategy_model/pickled_models/safety.pickle', 'rb') as safety_file:
                 self.safety_model = pickle.load(safety_file)
                 safety_file.close()
 
-        if not os.path.isfile("pickled_models/pit.pickle"):
+        if not os.path.isfile("./envs/race_strategy_model/pickled_models/pit.pickle"):
             print("ERROR: pit.pickle is missing")
             exit(-1)
         else:
-            with open('pickled_models/pit.pickle', 'rb') as pit_file:
+            with open('./envs/race_strategy_model/pickled_models/pit.pickle', 'rb') as pit_file:
                 self.pit_model = pickle.load(pit_file)
                 pit_file.close()
 
-        if not os.path.isfile("pickled_models/scaler.pickle"):
+        if not os.path.isfile("./envs/race_strategy_model/pickled_models/scaler.pickle"):
             print("ERROR: scaler.pickle is missing")
             exit(-1)
         else:
-            with open('pickled_models/scaler.pickle', 'rb') as pit_file:
-                self.pit_model = pickle.load(pit_file)
-                pit_file.close()
+            with open('./envs/race_strategy_model/pickled_models/scaler.pickle', 'rb') as scaler_file:
+                self.scaler = pickle.load(scaler_file)
+                scaler_file.close()
 
-        if not os.path.isfile("pickled_models/test_race.pickle"):
-            print("ERROR: test_race.pickle is missing")
-            exit(-1)
-        else:
-            with open('pickled_models/test_race.pickle', 'rb') as pit_file:
-                self.pit_model = pickle.load(pit_file)
-                pit_file.close()
+        # if not os.path.isfile("pickled_models/test_race.pickle"):
+        #     print("ERROR: test_race.pickle is missing")
+        #     exit(-1)
+        # else:
+        #     with open('pickled_models/test_race.pickle', 'rb') as pit_file:
+        #         self.pit_model = pickle.load(pit_file)
+        #         pit_file.close()
 
         print("Done!\n")
 
     def save(self):
         """ Pickle the model objects to avoid retraining """
 
-        for model, name in zip([self.regular_model, self.safety_model, self.pit_model, self.scaler, self.test_race],
-                               ['regular', 'safety', 'pit', 'scaler', 'test_race']):
-            with open('pickled_models/{}.pickle'.format(name), 'wb') as savefile:
+        for model, name in zip([self.regular_model, self.safety_model, self.pit_model, self.scaler],
+                               ['regular', 'safety', 'pit', 'scaler']):
+            with open('./envs/race_strategy_model/pickled_models/{}.pickle'.format(name), 'wb') as savefile:
                 pickle.dump(model, savefile)
                 savefile.close()
-        self.test_race.to_csv("dataset/test_race.csv")
+        #self.test_race.to_csv(".envs/race_strategy_model/dataset/test_race.csv")
 
     def predict(self, state, lap_type):
         if lap_type == 'regular':
@@ -294,8 +300,9 @@ class RaceStrategyModel(object):
 
 if __name__ == '__main__':
     model = RaceStrategyModel(2019)
-    #model.load()
-    model.train()
-    model.save()
+    model.load()
+    model.resplit()
+    #model.train()
+    #model.save()
 
     print(model.test_race['driverId'].unique())
