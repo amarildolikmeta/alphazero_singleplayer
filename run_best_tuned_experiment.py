@@ -4,7 +4,6 @@
 One-player Alpha Zero
 @author: Thomas Moerland, Delft University of Technology
 """
-from joblib import Parallel, delayed
 import pandas as pd
 import numpy as np
 import os
@@ -19,8 +18,8 @@ from agent import agent
 #### Command line call, parsing and plotting ##
 colors = ['r', 'b', 'g', 'orange', 'c', 'k', 'purple', 'y']
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
-envs = [ 'Trading-v0', 'RiverSwim-continuous',]
-budgets = [1000, 5000, 10000, 20000]
+envs = [ 'MountainCar',]
+budgets = [1000, 5000, 10000]
 settings = ['dpw', 'p_uct', 'pf_uct', ]
 setting_to_sub = {
     'dpw': '',
@@ -46,6 +45,7 @@ env_to_sub = {
     'Trading-v0':'',
     'Gridworld':'',
     'Cliff':'',
+    'MountainCar':'',
 }
 env_to_label = {
     'RaceStrategy': 'RaceStrategy',
@@ -53,6 +53,7 @@ env_to_label = {
     'Trading-v0': 'Trading',
     'Gridworld': 'Gridworld',
     'Cliff': 'Cliff',
+    'MountainCar': 'MountainCar',
 }
 if __name__ == '__main__':
 
@@ -113,6 +114,9 @@ if __name__ == '__main__':
                     max_ep_len = 20
                 elif env == 'Trading-v0':
                     max_ep_len = 50
+                elif env == 'MountainCar':
+                    max_ep_len = 250
+                    game_params['fail_prob'] = 0.05
                 else:
                     max_ep_len = 20
 

@@ -139,7 +139,8 @@ if __name__ == '__main__':
                                                       depth_based_bias=args.depth_based_bias,
                                                       max_workers=args.max_workers,
                                                       scheduler_params=scheduler_params,
-                                                      out_dir=out_dir)
+                                                      out_dir=out_dir,
+                                                      render=args.render)
 
             total_rewards = offline_scores[0][0]
             undiscounted_returns = offline_scores[0][1]

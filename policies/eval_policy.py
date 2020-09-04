@@ -69,7 +69,7 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
 
 
 def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, interactive=False, max_len=200,
-                visualize=False, out_dir=None):
+                visualize=False, out_dir=None, render=False):
     rewards_per_timestep = []
     ep_lengths = []
     action_counts = []
@@ -81,7 +81,8 @@ def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, inter
         if not USE_TQDM:
             print('Evaluated ' + str(i) + ' of ' + str(n_episodes), end='\r')
 
-        rew, t, count = evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=visualize)
+        rew, t, count = evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=visualize,
+                                 render=render)
         rewards_per_timestep.append(np.array(rew))
         if out_dir is not None:
             res.append(np.sum(rew))
@@ -98,7 +99,7 @@ def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, inter
     return total_rewards, rewards_per_timestep, ep_lengths, action_counts
 
 
-def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=False):
+def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=False, render=False):
     action_counter = 0
     start = time.time()
     s = wrapper.reset()
@@ -125,6 +126,8 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=
 
         if visualize:
             wrapper.visualize()
+        if render:
+            wrapper.render()
 
         s = ns
         if interactive:

@@ -9,7 +9,7 @@ def parse_game_params(args):
         game_params['box'] = True
         # TODO modify this to return to original taxi problem
     elif args.game in ['RiverSwim-continuous', 'MountainCar', 'Cartpole']:
-        game_params['fail'] = args.fail_prob
+        game_params['fail_prob'] = args.fail_prob
         if args.game in ['RiverSwim-continuous']:
             game_params['dim'] = args.chain_dim
     elif args.game == 'RaceStrategy':
@@ -78,5 +78,6 @@ def setup_parser():
     parser.add_argument('--min_alpha_hp', type=float, default=0.5, help='Minimum alpha in hyperopt for pf_uct')
 
     parser.add_argument('--scale_reward', action='store_true', help='scale the reward of the race environment')
+    parser.add_argument('--render', action='store_true', help='render the environment')
 
     return parser.parse_args()
