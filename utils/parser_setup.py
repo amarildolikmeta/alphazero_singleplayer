@@ -14,6 +14,7 @@ def parse_game_params(args):
             game_params['dim'] = args.chain_dim
     elif args.game == 'RaceStrategy':
         game_params['scale_reward'] = args.scale_reward
+    return game_params
 
 
 def setup_parser():
