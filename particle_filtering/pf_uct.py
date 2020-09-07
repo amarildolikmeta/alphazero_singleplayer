@@ -90,6 +90,7 @@ class PFState(State):
         else:
             env.set_signature(particle.state)
             self.V, self.remaining_budget = self.evaluate(env, budget, max_depth, particle.terminal)
+        self.last_particle = particle
 
     def get_n_particles(self):
         return self.n_particles
@@ -98,6 +99,13 @@ class PFState(State):
         self.particles.append(particle)
         self.n_particles += 1
         self.reward = particle.reward  # to be used in the backup
+        self.last_particle = particle
+
+    def sample_reward(self):
+        p = np.random.choice(self.particles)
+        self.reward = p.reward
+        self.last_particle = p
+        return p
 
 
 class PFMCTS(OL_MCTS):
@@ -151,12 +159,12 @@ class PFMCTS(OL_MCTS):
                         flag = True
                         source_particle, budget = action.sample_from_parent_state(mcts_env, budget)
                         state.add_particle(source_particle)
-                        if particle.terminal:
+                        if source_particle.terminal:
                             break
                     elif flag:
                         source_particle, budget = action.sample_from_particle(source_particle, mcts_env, budget)
                         state.add_particle(source_particle)
-                        if particle.terminal:
+                        if source_particle.terminal:
                             break
                     elif state.terminal:
                         source_particle = np.random.choice(state.particles)

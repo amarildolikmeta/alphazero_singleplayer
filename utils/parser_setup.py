@@ -14,7 +14,7 @@ def parse_game_params(args):
             game_params['dim'] = args.chain_dim
     elif args.game == 'RaceStrategy':
         game_params['scale_reward'] = args.scale_reward
-
+    return game_params
 
 def setup_parser():
     parser = argparse.ArgumentParser()
@@ -79,5 +79,7 @@ def setup_parser():
 
     parser.add_argument('--scale_reward', action='store_true', help='scale the reward of the race environment')
     parser.add_argument('--render', action='store_true', help='render the environment')
+
+    parser.add_argument('--second_version', action='store_true', help='used only for particle uct')
 
     return parser.parse_args()

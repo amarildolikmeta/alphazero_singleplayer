@@ -18,6 +18,8 @@ from agent import agent
 colors = ['r', 'b', 'g', 'orange', 'c', 'k', 'purple', 'y']
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
 budgets = [1000, 5000, 10000, 20000, 35000, 50000, 70000, 85000, 100000]
+# budgets = [1000, 3000, 5000, 7000, 10000]
+
 # budgets = [ 70000, 85000]
 
 if __name__ == '__main__':
@@ -83,7 +85,10 @@ if __name__ == '__main__':
                 else:
                     alg = 'p_uct/'
             else:
-                alg = 'pf_uct/'
+                alg = 'pf_uct'
+                if args.second_version:
+                    alg += '_2'
+                alg += '/'
         out_dir = "logs/" + args.game
         if args.game == 'RiverSwim-continuous':
             out_dir += "/" + "fail_" + str(args.fail_prob)
@@ -129,7 +134,8 @@ if __name__ == '__main__':
                                                   depth_based_bias=args.depth_based_bias,
                                                   max_workers=args.max_workers,
                                                   scheduler_params=scheduler_params,
-                                                  out_dir=out_dir)
+                                                  out_dir=out_dir,
+                                                  second_version=args.second_version)
 
         total_rewards = offline_scores[0][0]
         undiscounted_returns = offline_scores[0][1]

@@ -117,7 +117,8 @@ if __name__ == '__main__':
                                                       biased=args.biased,
                                                       max_workers=args.max_workers,
                                                       variance=args.variance,
-                                                      depth_based_bias=args.depth_based_bias)
+                                                      depth_based_bias=args.depth_based_bias,
+                                                      second_version=args.second_version)
 
             total_rewards = offline_scores[0][0]
             returns_per_step = offline_scores[0][1]
@@ -176,7 +177,10 @@ if __name__ == '__main__':
                 else:
                     alg = 'p_uct/'
             else:
-                alg = 'pf_uct/'
+                alg = 'pf_uct'
+                if args.second_version:
+                    alg += '_2'
+                alg += '/'
             alg += str(args.particles) + '_particles/'
         out_dir = "logs/" + args.game + "/" + alg + time_str + '/'
         if not os.path.exists(out_dir):

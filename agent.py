@@ -22,7 +22,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
           pre_process=None, visualize=False, game_params={}, parallelize_evaluation=False, mcts_only=False,
           particles=0, show_plots=False, n_workers=1, use_sampler=False, budget=np.inf, unbiased=False, biased=False,
           max_workers=100, variance=False, depth_based_bias=False, scheduler_params=None, out_dir=None,
-          render=False):
+          render=False, second_version=False):
     visualizer = None
 
     # if particles:
@@ -35,7 +35,10 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         if unbiased:
             from particle_filtering.ol_uct import OL_MCTS
         elif biased:
-            from particle_filtering.pf_uct import PFMCTS
+            if second_version:
+                from particle_filtering.pf_uct_2 import PFMCTS2 as PFMCTS
+            else:
+                from particle_filtering.pf_uct import PFMCTS
         else:
             from particle_filtering.pf_mcts_edo import PFMCTS
     else:
@@ -51,7 +54,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                       "eval_freq": eval_freq, "eval_episodes": eval_episodes, "alpha": alpha, "n_epochs": n_epochs,
                       "out_dir": numpy_dump_dir, "pre_process": pre_process, "visualize": visualize,
                       "game_params": game_params, "n_workers": n_workers, "use_sampler": use_sampler,
-                      "variance": variance, "depth_based_bias": depth_based_bias, "unbiased": unbiased}
+                      "variance": variance, "depth_based_bias": depth_based_bias, "unbiased": unbiased,
+                      "second_version": second_version}
     if out_dir is not None:
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
