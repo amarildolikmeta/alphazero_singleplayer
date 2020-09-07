@@ -10,7 +10,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 import time
-from utils.parser_setup import setup_parser, parse_game_params
+from utils.parser_setup import setup_parser, parse_game_params, parse_alg_name
 plt.style.use('ggplot')
 from agent import agent
 
@@ -77,18 +77,9 @@ if __name__ == '__main__':
             scheduler_params = {"slope": args.slope,
                                 "min_budget": args.min_budget,
                                 "mid": args.mid}
-        alg = "dpw/"
-        if not args.stochastic:
-            if args.unbiased:
-                if args.variance:
-                    alg = 'p_uct_var/'
-                else:
-                    alg = 'p_uct/'
-            else:
-                alg = 'pf_uct'
-                if args.second_version:
-                    alg += '_2'
-                alg += '/'
+
+        alg = parse_alg_name(args)
+
         out_dir = "logs/" + args.game
         if args.game == 'RiverSwim-continuous':
             out_dir += "/" + "fail_" + str(args.fail_prob)
@@ -135,7 +126,8 @@ if __name__ == '__main__':
                                                   max_workers=args.max_workers,
                                                   scheduler_params=scheduler_params,
                                                   out_dir=out_dir,
-                                                  second_version=args.second_version)
+                                                  second_version=args.second_version,
+                                                  third_version=args.third_version)
 
         total_rewards = offline_scores[0][0]
         undiscounted_returns = offline_scores[0][1]

@@ -16,6 +16,24 @@ def parse_game_params(args):
         game_params['scale_reward'] = args.scale_reward
     return game_params
 
+
+def parse_alg_name(args):
+    alg = "dpw/"
+    if not args.stochastic:
+        if args.unbiased:
+            if args.variance:
+                alg = 'p_uct_var/'
+            else:
+                alg = 'p_uct/'
+        else:
+            alg = 'pf_uct'
+            if args.second_version:
+                alg += '_2'
+            elif args.third_version:
+                alg += '_3'
+            alg += '/'
+    return alg
+
 def setup_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--game', default='Blackjack_pi-v0', help='Training environment')
@@ -80,5 +98,6 @@ def setup_parser():
     parser.add_argument('--scale_reward', action='store_true', help='scale the reward of the race environment')
     parser.add_argument('--render', action='store_true', help='render the environment')
     parser.add_argument('--second_version', action='store_true', help='only for pf_uct2')
+    parser.add_argument('--third_version', action='store_true', help='only for pf_uct3')
 
     return parser.parse_args()
