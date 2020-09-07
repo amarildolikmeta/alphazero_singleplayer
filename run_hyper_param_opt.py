@@ -64,7 +64,10 @@ if __name__ == '__main__':
             else:
                 alg = 'p_uct/'
         else:
-            alg = 'pf_uct/'
+            alg = 'pf_uct'
+            if args.second_version:
+                alg += '_2'
+            alg += '/'
         #alg += str(args.particles) + '_particles/'
     start_time = time.time()
     time_str = str(start_time)
@@ -103,7 +106,8 @@ if __name__ == '__main__':
             "depth_based_bias": args.depth_based_bias,
             "max_workers": args.max_workers,
             "scheduler_params": scheduler_params,
-            'out_dir': out_dir
+            'out_dir': out_dir,
+            'second_version': args.second_version
     }
 
     # If a DB is available allocate accordingly the Trials object
