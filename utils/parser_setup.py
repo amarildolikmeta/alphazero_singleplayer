@@ -79,5 +79,6 @@ def setup_parser():
 
     parser.add_argument('--scale_reward', action='store_true', help='scale the reward of the race environment')
     parser.add_argument('--render', action='store_true', help='render the environment')
+    parser.add_argument('--second_version', action='store_true', help='only for pf_uct2')
 
     return parser.parse_args()
