@@ -24,36 +24,34 @@ class PFMCTS3(PFMCTS):
                 raise NotImplementedError
             mcts_env.seed(np.random.randint(1e7))
             st = 0
-            flag = False
             source_particle = None
+            could_sample = True
+            n_particles = 1
             while not state.terminal:
                 bias = c * self.gamma ** st / (1 - self.gamma) if self.depth_based_bias else c
                 action = state.select(c=bias, variance=self.variance)
                 st += 1
                 k = np.ceil(self.beta * state.n ** self.alpha)
+                previous_particles = n_particles
+                n_particles = state.get_n_particles()
+                previous_could_sample = could_sample
+                could_sample = n_particles >= k or state.root
+                if not could_sample and source_particle is None:
+                    source_particle, budget = state.parent_action.sample_from_parent_state(mcts_env, budget)
+                    state.add_particle(source_particle)
+                    if source_particle.terminal:
+                        break
                 if action.child_state is not None:
                     # select
-                    could_sample = state.get_n_particles() >= k
                     state = action.child_state
-                    if could_sample and source_particle is None:
-                        if state.terminal:
-                            source_particle, budget = action.sample_from_parent_state(mcts_env, budget)
-                            state.add_particle(source_particle)
-                            break
-                    elif not could_sample and source_particle is None:
-                        source_particle, budget = action.sample_from_parent_state(mcts_env, budget)
-                        state.add_particle(source_particle)
-                        if source_particle.terminal:
-                            break
-                    elif source_particle is not None:
+                    if source_particle is not None:
                         source_particle, budget = action.sample_from_particle(source_particle, mcts_env, budget)
                         state.add_particle(source_particle)
                         if source_particle.terminal:
                             break
                     elif state.terminal:
-                        source_particle = np.random.choice(state.particles)
-                        budget -= 1  # sample from the terminal states particles
-
+                        source_particle, budget = state.parent_action.sample_from_parent_state(mcts_env, budget)
+                        state.add_particle(source_particle)
                 else:
                     rollout_depth = max_depth if fixed_depth else max_depth - st
                     state, budget, source_particle = action.add_child_state(mcts_env, budget, max_depth=rollout_depth,
