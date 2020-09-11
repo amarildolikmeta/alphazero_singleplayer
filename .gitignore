@@ -1,7 +1,6 @@
 *.npy
 */png
 
-
 .idea/
 
 /logs
@@ -17,6 +16,8 @@ __pycache__/
 *.png
 
 *.svg
+
+!envs/race_strategy_model
 
 notebooks/.ipynb_checkpoints/Plot-checkpoint.ipynb
 
