@@ -10,7 +10,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 import time
-from utils.parser_setup import setup_parser, parse_game_params
+from utils.parser_setup import setup_parser, parse_game_params, parse_alg_name
 plt.style.use('ggplot')
 from agent import agent
 
@@ -18,6 +18,8 @@ from agent import agent
 colors = ['r', 'b', 'g', 'orange', 'c', 'k', 'purple', 'y']
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
 budgets = [1000, 5000, 10000, 20000, 35000, 50000, 70000, 85000, 100000]
+# budgets = [1000, 3000, 5000, 7000, 10000]
+
 # budgets = [ 70000, 85000]
 
 if __name__ == '__main__':
@@ -75,15 +77,9 @@ if __name__ == '__main__':
             scheduler_params = {"slope": args.slope,
                                 "min_budget": args.min_budget,
                                 "mid": args.mid}
-        alg = "dpw/"
-        if not args.stochastic:
-            if args.unbiased:
-                if args.variance:
-                    alg = 'p_uct_var/'
-                else:
-                    alg = 'p_uct/'
-            else:
-                alg = 'pf_uct/'
+
+        alg = parse_alg_name(args)
+
         out_dir = "logs/" + args.game
         if args.game == 'RiverSwim-continuous':
             out_dir += "/" + "fail_" + str(args.fail_prob)
@@ -129,7 +125,9 @@ if __name__ == '__main__':
                                                   depth_based_bias=args.depth_based_bias,
                                                   max_workers=args.max_workers,
                                                   scheduler_params=scheduler_params,
-                                                  out_dir=out_dir)
+                                                  out_dir=out_dir,
+                                                  second_version=args.second_version,
+                                                  third_version=args.third_version)
 
         total_rewards = offline_scores[0][0]
         undiscounted_returns = offline_scores[0][1]

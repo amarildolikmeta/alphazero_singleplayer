@@ -9,7 +9,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 import time
-from utils.parser_setup import setup_parser, parse_game_params
+from utils.parser_setup import setup_parser, parse_game_params, parse_alg_name
 plt.style.use('ggplot')
 from agent import agent
 
@@ -78,15 +78,9 @@ if __name__ == '__main__':
                 scheduler_params = {"slope": args.slope,
                                     "min_budget": args.min_budget,
                                     "mid": args.mid}
-            alg = "dpw/"
-            if not args.stochastic:
-                if args.unbiased:
-                    if args.variance:
-                        alg = 'p_uct_var/'
-                    else:
-                        alg = 'p_uct/'
-                else:
-                    alg = 'pf_uct/'
+
+            alg = parse_alg_name(args)
+
             out_dir = "logs/" + args.game + "/alpha_experiment/"
             if not args.budget_scheduler:
                 out_dir += 'no_scheduler/'
@@ -135,7 +129,9 @@ if __name__ == '__main__':
                                                       depth_based_bias=args.depth_based_bias,
                                                       max_workers=args.max_workers,
                                                       scheduler_params=scheduler_params,
-                                                      out_dir=out_dir)
+                                                      out_dir=out_dir,
+                                                      second_version=args.second_version,
+                                                      third_version=args.third_version)
 
             total_rewards = offline_scores[0][0]
             undiscounted_returns = offline_scores[0][1]
