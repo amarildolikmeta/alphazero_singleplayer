@@ -6,7 +6,7 @@ import numpy as np
 from gym import spaces
 from gym.utils import seeding
 from gym import register
-from envs.race_strategy_model.train_model import RaceStrategyModel
+from envs.race_strategy_model.prediction_model import RaceStrategyModel
 import pandas as pd
 
 
@@ -73,19 +73,12 @@ def get_default_strategies(race):
                     prev_lap = row['lap']
 
     for compound in [soft, med, hard]:
-        tyre_stints[compound] = (np.mean(tyre_stints[compound]), np.std(tyre_stints[compound]))
+        if len(tyre_stints[compound]) > 0:
+            tyre_stints[compound] = (np.mean(tyre_stints[compound]), np.std(tyre_stints[compound]))
+        else:
+            tyre_stints[compound] = (np.inf, np.inf)
 
     return tyre_stints
-
-
-def get_pit_stop_models(race):
-    pit_milli_model = {}
-    for driver in race['driverId'].unique():
-        stop_laps = race[(race['driverId'] == driver) & (race['pitstop-milliseconds'] > 0)].sort_values('lap')
-        pit_milli_model[driver] = (
-            np.mean(stop_laps['pitstop-milliseconds'].values), np.std(stop_laps['pitstop-milliseconds'].values))
-
-    return pit_milli_model
 
 
 def compute_state(row):
@@ -128,7 +121,6 @@ class RaceModel(gym.Env):
 
         self._active_drivers = set(self._active_drivers)
 
-
         self.start_lap = start_lap
         self._lap = 0
 
@@ -161,8 +153,6 @@ class RaceModel(gym.Env):
         self._last_available_row = None
 
         self._soft_tyre, self._medium_tyre, self._hard_tyre = None, None, None
-
-        self._pit_model = None
 
         self._drivers_mapping = {}
         self._active_drivers_mapping = {}
@@ -209,13 +199,14 @@ class RaceModel(gym.Env):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def __pit_driver(self, driver, tyre):
+    def __pit_driver(self, driver, tyre, safety):
         index = self._drivers_mapping[driver]
         self._pit_states[index] = -1
         self._current_tyres[index] = tyre
         self._pit_counts[index] += 1
-        self._pit_costs[index] = np.random.normal(self._pit_model[driver][0],
-                                                  self._pit_model[driver][1])
+        condition = 'safety' if safety else 'regular'
+        self._pit_costs[index] = np.random.normal(self._model.test_race_pit_model[condition][0],
+                                                  self._model.test_race_pit_model[condition][1])
 
     def __update_pit_flags(self, index):
         if self._pit_states[index] == -1:
@@ -224,6 +215,8 @@ class RaceModel(gym.Env):
 
         elif self._pit_states[index] == 1:
             self._pit_states[index] = 0
+
+        else:
             self._pit_costs[index] = 0
 
     def step(self, actions: np.ndarray):
@@ -250,6 +243,8 @@ class RaceModel(gym.Env):
         ranks = np.empty_like(temp)
         ranks[temp] = np.arange(len(self._cumulative_time)) + 1
 
+        safety_laps = self._model.test_race[self._model.test_race['lap'] == lap_norm]['safety'].max()
+
         # Simulate each driver
         for driver in self._drivers_mapping:
             index = self._drivers_mapping[driver]
@@ -266,6 +261,7 @@ class RaceModel(gym.Env):
             else:
                 self._last_available_row[index] = row.copy()
 
+            # Just copy the dataset information if we are below the simulation start lap
             if lap < self.start_lap and not is_out:
                 self._lap_time[index] = row.squeeze()['milliseconds']
 
@@ -320,6 +316,7 @@ class RaceModel(gym.Env):
 
             data['prev_milliseconds_delta'] = (self._lap_deltas[index]).squeeze()
             data['prev_milliseconds'] = (self._old_lap_time[index]).squeeze()
+            data['safety'] = safety_laps
 
             if driver in self._active_drivers and lap > self.start_lap:  # Driver is controlled by an agent
                 active_index = self._active_drivers_mapping[driver]
@@ -337,13 +334,13 @@ class RaceModel(gym.Env):
                     self.__update_pit_flags(index)
 
                 elif actions[active_index] == 1:  # pit for soft tyre
-                    self.__pit_driver(driver, self._soft_tyre)
+                    self.__pit_driver(driver, self._soft_tyre, safety_laps)
 
                 elif actions[active_index] == 2:  # pit for medium tyre
-                    self.__pit_driver(driver, self._medium_tyre)
+                    self.__pit_driver(driver, self._medium_tyre, safety_laps)
 
                 else:  # pit for hard tyre
-                    self.__pit_driver(driver, self._hard_tyre)
+                    self.__pit_driver(driver, self._hard_tyre, safety_laps)
 
                 data['pitstop-milliseconds'] = self._pit_costs[index]
                 data['pit-cost'] = self._pit_costs[index] / 2
@@ -366,7 +363,7 @@ class RaceModel(gym.Env):
                     # Select the tyre that can cover most of the remaining laps without overshooting
                     tyre_index = np.argmin(np.abs(remaining_laps - np.array(tyre_duration)))
                     selected_tyre = tyre_list[tyre_index[0]]
-                    self.__pit_driver(driver, selected_tyre)
+                    self.__pit_driver(driver, selected_tyre, safety_laps)
                 else:  # Stay out
                     self.__update_pit_flags(index)
 
@@ -419,17 +416,22 @@ class RaceModel(gym.Env):
         self._model = RaceStrategyModel(self._year)
         self._model.load()
         self._model.resplit()
+        self._drivers = self._model.test_race['driverId'].unique()
+
+        # Resplit until finding a race with the selected drivers
+        while not set(self._active_drivers).issubset(set(self._drivers)):
+            self._model.resplit()
+            self._drivers = self._model.test_race['driverId'].unique()
+        print("Found race with desired drivers")
 
         # Take the base time, the predictions will be deltas from this time
         self._base_time = self._model.test_race['pole'].values[0]
         self.max_lap_time = self._base_time * 5
-        self._drivers = self._model.test_race['driverId'].unique()
         self._drivers_number = len(self._drivers)
         self._race_length = int(self._model.test_race['race_length'].values[0])
-        self._default_strategies = None
         self._laps = self._model.test_race.sort_values('lap')['lap'].unique()
 
-        self._drivers_number = self._model.test_race['driverId'].count()
+        self._drivers_number = len(self._model.test_race['driverId'].unique())
 
         self._pit_states = np.zeros(self._drivers_number)
         self._pit_counts = np.zeros(self._drivers_number)
@@ -446,9 +448,6 @@ class RaceModel(gym.Env):
 
         self._soft_tyre, self._medium_tyre, self._hard_tyre = find_available_rubber(self._model.test_race)
 
-        self._pit_model = get_pit_stop_models(self._model.test_race)
-
-        assert set(self._active_drivers).issubset(set(self._drivers)), "Not all active drivers were in the current race: {}".format(set(self._drivers))
         self._drivers_mapping = {}
         self._active_drivers_mapping = {}
 
@@ -467,10 +466,10 @@ class RaceModel(gym.Env):
             strategy = {}
             for compound in [self._soft_tyre, self._medium_tyre, self._hard_tyre]:
                 compound_strategy = np.random.normal(tyre_average_stints[compound][0], tyre_average_stints[compound][0])
-                if np.isnan(compound_strategy):
-                    strategy[compound] = np.inf
+                if np.isinf(compound_strategy):
+                    strategy[compound] = 10000  # put a large number in place of infinity
                 else:
-                    strategy[compound] = int(round(compound_strategy))
+                    strategy[compound] = compound_strategy
             self._default_strategies[index] = strategy
 
         # Set the information for first lap
@@ -493,6 +492,23 @@ class RaceModel(gym.Env):
         for i in range(self.start_lap):
             self.step(np.asarray([0] * len(self._active_drivers)))
 
+        # Set the information for prediction start lap
+
+        for driver, index in zip(self._drivers, range(self._drivers_number)):
+            data = self._model.test_race[(self._model.test_race['driverId'] == driver) &
+                                         (self._model.test_race['unnorm_lap'] == self.start_lap - 1)]
+
+            # Set information only for those drivers that have available info
+            if data['lap'].count() > 0:
+                data = data.squeeze()
+                self._cumulative_time[index] = data['cumulative']
+                self._lap_time[index] = data['milliseconds']
+                self._next_lap_time[index] = self._base_time + data['nextLap']
+                self._pit_states[index] = data['pit']
+                self._pit_counts[index] = data['stop']
+                self._tyre_age[index] = data['tyre_age']
+                self._current_tyres[index] = get_current_tyres(data)
+
         return self.get_state()
 
 
@@ -505,8 +521,8 @@ if __name__ == '__main__':
     mdp = RaceModel()
     _ = mdp.reset()
     ret = 0
+    lap = 1
     while True:
-        # print(s)
         a = np.random.choice([0, 1, 2, 3], 9, replace=True)
         s, r, done, _ = mdp.step(a)
         print("Reward:" + str(r) + " Lap Time: " + str(r * mdp.max_lap_time))
@@ -514,5 +530,5 @@ if __name__ == '__main__':
         ret += r
         if done:
             print("Return:", ret)
-            #print("Race Time:", mdp.time)
+            # print("Race Time:", mdp.time)
             break

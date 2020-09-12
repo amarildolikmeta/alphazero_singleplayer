@@ -7,7 +7,7 @@ numpy>=1.18.1
 pygame
 python-igraph
 scikit-learn>=0.22.1
-scipy==1.4.1
+scipy>=1.4.1
 tensorflow>=2.1.0
 torch>=1.3.1
 tqdm
@@ -18,3 +18,4 @@ git+https://github.com/eleurent/gym-minigrid
 mpi4py
 pandas
 statsmodels
+xgboost

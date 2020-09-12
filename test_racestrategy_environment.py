@@ -4,8 +4,12 @@ import numpy as np
 mdp = RaceModel()
 _ = mdp.reset()
 ret = 0
+lap = 1
+
 while True:
-    # print(s)
+    print("Lap", lap)
+    print()
+    lap += 1
     a = np.random.choice([0, 1, 2, 3], 9, replace=True)
     s, r, done, _ = mdp.step(a)
     print("Reward:" + str(r) + " Lap Time: " + str(r * mdp.max_lap_time))
