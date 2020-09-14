@@ -1,4 +1,6 @@
 import csv
+from collections import deque
+from queue import Queue
 
 import gym
 from copy import copy
@@ -102,6 +104,8 @@ class RaceModel(gym.Env):
 
     def __init__(self, gamma=0.95, horizon=20, scale_reward=False, positive_reward=True, start_lap=8):
 
+        self._actions_queue = Queue()
+        self.agents_number = len(self._active_drivers)
         self.horizon = horizon
         self.gamma = gamma
         self.obs_dim = 7
@@ -155,7 +159,11 @@ class RaceModel(gym.Env):
         self._soft_tyre, self._medium_tyre, self._hard_tyre = None, None, None
 
         self._drivers_mapping = {}
+        self._index_to_driver = {}
         self._active_drivers_mapping = {}
+
+        self._terminal = False
+        self._reward = np.zeros(self.agents_number)
 
         self.seed()
         self.reset()
@@ -187,6 +195,7 @@ class RaceModel(gym.Env):
         sig = {'state': np.copy(self.get_state()),
                'next_lap_time': np.copy(self._next_lap_time),
                'last_row': copy(self._last_available_row),
+               'action_queue': copy(self._actions_queue)
                }
         return sig
 
@@ -194,6 +203,7 @@ class RaceModel(gym.Env):
         self.__set_state(sig["state"])
         self._next_lap_time = sig['next_lap_time']
         self._last_available_row = sig['last_row']
+        self._actions_queue = sig['actions_queue']
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -218,6 +228,21 @@ class RaceModel(gym.Env):
 
         else:
             self._pit_costs[index] = 0
+
+    def partial_step(self, action, owner):
+
+        # TODO what if I reset to a non-lap-starting node (some actions may be missing)
+        self._actions_queue.put((action, owner))
+        if self._actions_queue.qsize() == self.agents_number:
+            actions = np.zeros(self.agents_number)
+            while not self._actions_queue.empty():
+                action, owner_index = self._actions_queue.get()
+                actions[owner_index] = action
+
+            return self.step(actions)
+
+        else:
+            return self.get_state(), self._reward, self._terminal, {}
 
     def step(self, actions: np.ndarray):
 
@@ -398,18 +423,18 @@ class RaceModel(gym.Env):
 
             if driver in self._active_drivers:
                 active_index = self._active_drivers_mapping[driver]
-                reward[active_index] = -np.clip(self._lap_time[index], 0, self.max_lap_time)
+                self._reward[active_index] = -np.clip(self._lap_time[index], 0, self.max_lap_time)
 
         if self.scale_reward:
-            reward /= self.max_lap_time
+            self._reward /= self.max_lap_time
 
         self._t += 1
-        terminal = True if self._t >= self.horizon else False
+        self._terminal = True if self._t >= self.horizon else False
         # self.state = self.get_state()
         if self.positive_reward:
-            reward = 1 + reward
+            self._reward = 1 + reward
 
-        return self.get_state(), reward, terminal, {}
+        return self.get_state(), self._reward, self._terminal, {}
 
     def reset(self):
         self._t = -self.start_lap
@@ -431,8 +456,6 @@ class RaceModel(gym.Env):
         self._race_length = int(self._model.test_race['race_length'].values[0])
         self._laps = self._model.test_race.sort_values('lap')['lap'].unique()
 
-        self._drivers_number = len(self._model.test_race['driverId'].unique())
-
         self._pit_states = np.zeros(self._drivers_number)
         self._pit_counts = np.zeros(self._drivers_number)
         self._pit_costs = np.zeros(self._drivers_number)
@@ -449,12 +472,14 @@ class RaceModel(gym.Env):
         self._soft_tyre, self._medium_tyre, self._hard_tyre = find_available_rubber(self._model.test_race)
 
         self._drivers_mapping = {}
+        self._index_to_driver = {}
         self._active_drivers_mapping = {}
 
         for driver, index in zip(self._drivers, range(self._drivers_number)):
             self._drivers_mapping[driver] = index
+            self._index_to_driver[index] = driver
 
-        for driver, index in zip(self._active_drivers, range(self._drivers_number)):
+        for driver, index in zip(self._active_drivers, range(self.agents_number)):
             self._active_drivers_mapping[driver] = index
 
         self._soft_tyre, self._medium_tyre, self._hard_tyre = find_available_rubber(self._model.test_race)
@@ -510,6 +535,15 @@ class RaceModel(gym.Env):
                 self._current_tyres[index] = get_current_tyres(data)
 
         return self.get_state()
+
+    def get_agents_standings(self):
+        temp = np.argsort(self._cumulative_time)
+        ranks = Queue()
+        for index in temp:
+            driver = self._index_to_driver[index]
+            if driver in self._active_drivers:
+                ranks.put(self._active_drivers_mapping[driver])
+        return ranks
 
 
 register(
