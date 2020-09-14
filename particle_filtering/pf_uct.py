@@ -26,7 +26,7 @@ class PFAction(Action):
         new_particle = Particle(env.get_signature(), None, r, done, parent_particle=source_particle)
         return new_particle, budget
 
-    def sample_from_parent_state(self,  env, budget):
+    def sample_from_parent_state(self, env, budget):
         state = self.parent_state
         if state.root:
             parent_particle = state.particles[0]
@@ -109,8 +109,8 @@ class PFState(State):
 
 
 class PFMCTS(OL_MCTS):
-    ''' MCTS object '''
-    def __init__(self, root, root_index, na, gamma, model=None,  variance=False,
+    """ MCTS object """
+    def __init__(self, root, root_index, na, gamma, model=None, variance=False,
                  depth_based_bias=False, alpha=0.6, beta=1):
         super(PFMCTS, self).__init__(root, root_index, na, gamma, model, variance, depth_based_bias)
         assert 0 < alpha <= 1, "Alpha must be between 0 and 1"

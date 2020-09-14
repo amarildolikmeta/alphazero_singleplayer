@@ -200,7 +200,7 @@ class State(object):
 
 
 class PFMCTS(object):
-    ''' MCTS object '''
+    """ MCTS object """
 
     def __init__(self, root, root_index, na, gamma, model=None, particles=100, sampler=None):
         self.root = root
