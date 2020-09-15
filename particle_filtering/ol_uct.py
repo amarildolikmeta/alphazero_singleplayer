@@ -157,8 +157,7 @@ class State(object):
 
 class OL_MCTS(object):
     ''' MCTS object '''
-    def __init__(self, root, root_index, na, gamma, model=None, variance=False,
-                 depth_based_bias=False):
+    def __init__(self, root, root_index, na, gamma, model=None, variance=False, depth_based_bias=False):
         self.root = root
         self.root_index = root_index
         self.na = na

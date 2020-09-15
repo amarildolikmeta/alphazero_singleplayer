@@ -3,7 +3,7 @@ from collections import deque
 from queue import Queue
 
 import gym
-from copy import copy
+from copy import copy, deepcopy
 import numpy as np
 from gym import spaces
 from gym.utils import seeding
@@ -174,13 +174,13 @@ class RaceModel(gym.Env):
             print("Reward is being normalized")
 
     def get_state(self):
-        state = [self._lap,
-                 self._current_tyres,
-                 self._cumulative_time,
-                 self._lap_time,
-                 self._pit_states,
-                 self._pit_counts,
-                 self._tyre_age]
+        state = [deepcopy(self._lap),
+                 deepcopy(self._current_tyres),
+                 deepcopy(self._cumulative_time),
+                 deepcopy(self._lap_time),
+                 deepcopy(self._pit_states),
+                 deepcopy(self._pit_counts),
+                 deepcopy(self._tyre_age)]
         return state
 
     def __set_state(self, state):
@@ -194,10 +194,10 @@ class RaceModel(gym.Env):
         self._tyre_age = state[6]
 
     def get_signature(self):
-        sig = {'state': copy(self.get_state()),
-               'next_lap_time': copy(self._next_lap_time),
-               'last_row': copy(self._last_available_row),
-               'action_queue': copy(self._actions_queue)
+        sig = {'state': deepcopy(self.get_state()),
+               'next_lap_time': deepcopy(self._next_lap_time),
+               'last_row': deepcopy(self._last_available_row),
+               'action_queue': deepcopy(self._actions_queue)
                }
         return sig
 
@@ -244,6 +244,9 @@ class RaceModel(gym.Env):
 
         else:
             return self.get_state(), self._reward, self._terminal, {}
+
+    def has_transitioned(self):
+        return self._actions_queue.empty()
 
     def step(self, actions: np.ndarray):
 
