@@ -13,7 +13,7 @@ def random_rollout(actions, env, budget, max_depth=200, terminal=False, root_own
     ret = 0
     t = 0
 
-    agent_queue = env.get_agent_standings()
+    agent_queue = env.get_agents_standings()
 
     # The root owner might not be the leading agent, discard agents that have already acted
     while agent_queue.get() != root_owner:
@@ -27,9 +27,10 @@ def random_rollout(actions, env, budget, max_depth=200, terminal=False, root_own
             ret += r
         t += 1
 
+        # Get the agent ranking to specify the turn order
         if agent_queue.empty():
             budget -= 1
-            agent_queue = env.get_agent_standings()
+            agent_queue = env.get_agents_standings()
 
         agent = agent_queue.get()
     return ret, budget
@@ -69,7 +70,7 @@ class RacePFState(PFState):
     def evaluate(self, env, budget, max_depth=200, terminal=False):
         actions = np.arange(self.na, dtype=int)
         if budget > 0:
-            return_, budget = random_rollout(actions, env, budget, max_depth, terminal)
+            return_, budget = random_rollout(actions, env, budget, max_depth, terminal, root_owner=self.owner)
         else:
             return_ = 0
         return return_, budget
@@ -153,7 +154,7 @@ class RacePFMCTS(PFMCTS):
             st = 0
             flag = False
             source_particle = None
-            agent_queue = env.get_agent_standings()
+            agent_queue = env.get_agents_standings()
 
             # The root owner might not be the leading agent, discard agents that have already acted
             while agent_queue.get() != state.owner:
@@ -195,7 +196,7 @@ class RacePFMCTS(PFMCTS):
                 # If there are no more agent in the decision queue, a lap has been completed
                 # and the ordering of the agents must be re-evaluated
                 if agent_queue.empty():
-                    agent_queue = env.get_agent_standings()
+                    agent_queue = env.get_agents_standings()
 
             # Back-up
 

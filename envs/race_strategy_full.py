@@ -102,10 +102,11 @@ def fix_data_types(to_fix):
 
 class RaceModel(gym.Env):
 
-    def __init__(self, gamma=0.95, horizon=20, scale_reward=False, positive_reward=True, start_lap=8):
+    def __init__(self, gamma=0.95, horizon=20, scale_reward=False, positive_reward=True, start_lap=8, verbose=True):
+
+        self.verbose = verbose
 
         self._actions_queue = Queue()
-        self.agents_number = len(self._active_drivers)
         self.horizon = horizon
         self.gamma = gamma
         self.obs_dim = 7
@@ -124,13 +125,14 @@ class RaceModel(gym.Env):
             f.close()
 
         self._active_drivers = set(self._active_drivers)
+        self.agents_number = len(self._active_drivers)
 
         self.start_lap = start_lap
         self._lap = 0
 
         self._t = -start_lap
 
-        self._model = RaceStrategyModel(year=self._year)
+        self._model = RaceStrategyModel(year=self._year, verbose=False)
         self._model.load()
 
         self._drivers_number = 0
@@ -168,7 +170,7 @@ class RaceModel(gym.Env):
         self.seed()
         self.reset()
 
-        if self.scale_reward:
+        if self.scale_reward and verbose:
             print("Reward is being normalized")
 
     def get_state(self):
@@ -179,7 +181,7 @@ class RaceModel(gym.Env):
                  self._pit_states,
                  self._pit_counts,
                  self._tyre_age]
-        return np.asarray(state)
+        return state
 
     def __set_state(self, state):
         self._lap = state[0]
@@ -192,8 +194,8 @@ class RaceModel(gym.Env):
         self._tyre_age = state[6]
 
     def get_signature(self):
-        sig = {'state': np.copy(self.get_state()),
-               'next_lap_time': np.copy(self._next_lap_time),
+        sig = {'state': copy(self.get_state()),
+               'next_lap_time': copy(self._next_lap_time),
                'last_row': copy(self._last_available_row),
                'action_queue': copy(self._actions_queue)
                }
@@ -203,7 +205,7 @@ class RaceModel(gym.Env):
         self.__set_state(sig["state"])
         self._next_lap_time = sig['next_lap_time']
         self._last_available_row = sig['last_row']
-        self._actions_queue = sig['actions_queue']
+        self._actions_queue = sig['action_queue']
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -231,14 +233,13 @@ class RaceModel(gym.Env):
 
     def partial_step(self, action, owner):
 
-        # TODO what if I reset to a non-lap-starting node (some actions may be missing)
         self._actions_queue.put((action, owner))
+
         if self._actions_queue.qsize() == self.agents_number:
             actions = np.zeros(self.agents_number)
             while not self._actions_queue.empty():
                 action, owner_index = self._actions_queue.get()
                 actions[owner_index] = action
-
             return self.step(actions)
 
         else:
@@ -386,7 +387,7 @@ class RaceModel(gym.Env):
                                      strategy[self._hard_tyre]]
                     remaining_laps = self._race_length - self._lap
                     # Select the tyre that can cover most of the remaining laps without overshooting
-                    tyre_index = np.argmin(np.abs(remaining_laps - np.array(tyre_duration)))
+                    tyre_index = np.argmin(np.abs(remaining_laps - np.asarray(tyre_duration)))
                     selected_tyre = tyre_list[tyre_index[0]]
                     self.__pit_driver(driver, selected_tyre, safety_laps)
                 else:  # Stay out
@@ -427,19 +428,22 @@ class RaceModel(gym.Env):
 
         if self.scale_reward:
             self._reward /= self.max_lap_time
+            if self.positive_reward:
+                self._reward = 1 + reward
 
         self._t += 1
         self._terminal = True if self._t >= self.horizon else False
         # self.state = self.get_state()
-        if self.positive_reward:
-            self._reward = 1 + reward
 
         return self.get_state(), self._reward, self._terminal, {}
 
     def reset(self):
         self._t = -self.start_lap
-        self._model = RaceStrategyModel(self._year)
-        self._model.load()
+        # self._model = RaceStrategyModel(self._year)
+        # self._model.load()
+
+        if self.verbose:
+            print("Looking for a race with desired drivers")
         self._model.resplit()
         self._drivers = self._model.test_race['driverId'].unique()
 
@@ -447,7 +451,8 @@ class RaceModel(gym.Env):
         while not set(self._active_drivers).issubset(set(self._drivers)):
             self._model.resplit()
             self._drivers = self._model.test_race['driverId'].unique()
-        print("Found race with desired drivers")
+        if self.verbose:
+            print("Found race with desired drivers")
 
         # Take the base time, the predictions will be deltas from this time
         self._base_time = self._model.test_race['pole'].values[0]

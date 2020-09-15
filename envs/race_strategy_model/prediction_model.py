@@ -76,7 +76,7 @@ def discard_suspended_races(data):
 
 
 class RaceStrategyModel(object):
-    def __init__(self, year: int):
+    def __init__(self, year: int, verbose=False):
         self.regular_model = None
         self.pit_model = None
         self.safety_model = None
@@ -101,6 +101,7 @@ class RaceStrategyModel(object):
             raise ValueError("No race available for year " + str(year))
 
         self.year = year
+        self.verbose = verbose
 
     def split_train_test(self, df: pd.DataFrame, split_fraction: float):
         """ Split the dataset randomly but keeping whole races together """
@@ -163,7 +164,8 @@ class RaceStrategyModel(object):
         dataset = discard_wet(dataset)
         dataset = discard_suspended_races(dataset)
         new_races = len(dataset['raceId'].unique())
-        print("{} wet and suspended races were discarded".format(old_races - new_races))
+        if self.verbose:
+            print("{} wet and suspended races were discarded".format(old_races - new_races))
 
         # Eliminate the last lap from the training data, as it has 0 target
         dataset = dataset[dataset['nextLap'] > 0]
@@ -237,8 +239,8 @@ class RaceStrategyModel(object):
 
     def train(self):
         """ Train the regression models """
-
-        print('Training models...')
+        if self.verbose:
+            print('Training models...')
         self.scaler = None
         self.regular_model = XGBRegressor()
         self.pit_model = XGBRegressor()
@@ -251,7 +253,8 @@ class RaceStrategyModel(object):
         self.pit_model.fit(datasets['pit'], labels['pit'])
         self.safety_model.fit(datasets['safety'], labels['safety'])
 
-        print('Done!\n')
+        if self.verbose:
+            print('Done!\n')
 
     def resplit(self):
         # TODO fix the invalidation of scaler to avoid the normalization of test races
@@ -262,7 +265,8 @@ class RaceStrategyModel(object):
     def load(self):
         """ Restore prediction models from previously pickled files to avoid retraining """
 
-        print("Loading prediction models from pickled files...")
+        if self.verbose:
+            print("Loading prediction models from pickled files...")
         if not os.path.isfile("./envs/race_strategy_model/pickled_models/regular.pickle"):
             print("ERROR: regular.pickle is missing")
             exit(-1)
@@ -303,7 +307,8 @@ class RaceStrategyModel(object):
         #         self.pit_model = pickle.load(pit_file)
         #         pit_file.close()
 
-        print("Done!\n")
+        if self.verbose:
+            print("Done!\n")
 
     def save(self):
         """ Pickle the model objects to avoid retraining """
