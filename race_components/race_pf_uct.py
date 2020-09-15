@@ -4,6 +4,7 @@ import numpy as np
 from particle_filtering.pf_uct import PFState, PFMCTS, PFAction, Particle
 from rl.make_game import is_atari_game
 
+
 def random_rollout(actions, env, budget, max_depth=200, terminal=False, root_owner=None):
     """Rollout from the current state following a random policy up to hitting a terminal state"""
     done = False
@@ -20,7 +21,7 @@ def random_rollout(actions, env, budget, max_depth=200, terminal=False, root_own
         pass
     agent = root_owner
 
-    while budget > 0 and t/3 < max_depth and not done:
+    while budget > 0 and t / 3 < max_depth and not done:
         action = np.random.choice(actions)
         s, r, done, _ = env.partial_step(action, agent)
         if t % env.agents_number == 0:
@@ -45,7 +46,7 @@ class RacePFState(PFState):
         self.na = na
         self.remaining_budget = budget
         self.depth = depth
-        self.terminal = (depth/3 >= max_depth)
+        self.terminal = (depth / 3 >= max_depth)
         self.reward = particle.reward
         self.root = root
         self.n = 0
@@ -75,6 +76,13 @@ class RacePFState(PFState):
             return_ = 0
         return return_, budget
 
+    def add_particle(self, particle):
+        super(RacePFState, self).add_particle(particle)
+        self.reward = self.reward[self.owner]
+
+    def sample_reward(self):
+        super(RacePFState, self).sample_reward()
+        self.reward = self.reward[self.owner]
 
 class RacePFAction(PFAction):
     def __init__(self, index, parent_state, owner=None):
@@ -133,6 +141,25 @@ class RacePFAction(PFAction):
 
 
 class RacePFMCTS(PFMCTS):
+
+    def __init__(self, root, root_index, na, gamma, model=None, variance=False,
+                 depth_based_bias=False, alpha=0.6, beta=1, owner=None):
+
+        assert owner is not None, "Owner must be specified for the RacePFMCTS constructor"
+
+        super(RacePFMCTS, self).__init__(root, root_index, na, gamma, model, variance, depth_based_bias, alpha, beta)
+
+        self.owner = owner
+
+    def create_root(self, env, budget):
+        if self.root is None:
+            signature = env.get_signature()
+            self.root_signature = signature
+            particle = Particle(state=signature, seed=None, reward=0, terminal=False, parent_particle=None)
+            self.root = RacePFState(parent_action=None, na=self.na, env=env, particle=particle, root=True,
+                                    budget=budget, depth=0, owner=self.owner)
+        else:
+            raise (NotImplementedError("Need to reset the tree"))
 
     def search(self, n_mcts, c, env, mcts_env, budget, max_depth=200, fixed_depth=True):
         """ Perform the MCTS search from the root """
