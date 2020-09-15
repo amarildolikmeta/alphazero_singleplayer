@@ -14,23 +14,6 @@ def sample(env, action, budget):
         return r, done, budget
 
 
-def random_rollout(actions, env, budget, max_depth=200, terminal=False):
-    """Rollout from the current state following a random policy up to hitting a terminal state"""
-    done = False
-    if terminal:
-        return 0, budget
-    env.seed(np.random.randint(1e7))
-    ret = 0
-    t = 0
-    while budget > 0 and t < max_depth and not done:
-        action = np.random.choice(actions)
-        s, r, done, _ = env.step(action)
-        ret += r
-        budget -= 1
-        t += 1
-    return ret, budget
-
-
 class Action(object):
     """ Action object """
 
@@ -149,10 +132,27 @@ class State(object):
     def evaluate(self, env, budget, max_depth=200, terminal=False):
         actions = np.arange(self.na, dtype=int)
         if budget > 0:
-            return_, budget = random_rollout(actions, env, budget, max_depth, terminal)
+            return_, budget = self.random_rollout(actions, env, budget, max_depth, terminal)
         else:
             return_ = 0
         return return_, budget
+
+    @staticmethod
+    def random_rollout(actions, env, budget, max_depth=200, terminal=False):
+        """Rollout from the current state following a random policy up to hitting a terminal state"""
+        done = False
+        if terminal:
+            return 0, budget
+        env.seed(np.random.randint(1e7))
+        ret = 0
+        t = 0
+        while budget > 0 and t < max_depth and not done:
+            action = np.random.choice(actions)
+            s, r, done, _ = env.step(action)
+            ret += r
+            budget -= 1
+            t += 1
+        return ret, budget
 
 
 class OL_MCTS(object):
