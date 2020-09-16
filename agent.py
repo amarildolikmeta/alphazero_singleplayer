@@ -11,6 +11,8 @@ from utils.env_wrapper import Wrapper
 from particle_filtering.parallel_sampler import ParallelSampler
 import os
 
+from utils.race_wrapper import RaceWrapper
+
 DEBUG = False
 DEBUG_TAXI = False
 USE_TQDM = True
@@ -185,9 +187,15 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
             # model_wrapper.save(model_file)
 
-            env_wrapper = Wrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, budget,
-                                  mcts_env, c_dpw, temp, Env=penv, game_maker=pgame, mcts_only=mcts_only,
+            if game == "Racestrategy-v2":
+                mcts_maker = []
+                env_wrapper = RaceWrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, budget,
+                                  mcts_env, c_dpw, temp, env=penv, game_maker=pgame, mcts_only=mcts_only,
                                   scheduler_params=scheduler_params)
+            else:
+                env_wrapper = Wrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, budget,
+                                      mcts_env, c_dpw, temp, env=penv, game_maker=pgame, mcts_only=mcts_only,
+                                      scheduler_params=scheduler_params)
 
             # Run the evaluation
             if parallelize_evaluation:
