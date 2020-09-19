@@ -3,6 +3,7 @@ from statistics import mean
 import numpy as np
 import time
 from helpers import is_atari_game, store_safely, Database
+from race_components.helpers import load_race_agents_config
 from rl.make_game import make_game
 from models.model_tf2 import ModelWrapper
 from policies.eval_policy import eval_policy, parallelize_eval_policy
@@ -118,26 +119,31 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     offline_scores = []
 
     # Setup the parameters for generating the search environments
-    mcts_params = dict(gamma=gamma)
-    if particles:
-        if not (biased or unbiased):
-            mcts_params['particles'] = particles
-            mcts_params['sampler'] = sampler
-        elif biased:
-            mcts_params['alpha'] = alpha
-            mcts_maker = PFMCTS
 
-        mcts_params['depth_based_bias'] = depth_based_bias
-        if unbiased:
-            mcts_params['variance'] = variance
-            mcts_maker = OL_MCTS
+    if game=="RaceStrategy-v1":
+        mcts_maker, mcts_params, c_dpw = load_race_agents_config('envs/configs/race_strategy_full.json', gamma)
 
-    elif stochastic:
-        mcts_params['alpha'] = alpha
-        mcts_params['depth_based_bias'] = depth_based_bias
-        mcts_maker = MCTSStochastic
     else:
-        mcts_maker = MCTS
+        mcts_params = dict(gamma=gamma)
+        if particles:
+            if not (biased or unbiased):
+                mcts_params['particles'] = particles
+                mcts_params['sampler'] = sampler
+            elif biased:
+                mcts_params['alpha'] = alpha
+                mcts_maker = PFMCTS
+
+            mcts_params['depth_based_bias'] = depth_based_bias
+            if unbiased:
+                mcts_params['variance'] = variance
+                mcts_maker = OL_MCTS
+
+        elif stochastic:
+            mcts_params['alpha'] = alpha
+            mcts_params['depth_based_bias'] = depth_based_bias
+            mcts_maker = MCTSStochastic
+        else:
+            mcts_maker = MCTS
 
     # Prepare the database for storing training data to be sampled
     db = Database(max_size=data_size, batch_size=batch_size)
@@ -187,8 +193,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
             # model_wrapper.save(model_file)
 
-            if game == "Racestrategy-v2":
-                mcts_maker = []
+            if game == "RaceStrategy-v1":
                 env_wrapper = RaceWrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, budget,
                                   mcts_env, c_dpw, temp, env=penv, game_maker=pgame, mcts_only=mcts_only,
                                   scheduler_params=scheduler_params)

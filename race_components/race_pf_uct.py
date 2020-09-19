@@ -8,58 +8,36 @@ from rl.make_game import is_atari_game
 
 class RacePFState(PFState):
     def __init__(self, parent_action, na, env, particle, budget, root=False, max_depth=200, depth=0, owner=None):
-
         """ Initialize a new state """
-        self.parent_action = parent_action
-        # Child actions
-        self.na = na
-        self.remaining_budget = budget
-        self.depth = depth
-        self.terminal = (depth / 3 >= max_depth)
-        self.reward = particle.reward
-        self.root = root
-        self.n = 0
-        self.child_actions = [PFAction(a, parent_state=self) for a in range(na)]
-        self.n_particles = 1
-        self.particles = [particle]
-
-        if self.terminal or root or particle.terminal:
-            self.V = 0
-        elif env is None:
-            print("Warning, no environment was provided, initializing to 0 the value of the state!")
-            self.V = 0
-        else:
-            env.set_signature(particle.state)
-            self.V, self.remaining_budget = self.evaluate(env, budget, max_depth, particle.terminal)
-        self.last_particle = particle
-
         assert owner is not None, "Owner parameter must be specified for RacePFState class constructor"
         self.owner = owner
+
+        super().__init__(parent_action, na, env, particle, budget, root, max_depth, depth)
         self.child_actions = [RacePFAction(a, parent_state=self, owner=owner) for a in range(na)]
 
-    @staticmethod
-    def random_rollout(actions, env, budget, max_depth=200, terminal=False, root_owner=None):
-        return random_rollout(actions, env, budget, max_depth=200, terminal=False, root_owner=None)
+    def random_rollout(self, actions, env, budget, max_depth=200, terminal=False):
+        return random_rollout(actions, env, budget, max_depth=200, terminal=False, root_owner=self.owner)
 
+    # def add_particle(self, particle):
+    #     super(RacePFState, self).add_particle(particle)
+    #     self.reward = self.reward[self.owner]
+    #
+    # def sample_reward(self):
+    #     super(RacePFState, self).sample_reward()
+    #     self.reward = self.reward[self.owner]
 
-    def add_particle(self, particle):
-        super(RacePFState, self).add_particle(particle)
-        self.reward = self.reward[self.owner]
-
-    def sample_reward(self):
-        super(RacePFState, self).sample_reward()
-        self.reward = self.reward[self.owner]
 
 class RacePFAction(PFAction):
     def __init__(self, index, parent_state, owner=None):
-        super(RacePFAction, self).__init__(index, parent_state)
         assert owner is not None, "Owner parameter must be specified for RacePFAction class constructor"
         self.owner = owner
+        super(RacePFAction, self).__init__(index, parent_state)
 
     def sample_from_particle(self, source_particle, env, budget):
         env.set_signature(source_particle.state)
         env.seed(np.random.randint(1e7))
-        s, r, done, _ = env.partial_step(self.index, self.owner)
+        owner = env.get_next_agent()
+        s, r, done, _ = env.partial_step(self.index, owner)
         if not done:
             r = r[self.owner]
         if env.has_transitioned():
@@ -83,20 +61,23 @@ class RacePFAction(PFAction):
             return Particle(particle.state, None, 0, True, parent_particle=particle), budget
         # Apply the selected action to the state encapsulated by the particle and store the new state and reward
         env.set_signature(particle.state)
+        owner = env.get_next_agent()
         env.seed(np.random.randint(1e7))
-        s, r, done, _ = env.partial_step(self.index, self.owner)
+        s, r, done, _ = env.partial_step(self.index, owner)
         if not done:
             r = r[self.owner]
         if env.has_transitioned():
             budget -= 1
         return Particle(env.get_signature(), None, r, done, parent_particle=particle), budget
 
-    def add_child_state(self, env, budget, max_depth=200, depth=0, source_particle=None, owner=None):
-        assert owner is not None, "Owner parameter must be specified to add a new state"
+    def add_child_state(self, env, budget, max_depth=200, depth=0, source_particle=None):
         if source_particle is not None:
             new_particle, budget = self.sample_from_particle(source_particle, env, budget)
         else:
             new_particle, budget = self.sample_from_parent_state(env, budget)
+
+        child_owner = env.get_next_agent()
+
         self.child_state = RacePFState(parent_action=self,
                                        na=self.parent_state.na,
                                        env=env,
@@ -105,7 +86,7 @@ class RacePFAction(PFAction):
                                        budget=budget,
                                        particle=new_particle,
                                        depth=depth,
-                                       owner=owner)
+                                       owner=child_owner)
 
         return self.child_state, self.child_state.remaining_budget, new_particle
 
@@ -116,10 +97,9 @@ class RacePFMCTS(PFMCTS):
                  depth_based_bias=False, alpha=0.6, beta=1, owner=None):
 
         assert owner is not None, "Owner must be specified for the RacePFMCTS constructor"
-
-        super(RacePFMCTS, self).__init__(root, root_index, na, gamma, model, variance, depth_based_bias, alpha, beta)
-
         self.owner = owner
+        self.NAME = "PF_MCTS"
+        super(RacePFMCTS, self).__init__(root, root_index, na, gamma, model, variance, depth_based_bias, alpha, beta)
 
     def create_root(self, env, budget):
         if self.root is None:
@@ -151,18 +131,12 @@ class RacePFMCTS(PFMCTS):
             st = 0
             flag = False
             source_particle = None
-            agent_queue = env.get_agents_standings()
 
-            # The root owner might not be the leading agent, discard agents that have already acted
-            while agent_queue.get() != state.owner:
-                pass
             while not state.terminal:
-                next_agent = agent_queue.get()
 
                 bias = c * self.gamma ** st / (1 - self.gamma) if self.depth_based_bias else c
                 action = state.select(c=bias, variance=self.variance)
-                if agent_queue.empty():
-                    st += 1
+
                 k = np.ceil(self.beta * action.n ** self.alpha)
                 if action.child_state is not None:
                     state = action.child_state  # select
@@ -186,13 +160,11 @@ class RacePFMCTS(PFMCTS):
                     rollout_depth = max_depth if fixed_depth else max_depth - st
                     state, budget, source_particle = action.add_child_state(mcts_env, budget, max_depth=rollout_depth,
                                                                             source_particle=source_particle,
-                                                                            depth=st, child_owner=next_agent)  # expand
+                                                                            depth=st)  # expand
                     break
 
-                # If there are no more agent in the decision queue, a lap has been completed
-                # and the ordering of the agents must be re-evaluated
-                if agent_queue.empty():
-                    agent_queue = env.get_agents_standings()
+                if mcts_env.has_transitioned():
+                    st += 1
 
             # Back-up
 

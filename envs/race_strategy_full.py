@@ -1,6 +1,5 @@
 import csv
 from collections import deque
-from queue import Queue
 
 import gym
 from copy import copy, deepcopy
@@ -102,11 +101,12 @@ def fix_data_types(to_fix):
 
 class RaceModel(gym.Env):
 
-    def __init__(self, gamma=0.95, horizon=20, scale_reward=False, positive_reward=True, start_lap=8, verbose=True):
+    def __init__(self, gamma=0.95, horizon=20, scale_reward=False, positive_reward=True, start_lap=8, verbose=False):
 
         self.verbose = verbose
 
-        self._actions_queue = Queue()
+        self._actions_queue = deque()
+        self._agents_queue = deque()
         self.horizon = horizon
         self.gamma = gamma
         self.obs_dim = 7
@@ -197,7 +197,8 @@ class RaceModel(gym.Env):
         sig = {'state': deepcopy(self.get_state()),
                'next_lap_time': deepcopy(self._next_lap_time),
                'last_row': deepcopy(self._last_available_row),
-               'action_queue': deepcopy(self._actions_queue)
+               'action_queue': deepcopy(self._actions_queue),
+               'agents_queue': deepcopy(self._agents_queue)
                }
         return sig
 
@@ -206,6 +207,7 @@ class RaceModel(gym.Env):
         self._next_lap_time = sig['next_lap_time']
         self._last_available_row = sig['last_row']
         self._actions_queue = sig['action_queue']
+        self._agents_queue = sig['agents_queue']
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -232,13 +234,16 @@ class RaceModel(gym.Env):
             self._pit_costs[index] = 0
 
     def partial_step(self, action, owner):
+        agent = self.get_next_agent()
+        self._agents_queue.popleft()
+        assert owner == agent, "Actions are de-synchronized with agents queue {} {}".format(owner, agent)
 
-        self._actions_queue.put((action, owner))
+        self._actions_queue.append((action, owner))
 
-        if self._actions_queue.qsize() == self.agents_number:
+        if len(self._actions_queue) == self.agents_number:
             actions = np.zeros(self.agents_number)
-            while not self._actions_queue.empty():
-                action, owner_index = self._actions_queue.get()
+            while not len(self._actions_queue) == 0:
+                action, owner_index = self._actions_queue.popleft()
                 actions[owner_index] = action
             return self.step(actions)
 
@@ -246,7 +251,7 @@ class RaceModel(gym.Env):
             return self.get_state(), self._reward, self._terminal, {}
 
     def has_transitioned(self):
-        return self._actions_queue.empty()
+        return len(self._actions_queue) == 0
 
     def step(self, actions: np.ndarray):
 
@@ -254,10 +259,11 @@ class RaceModel(gym.Env):
             "Fewer actions were provided than the number of active drivers"
 
         reward = np.zeros(len(actions))
-        if self._t >= self.horizon:
-            return self.get_state(), 0, True, {}
-
         lap = self.start_lap + self._t + 1
+
+        if self._t >= self.horizon or lap > len(self._laps):
+            return self.get_state(), [0] * self.agents_number, True, {}
+
         self._lap = lap
         lap_norm = self._laps[lap - 1]
 
@@ -442,6 +448,8 @@ class RaceModel(gym.Env):
 
     def reset(self):
         self._t = -self.start_lap
+        self._actions_queue = deque()
+        self._agents_queue = deque()
         # self._model = RaceStrategyModel(self._year)
         # self._model.load()
 
@@ -546,12 +554,19 @@ class RaceModel(gym.Env):
 
     def get_agents_standings(self):
         temp = np.argsort(self._cumulative_time)
-        ranks = Queue()
+        ranks = deque()
         for index in temp:
             driver = self._index_to_driver[index]
             if driver in self._active_drivers:
-                ranks.put(self._active_drivers_mapping[driver])
+                ranks.append(self._active_drivers_mapping[driver])
         return ranks
+
+    def get_next_agent(self):
+        if len(self._agents_queue) == 0:
+            for i in range(self.agents_number):
+                self._agents_queue.append(i)
+            # self._agents_queue = self.get_agents_standings()
+        return self._agents_queue[0]
 
 
 register(
