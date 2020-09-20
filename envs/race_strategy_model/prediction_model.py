@@ -1,5 +1,5 @@
 from copy import deepcopy
-
+import time
 import pandas as pd
 import pickle
 import os
@@ -83,6 +83,7 @@ class RaceStrategyModel(object):
         self.test_race = None
         self.scaler = None
         self.test_race_pit_model = None
+        self.dummy_columns = None
         # self.start_lap = start_lap
 
         if year == 2014:
@@ -188,6 +189,7 @@ class RaceStrategyModel(object):
         _, self.test_race = self.split_train_test(dataset, split_fraction=0)
         self.__compute_pitstop_model(dataset)
 
+        self.dummy_columns = dataset.columns
         train_data = self.normalize_dataset(dataset)
 
         # train_data = train_data[train_data['unnorm_lap'] > self.start_lap]  # Take laps after a threshold
