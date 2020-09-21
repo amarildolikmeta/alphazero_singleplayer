@@ -1,3 +1,4 @@
+from collections import defaultdict
 from copy import deepcopy
 import time
 import pandas as pd
@@ -21,6 +22,12 @@ def get_current_circuit(df: pd.DataFrame):
 
     raise ValueError('Something wrong with the race dataframe, multiple circuits in the same race')
 
+def fix_data_types(to_fix):
+    for col in to_fix.columns:
+        if to_fix[col].dtype == 'object':
+            to_fix[col] = to_fix[col].astype(str).astype(int)
+
+    return to_fix
 
 def load_dataset():
     """ Load the dataset and build the pandas dataframe """
@@ -263,6 +270,13 @@ class RaceStrategyModel(object):
         self.scaler = None
         dataset = load_dataset()
         self.__process_dataset(dataset)
+        self._test_race = fix_data_types(self.test_race)
+        self.laps_database = defaultdict(lambda: None)
+
+        for i in range(self.test_race["lap"].count()):
+            row = self.test_race.iloc[[i]]
+            self.laps_database[(row["driverId"].values[0], row["lap"].values[0])] = row
+
 
     def load(self):
         """ Restore prediction models from previously pickled files to avoid retraining """

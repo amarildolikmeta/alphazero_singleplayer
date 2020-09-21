@@ -1,5 +1,5 @@
 import csv, time
-from collections import deque
+from collections import deque, defaultdict
 
 import gym
 from copy import copy, deepcopy
@@ -91,14 +91,6 @@ def compute_state(row):
         return 'regular'
 
 
-def fix_data_types(to_fix):
-    for col in to_fix.columns:
-        if to_fix[col].dtype == 'object':
-            to_fix[col] = to_fix[col].astype(str).astype(int)
-
-    return to_fix
-
-
 class RaceModel(gym.Env):
 
     def __init__(self, gamma=0.95, horizon=20, scale_reward=False, positive_reward=True, start_lap=8, verbose=False):
@@ -174,6 +166,7 @@ class RaceModel(gym.Env):
             print("Reward is being normalized")
 
     def get_state(self):
+        #start = time.time()
         state = [deepcopy(self._lap),
                  deepcopy(self._current_tyres),
                  deepcopy(self._cumulative_time),
@@ -181,6 +174,8 @@ class RaceModel(gym.Env):
                  deepcopy(self._pit_states),
                  deepcopy(self._pit_counts),
                  deepcopy(self._tyre_age)]
+        #stop = time.time()
+        #print("get state time:", stop - start)
         return state
 
     def __set_state(self, state):
@@ -254,6 +249,7 @@ class RaceModel(gym.Env):
         return len(self._actions_queue) == 0
 
     def step(self, actions: np.ndarray):
+        #start = time.time()
         # assert len(actions) == len(self._active_drivers), \
         #     "Fewer actions were provided than the number of active drivers"
         reward = np.zeros(len(actions))
@@ -278,24 +274,34 @@ class RaceModel(gym.Env):
 
         safety_laps = self._model.test_race[self._model.test_race['lap'] == lap_norm]['safety'].max()
 
-        x_data = pd.DataFrame()
-        x_pit_data = pd.DataFrame()
+        x_data = []
+        x_pit_data = []
         no_pit = []
         pitting = []
 
-        race_laps = self._model.test_race
+        # race_laps = self._model.test_race
+        laps_db = self._model.laps_database
+        #stop = time.time()
 
+        #print("Step init time:", stop - start)
+
+        #contribute = defaultdict(int)
+
+        started = lap > self.start_lap
 
         # Simulate each driver
         for driver in self._drivers_mapping:
+            #start = time.time()
             index = self._drivers_mapping[driver]
 
             # Take the lap for the current driver
-            row = race_laps[(race_laps['driverId'] == driver) & (race_laps['lap'] == lap_norm)].sort_values('lap')
+
+            row = laps_db[(driver, lap_norm)]
+            #row = race_laps[(race_laps['driverId'] == driver) & (race_laps['lap'] == lap_norm)].sort_values('lap')
 
             # The driver might have retired if no row is available in the dataset
             is_out = False
-            if row['lap'].count() == 0:
+            if row is None:
                 is_out = True
                 row = self._last_available_row[index]
             else:
@@ -305,23 +311,31 @@ class RaceModel(gym.Env):
             if lap < self.start_lap and not is_out:
                 self._lap_time[index] = row.squeeze()['milliseconds']
 
+            #stop = time.time()
+            #contribute['fetch'] += stop - start
+
+
+            #start = time.time()
             # Find the index of the drivers following and preceding the current car
             position = ranks[index]
 
-            in_front = None
-            following = None
+            in_front = -1
+            following = -1
 
             if position > 1:  # The leader has no car in front, consider only other cars
                 in_front = np.argwhere(ranks == position - 1)
 
             follower = np.argwhere(ranks == position + 1)
-            if position < self._drivers_number and not (
-                    self._cumulative_time[
-                        follower] == np.inf):  # The last car has no follower
+            if position < self._drivers_number and not (self._cumulative_time[follower] == np.inf):  # The last car has no follower
                 following = follower
 
             # Fill the template dataframe with the features extracted from predicted time
+            #start = time.time()
             data = row.copy()
+            #stop = time.time()
+
+            #contribute['copy'] += stop - start
+
             data['milliseconds'] = self._lap_time[index].squeeze()
             data['cumulative'] = self._cumulative_time[index].squeeze()
             data['position'] = position
@@ -329,15 +343,15 @@ class RaceModel(gym.Env):
             data['battle'] = 1
 
             # Compute gaps and features to car in front, if any
-            if in_front is not None:
+            if in_front > -1:
                 data['delta_car_in_front'] = (self._lap_time[index] - self._lap_time[in_front]).squeeze()
                 data['time_car_in_front'] = self._lap_time[in_front].squeeze()
                 data['gap_in_front'] = (self._cumulative_time[index] - self._cumulative_time[in_front]).squeeze()
                 # If cars are less than a second distant, the drivers are allowed to use DRS
-                if data['gap_in_front'].all() < 1000:
+                if data['gap_in_front'].values[0] < 1000:
                     data['drs'] = 1
                 # Battle feature is considered True when the cars are less than 2s afar
-                if data['gap_in_front'].all() < 2000:
+                if data['gap_in_front'].values[0] < 2000:
                     data['battle'] = 1
             else:
                 data['delta_car_following'] = 0
@@ -345,12 +359,12 @@ class RaceModel(gym.Env):
                 data['gap_in_front'] = 0
 
             # Compute gaps and features to following car, if any
-            if following is not None:
+            if following > - 1:
                 data['delta_car_following'] = (self._lap_time[following] - self._lap_time[index]).squeeze()
                 data['time_car_following'] = (self._lap_time[following]).squeeze()
                 data['gap_following'] = (self._cumulative_time[following] - self._cumulative_time[index]).squeeze()
                 # Battle feature is considered True when the cars are less than 2s afar
-                if data['gap_following'].all() < 2000:
+                if data['gap_following'].values[0] < 2000:
                     data['battle'] = 1
             else:
                 data['delta_car_following'] = 0
@@ -361,7 +375,7 @@ class RaceModel(gym.Env):
             data['prev_milliseconds'] = (self._old_lap_time[index]).squeeze()
             data['safety'] = safety_laps
 
-            if driver in self._active_drivers and lap > self.start_lap:  # Driver is controlled by an agent
+            if driver in self._active_drivers and started:  # Driver is controlled by an agent
                 active_index = self._active_drivers_mapping[driver]
                 # Blank out the original tyre, we want to place the one selected by the action
                 data['tyre_1'] = 0
@@ -426,14 +440,21 @@ class RaceModel(gym.Env):
             # if not (state == 'pit' or state == 'safety'):
             #     data = data.drop(columns=['pit', 'safety', 'pitstop-milliseconds', 'pit-cost'])
 
-            if lap > self.start_lap:
+            #stop = time.time()
+            #contribute['features'] += stop - start
+
+            #start = time.time()
+
+            if started:
                 if state == "pit":
                     pitting.append(index)
-                    x_pit_data = pd.concat([x_pit_data, data])
+                    x_pit_data.append(data)
                 else:
                     no_pit.append(index)
-                    x_data = pd.concat([x_data, data])
+                    x_data.append(data)
 
+                #stop = time.time()
+                #contribute['append'] += stop - start
 
             else:
                 self._next_lap_time[index] = row.squeeze()['nextLap']
@@ -443,9 +464,10 @@ class RaceModel(gym.Env):
 
             # next_lap_time_rf = base_time + predicted_rf
 
-
-        if lap > self.start_lap:
+        #start = time.time()
+        if started:
             if len(pitting) > 0:
+                x_pit_data = pd.concat(x_pit_data)
                 self._model.normalize_dataset(x_pit_data)
                 x_pit_data = x_pit_data.drop(columns=['unnorm_lap', 'race_length', 'raceId', 'driverId', 'nextLap'])
                 pit_predictions = self._model.pit_model.predict(x_pit_data)
@@ -453,6 +475,7 @@ class RaceModel(gym.Env):
                     self._next_lap_time[index] = np.random.normal(self._base_time + prediction, 100)
 
             if len(no_pit) > 0:
+                x_data = pd.concat(x_data)
                 self._model.normalize_dataset(x_data)
                 x_data = x_data.drop(columns=['unnorm_lap', 'race_length', 'raceId', 'driverId', 'nextLap'])
                 if safety_laps:
@@ -478,6 +501,11 @@ class RaceModel(gym.Env):
         self._terminal = True if self._t >= self.horizon else False
         # self.state = self.get_state()
 
+        # stop = time.time()
+        # contribute['predict'] = stop - start
+        # for k, v in contribute.items():
+        #     print(k, v)
+
         return self.get_state(), self._reward, self._terminal, {}
 
     def reset(self):
@@ -490,7 +518,6 @@ class RaceModel(gym.Env):
         if self.verbose:
             print("Looking for a race with desired drivers")
         self._model.resplit()
-        self._model.test_race = fix_data_types(self._model.test_race)
         self._drivers = self._model.test_race['driverId'].unique()
 
         # Resplit until finding a race with the selected drivers
