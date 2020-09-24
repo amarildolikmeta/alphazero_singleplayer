@@ -22,6 +22,7 @@ class Wrapper(object):
 
         assert game_maker is not None or env is not None, "No environment or maker provided to the wrapper"
 
+        self.agents_count = 1
         self.root_index = root_index
         self.env = env
         self.mcts_only = mcts_only

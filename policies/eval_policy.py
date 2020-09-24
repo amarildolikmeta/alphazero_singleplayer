@@ -101,12 +101,13 @@ def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, inter
 
 def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=False, render=False):
     action_counter = 0
+    n_agents = wrapper.agents_count
     start = time.time()
     s = wrapper.reset()
     t = 0
     rew = []
     inf = {}
-    while t <= max_len:
+    while t//n_agents <= max_len:
         s = np.concatenate([s, [0]]) if add_terminal else s
         a = wrapper.pi_wrapper(s, t, max_len - t)
 

@@ -17,9 +17,9 @@ class RaceWrapper(Wrapper):
             reader = csv.reader(f)
             line = reader.__next__()
             active_drivers = np.asarray(line[1:], dtype=int)
-            self._agents_count = len(active_drivers)
+            self.agents_count = len(active_drivers)
             f.close()
-        assert len(mcts_maker) == len(mcts_params) == self._agents_count, "Mismatch in number of agents and config data"
+        assert len(mcts_maker) == len(mcts_params) == self.agents_count, "Mismatch in number of agents and config data"
 
         self.start = self.get_env().start_lap
         self.t = 0
@@ -54,7 +54,7 @@ class RaceWrapper(Wrapper):
 
     def get_mcts(self):
         if not self.mcts:
-            self.mcts = [self.make_mcts() for _ in range(self._agents_count)]
+            self.mcts = [self.make_mcts() for _ in range(self.agents_count)]
         return self.mcts[self._current_agent]
 
     def search(self, n_mcts, c_dpw, mcts_env, max_depth=200):
@@ -67,11 +67,12 @@ class RaceWrapper(Wrapper):
         # self.get_mcts().visualize()
 
     def step(self, a):
-        self.t += 1
         agent = self._current_agent
-        print("Lap {}: Agent {}, action {}".format(self.start + self.t//2, agent, a))
+        print("Lap {}: Agent {}, action {}".format(self.start + self.t, agent, a))
         s, r, done, _ = self.get_env().partial_step(a, agent)
         self._current_agent = self.get_env().get_next_agent()
+        if self.get_env().has_transitioned():
+            self.t += 1
         # print("Next agent:", self._current_agent)
         print()
         return s, r, done, {}
@@ -95,4 +96,4 @@ class RaceWrapper(Wrapper):
                                         model=self.get_model(),
                                         na=self.env.action_space.n,
                                         **self.mcts_params[i],
-                                        owner=i) for i in range(self._agents_count)]
+                                        owner=i) for i in range(self.agents_count)]

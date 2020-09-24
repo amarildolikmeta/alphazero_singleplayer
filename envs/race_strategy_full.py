@@ -96,7 +96,6 @@ class RaceModel(gym.Env):
     def __init__(self, gamma=0.95, horizon=20, scale_reward=False, positive_reward=True, start_lap=8, verbose=False):
 
         self.verbose = verbose
-
         self._actions_queue = deque()
         self._agents_queue = deque()
         self._agents_last_pit = defaultdict(int)
