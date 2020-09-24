@@ -2,7 +2,7 @@ import copy
 import numpy as np
 
 from particle_filtering.pf_uct import PFState, PFMCTS, PFAction, Particle
-from race_components.race_ol_uct import random_rollout
+from race_components.race_ol_uct import strategic_rollout
 from rl.make_game import is_atari_game
 
 
@@ -13,10 +13,11 @@ class RacePFState(PFState):
         self.owner = owner
 
         super().__init__(parent_action, na, env, particle, budget, root, max_depth, depth)
-        self.child_actions = [RacePFAction(a, parent_state=self, owner=owner) for a in range(na)]
+        action_list = env.get_available_actions(owner)
+        self.child_actions = [RacePFAction(a, parent_state=self, owner=owner) for a in action_list]
 
     def random_rollout(self, actions, env, budget, max_depth=200, terminal=False):
-        return random_rollout(actions, env, budget, max_depth=200, terminal=False, root_owner=self.owner)
+        return strategic_rollout(env, budget, max_depth=200, terminal=False, root_owner=self.owner)
 
     # def add_particle(self, particle):
     #     super(RacePFState, self).add_particle(particle)

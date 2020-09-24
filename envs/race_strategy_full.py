@@ -1,8 +1,8 @@
-import csv, time
+import csv
 from collections import deque, defaultdict
 
 import gym
-from copy import copy, deepcopy
+from copy import deepcopy
 import numpy as np
 from gym import spaces
 from gym.utils import seeding
@@ -99,6 +99,7 @@ class RaceModel(gym.Env):
 
         self._actions_queue = deque()
         self._agents_queue = deque()
+        self._agents_last_pit = defaultdict(int)
         self.horizon = horizon
         self.gamma = gamma
         self.obs_dim = 7
@@ -193,7 +194,8 @@ class RaceModel(gym.Env):
                'next_lap_time': deepcopy(self._next_lap_time),
                'last_row': deepcopy(self._last_available_row),
                'action_queue': deepcopy(self._actions_queue),
-               'agents_queue': deepcopy(self._agents_queue)
+               'agents_queue': deepcopy(self._agents_queue),
+               'last_pits': deepcopy(self._agents_last_pit)
                }
         return sig
 
@@ -203,6 +205,7 @@ class RaceModel(gym.Env):
         self._last_available_row = sig['last_row']
         self._actions_queue = sig['action_queue']
         self._agents_queue = sig['agents_queue']
+        self._agents_last_pit = sig['last_pits']
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -228,12 +231,27 @@ class RaceModel(gym.Env):
         else:
             self._pit_costs[index] = 0
 
+    def get_available_actions(self, agent: int):
+        """Allow another pit stop, signified by actions 1-3, only if the last pit
+        for the same agents was at least 5 laps earlier"""
+        if self._agents_last_pit[agent] > 5:
+            return [0,1,2,3]
+        else:
+            return [0]
+
     def partial_step(self, action, owner):
+        """Accept an action for an gent, but perform the model transition only when an action for each agent has
+        been specified"""
+
         agent = self.get_next_agent()
         self._agents_queue.popleft()
         assert owner == agent, "Actions are de-synchronized with agents queue {} {}".format(owner, agent)
 
         self._actions_queue.append((action, owner))
+        if action == 0: # No pit, increment the time from last pit
+            self._agents_last_pit[owner] += 1
+        else: # Pit, reset time
+            self._agents_last_pit[owner] = 0
 
         if len(self._actions_queue) == self.agents_number:
             actions = np.zeros(self.agents_number)
@@ -411,7 +429,7 @@ class RaceModel(gym.Env):
                 strategy = self._default_strategies[index]
 
                 # Resort to a pre-defined strategy
-                if strategy[current_tyre] == self._tyre_age[index]:  # Time to pit
+                if strategy[current_tyre] == int(self._tyre_age[index] * self._race_length):  # Time to pit
                     tyre_list = [self._soft_tyre, self._medium_tyre, self._hard_tyre]
                     tyre_duration = [strategy[self._soft_tyre],
                                      strategy[self._medium_tyre],
@@ -512,6 +530,7 @@ class RaceModel(gym.Env):
         self._t = -self.start_lap
         self._actions_queue = deque()
         self._agents_queue = deque()
+        self._agents_last_pit = defaultdict(int)
         # self._model = RaceStrategyModel(self._year)
         # self._model.load()
 
@@ -590,12 +609,11 @@ class RaceModel(gym.Env):
                 self._tyre_age[index] = data['tyre_age']
                 self._current_tyres[index] = get_current_tyres(data)
 
-        # Overwrite the predicted data for those that are currently in the race
-
+        # Predict the first laps for any driver
         for i in range(self.start_lap):
             self.step(np.asarray([0] * len(self._active_drivers)))
 
-        # Set the information for prediction start lap
+        # Set the information for prediction start lap, overwriting prediction for non-retired drivers
 
         for driver, index in zip(self._drivers, range(self._drivers_number)):
             data = self._model.test_race[(self._model.test_race['driverId'] == driver) &
@@ -611,6 +629,11 @@ class RaceModel(gym.Env):
                 self._pit_counts[index] = data['stop']
                 self._tyre_age[index] = data['tyre_age']
                 self._current_tyres[index] = get_current_tyres(data)
+
+        for driver in self._active_drivers:
+            index = self._drivers_mapping[driver]
+            agent_index = self._active_drivers_mapping[driver]
+            self._agents_last_pit[agent_index] = int(self._tyre_age[index] * self._race_length)
 
         return self.get_state()
 

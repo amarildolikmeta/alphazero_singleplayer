@@ -5,6 +5,9 @@ import numpy as np
 
 from rl.make_game import is_atari_game
 
+DEFAULT_STRATEGY = [0.91, 0.03, 0.03, 0.03]
+MAX_P = [1]
+
 
 def sample(env, action, budget, agent):
     env.seed(np.random.randint(1e7))
@@ -14,8 +17,8 @@ def sample(env, action, budget, agent):
     return r, done, budget
 
 
-def random_rollout(actions, env, budget, max_depth=200, terminal=False, root_owner=None):
-    """Rollout from the current state following a random policy up to hitting a terminal state"""
+def strategic_rollout(env, budget, max_depth=200, terminal=False, root_owner=None):
+    """Rollout from the current state following a default policy up to hitting a terminal state"""
     done = False
     if terminal:
         return 0, budget
@@ -23,11 +26,15 @@ def random_rollout(actions, env, budget, max_depth=200, terminal=False, root_own
     ret = 0
     t = 0
 
-    # The root owner might not be the leading agent, discard agents that have already acted
     agent = root_owner
 
     while budget > 0 and t / env.agents_number < max_depth and not done:
-        action = np.random.choice(actions)
+        actions = env.get_available_actions(agent)
+        if len(actions) > 1: # Pit-stop can be done
+            prob = DEFAULT_STRATEGY
+        else: # Pit-stop is not available
+            prob = MAX_P
+        action = np.random.choice(actions, p = prob)
         s, r, done, _ = env.partial_step(action, agent)
         if agent == root_owner or done:
             ret += r[root_owner]
@@ -79,7 +86,7 @@ class RaceState(State):
         self.child_actions = [RaceAction(a, parent_state=self, owner=self.owner) for a in range(na)]
 
     def random_rollout(self, actions, env, budget, max_depth=200, terminal=False):
-        return random_rollout(actions, env, budget, max_depth=200, terminal=False, root_owner=self.owner)
+        return strategic_rollout(env, budget, max_depth=200, terminal=False, root_owner=self.owner)
 
     def sample(self, env, action, budget, parent_owner):
         r, done, budget = sample(env, action, budget, parent_owner)

@@ -21,6 +21,9 @@ class RaceWrapper(Wrapper):
             f.close()
         assert len(mcts_maker) == len(mcts_params) == self._agents_count, "Mismatch in number of agents and config data"
 
+        self.start = self.get_env().start_lap
+        self.t = 0
+
         self._current_agent = self.get_env().get_next_agent()
 
     def pi_wrapper(self, s, current_depth, max_depth):
@@ -35,8 +38,12 @@ class RaceWrapper(Wrapper):
             # print("\nDepth: {}\nBudget: {}".format(current_depth, self.scheduler_budget))
 
         if self.mcts_only:
-            self.search(self.n_mcts, self.c_dpw[self._current_agent], self.mcts_env, max_depth)
-            state, pi, V = self.return_results(self.temp)  # TODO put 0 if the network is enabled
+            if len(self.get_env().get_available_actions(self.get_mcts().owner)) > 1:
+                self.search(self.n_mcts, self.c_dpw[self._current_agent], self.mcts_env, max_depth)
+                state, pi, V = self.return_results(self.temp)  # TODO put 0 if the network is enabled
+            else:
+                pi = np.zeros(self.get_mcts().na)
+                pi[0] = 1.
             self.curr_probs.append(pi)
             a_w = argmax(pi)
             # max_p = np.max(pi)
@@ -60,11 +67,12 @@ class RaceWrapper(Wrapper):
         # self.get_mcts().visualize()
 
     def step(self, a):
+        self.t += 1
         agent = self._current_agent
-        print("Agent {}, action {}".format(agent, a))
+        print("Lap {}: Agent {}, action {}".format(self.start + self.t//2, agent, a))
         s, r, done, _ = self.get_env().partial_step(a, agent)
         self._current_agent = self.get_env().get_next_agent()
-        print("Next agent:", self._current_agent)
+        # print("Next agent:", self._current_agent)
         print()
         return s, r, done, {}
 
@@ -76,6 +84,8 @@ class RaceWrapper(Wrapper):
             self.episode_probabilities.append(self.curr_probs)
         self.curr_probs = []
         self._current_agent = self.get_env().get_next_agent()
+        self.start = self.get_env().start_lap
+        self.t = 0
 
         return s
 
