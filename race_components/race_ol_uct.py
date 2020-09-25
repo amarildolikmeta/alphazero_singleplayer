@@ -60,7 +60,7 @@ class RaceAction(Action):
 
         child_owner = env.get_next_agent()
 
-        if not terminal:
+        if not env.is_terminal():
             reward = reward[self.owner]
         self.child_state = RaceState(parent_action=self,
                                      na=self.parent_state.na,
@@ -83,13 +83,15 @@ class RaceState(State):
         self.owner = owner
         super(RaceState, self).__init__(parent_action, na, env, budget, root, max_depth, reward, terminal, depth)
         self.child_actions = [RaceAction(a, parent_state=self, owner=self.owner) for a in range(na)]
+        # if not self.terminal and len(self.reward) > 1:
+        #     self.reward = self.reward[owner]
 
     def random_rollout(self, actions, env, budget, max_depth=200, terminal=False):
         return strategic_rollout(env, budget, max_depth=200, terminal=False, root_owner=self.owner)
 
     def sample(self, env, action, budget, parent_owner=None):
         r, done, budget = sample(env, action, budget, parent_owner)
-        if not done:
+        if not env.is_terminal():
             self.reward = r[self.owner]
         else:
             self.reward = r
