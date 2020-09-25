@@ -515,7 +515,7 @@ class RaceModel(gym.Env):
                 self._reward = 1 + reward
 
         self._t += 1
-        self._terminal = True if self._t >= self.horizon else False
+        self._terminal = True if self._t >= self.horizon or lap > len(self._laps) else False
         # self.state = self.get_state()
 
         # stop = time.time()
@@ -651,6 +651,9 @@ class RaceModel(gym.Env):
                 self._agents_queue.append(i)
             # self._agents_queue = self.get_agents_standings()
         return self._agents_queue[0]
+
+    def is_terminal(self):
+        return self._terminal
 
 
 register(

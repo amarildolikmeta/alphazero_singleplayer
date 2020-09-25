@@ -11,8 +11,8 @@ class RacePFState(PFState):
         """ Initialize a new state """
         assert owner is not None, "Owner parameter must be specified for RacePFState class constructor"
         self.owner = owner
-
         super().__init__(parent_action, na, env, particle, budget, root, max_depth, depth)
+        self.terminal = env.is_terminal()
         action_list = env.get_available_actions(owner)
         self.child_actions = [RacePFAction(a, parent_state=self, owner=owner) for a in action_list]
 
@@ -41,7 +41,7 @@ class RacePFAction(PFAction):
         s, r, done, _ = env.partial_step(self.index, owner)
         if not done:
             r = r[self.owner]
-        if env.has_transitioned():
+        if env.has_transitioned() or done:
             budget -= 1
         new_particle = Particle(env.get_signature(), None, r, done, parent_particle=source_particle)
         return new_particle, budget
@@ -67,7 +67,7 @@ class RacePFAction(PFAction):
         s, r, done, _ = env.partial_step(self.index, owner)
         if not done:
             r = r[self.owner]
-        if env.has_transitioned():
+        if env.has_transitioned() or done:
             budget -= 1
         return Particle(env.get_signature(), None, r, done, parent_particle=particle), budget
 

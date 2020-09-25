@@ -12,7 +12,7 @@ MAX_P = [1]
 def sample(env, action, budget, agent):
     env.seed(np.random.randint(1e7))
     _, r, done, _ = env.partial_step(action, agent)
-    if env.has_transitioned():
+    if env.has_transitioned() or done:
         budget -= 1
     return r, done, budget
 
@@ -81,17 +81,22 @@ class RaceState(State):
                  owner=None):
         assert owner is not None, "Owner parameter must be specified for RaceState class constructor"
         self.owner = owner
-
         super(RaceState, self).__init__(parent_action, na, env, budget, root, max_depth, reward, terminal, depth)
         self.child_actions = [RaceAction(a, parent_state=self, owner=self.owner) for a in range(na)]
 
     def random_rollout(self, actions, env, budget, max_depth=200, terminal=False):
         return strategic_rollout(env, budget, max_depth=200, terminal=False, root_owner=self.owner)
 
-    def sample(self, env, action, budget, parent_owner):
+    def sample(self, env, action, budget, parent_owner=None):
         r, done, budget = sample(env, action, budget, parent_owner)
-        self.reward = r[self.owner]
+        if not done:
+            self.reward = r[self.owner]
+        else:
+            self.reward = r
         return done, budget
+
+    def is_terminal(self, max_depth, env):
+        return env.is_terminal()
 
 
 class RaceOL_MCTS(OL_MCTS):
@@ -159,10 +164,11 @@ class RaceOL_MCTS(OL_MCTS):
 
             state.update()
             while state.parent_action is not None:  # loop back-up until root is reached
-                if not state.terminal:
+                if not terminal and not state.terminal:
                     R[state.owner] = state.reward + self.gamma * R[state.owner]
                 else:
                     R = copy.deepcopy(state.reward)
+                    terminal = False
                 action = state.parent_action
                 action.update(R[action.owner])
                 state = action.parent_state

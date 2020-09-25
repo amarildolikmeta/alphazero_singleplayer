@@ -74,7 +74,7 @@ class PFState(State):
         self.na = na
         self.remaining_budget = budget
         self.depth = depth
-        self.terminal = depth == max_depth
+        self.terminal = self.is_terminal(max_depth, env)
         self.reward = particle.reward
         self.root = root
         self.n = 0

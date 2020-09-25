@@ -71,7 +71,7 @@ class State(object):
         self.na = na
         self.remaining_budget = budget
         self.depth = depth
-        self.terminal = depth == max_depth
+        self.terminal = self.is_terminal(max_depth, env)
         self.reward = reward
         self.root = root
         self.n = 0
@@ -84,6 +84,9 @@ class State(object):
             self.V = 0
         else:
             self.V, self.remaining_budget = self.evaluate(env, budget, max_depth, terminal)
+
+    def is_terminal(self, max_depth, env):
+        return self.depth == max_depth
 
     def to_json(self):
         inf = {
@@ -215,6 +218,7 @@ class OL_MCTS(object):
                     R = state.reward + self.gamma * R
                 else:
                     R = state.reward
+                    terminal = False
                 action = state.parent_action
                 action.update(R)
                 state = action.parent_state
