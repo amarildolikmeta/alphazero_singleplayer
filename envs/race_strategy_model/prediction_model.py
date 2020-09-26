@@ -272,6 +272,7 @@ class RaceStrategyModel(object):
         self.__process_dataset(dataset)
         self._test_race = fix_data_types(self.test_race)
         self.laps_database = defaultdict(lambda: None)
+        self.race_id = self.test_race["raceId"].values[0]
 
         for i in range(self.test_race["lap"].count()):
             row = self.test_race.iloc[[i]]

@@ -166,12 +166,16 @@ class RaceOL_MCTS(OL_MCTS):
 
             state.update()
             while state.parent_action is not None:  # loop back-up until root is reached
-                if not terminal and not state.terminal:
+                if not terminal:
                     R[state.owner] = state.reward + self.gamma * R[state.owner]
                 else:
-                    R = copy.deepcopy(state.reward)
+                    if state.terminal:
+                        R = copy.deepcopy(state.reward)
+                    else:
+                        R[state.owner] = state.reward
                     terminal = False
                 action = state.parent_action
+                # TODO happens that R is an int instead of a list
                 action.update(R[action.owner])
                 state = action.parent_state
                 state.update()
