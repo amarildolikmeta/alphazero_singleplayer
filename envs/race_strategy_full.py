@@ -53,6 +53,13 @@ def find_available_rubber(race):
             available.append(missing)
     return available[0], available[1], available[2]
 
+def compute_ranking(cumulative_time):
+    """Computes the ranking on track, based on cumulative times"""
+    temp = np.argsort(cumulative_time)
+    ranks = np.empty_like(temp)
+    ranks[temp] = np.arange(len(cumulative_time)) + 1
+    return ranks
+
 
 def get_default_strategies(race):
     soft, med, hard = find_available_rubber(race)
@@ -158,6 +165,7 @@ class RaceModel(gym.Env):
 
         self._terminal = False
         self._reward = np.zeros(self.agents_number)
+        self._starting_positions = None
 
         self.seed()
         self.reset()
@@ -285,9 +293,7 @@ class RaceModel(gym.Env):
         self._cumulative_time = self._cumulative_time + self._lap_time
 
         # Compute current positions for XGBoost predicted cumulative times
-        temp = np.argsort(self._cumulative_time)
-        ranks = np.empty_like(temp)
-        ranks[temp] = np.arange(len(self._cumulative_time)) + 1
+        ranks = compute_ranking(self._cumulative_time)
 
         safety_laps = self._model.test_race[self._model.test_race['lap'] == lap_norm]['safety'].max()
 
@@ -634,6 +640,8 @@ class RaceModel(gym.Env):
             agent_index = self._active_drivers_mapping[driver]
             self._agents_last_pit[agent_index] = int(self._tyre_age[index] * self._race_length)
 
+        self._starting_positions = compute_ranking(self._cumulative_time)
+
         return self.get_state()
 
     def get_agents_standings(self):
@@ -657,6 +665,26 @@ class RaceModel(gym.Env):
 
     def get_current_race(self):
         return self._model.race_id
+
+    def get_log_info(self):
+        logs = []
+        ranks = compute_ranking(self._cumulative_time)
+        for driver in self._drivers:
+            index = self._drivers_mapping[driver]
+            log = {
+                "position": ranks[index],
+                "cumulative_time": self._cumulative_time[index],
+                "pit_count": self._pit_counts[index],
+                "driver": driver,
+                "race": self.get_current_race(),
+                "start_lap": self.start_lap,
+                "current_lap": self._lap,
+                "starting_position": self._starting_positions[index]
+            }
+            logs.append(log)
+
+        return logs
+
 
 
 register(

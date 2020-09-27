@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from utils.env_wrapper import Wrapper
-
+from envs.race_strategy_full import compute_ranking
 from helpers import argmax
 
 LOG_COLUMNS = ["driver", "agent", "turn", "race", "total_time", "starting_position", "final_position", "pit_count"]
@@ -32,9 +32,11 @@ class RaceWrapper(Wrapper):
         self.start = self.get_env().start_lap
         self.t = 0
         self.logs = []
-        self.log_dataframe = pd.DataFrame(columns=LOG_COLUMNS)
+        self.log_dataframe = pd.DataFrame()
         self.enable_logging = enable_logging
         self.log_path = log_path
+        self.pit_counts = [0] * self.agents_count
+        self.index = 0
 
         self._current_agent = self.get_env().get_next_agent()
 
@@ -82,12 +84,9 @@ class RaceWrapper(Wrapper):
         agent = self._current_agent
         if self.enable_logging:
             if a > 0:
-                self.logs[agent]["pit_count"] += 1
+                self.pit_counts[agent] += 1
             print("Lap {}: Agent {}, action {}".format(self.start + self.t, agent, a))
         s, r, done, _ = self.get_env().partial_step(a, agent)
-
-        if self.enable_logging:
-            self.logs[agent]["total_time"] += r[agent]
 
         self._current_agent = self.get_env().get_next_agent()
         if self.get_env().has_transitioned():
@@ -105,14 +104,6 @@ class RaceWrapper(Wrapper):
 
         s = self.get_env().reset()
 
-        if self.enable_logging:
-            self.logs = [defaultdict(int) for _ in range(self.agents_count)]
-            starting_ranking = self.get_env().get_agents_standings()
-            for i in range(self.agents_count):
-                agent = starting_ranking[i]  # ranking is a list containing the agents' identifiers, ordered by track position
-                self.logs[agent]["starting_position"] = i + 1
-                self.logs[agent]["pit_count"] = 0
-
         self.make_mcts()
         self.starting_states.append(s)
         if self.curr_probs is not None:
@@ -121,6 +112,7 @@ class RaceWrapper(Wrapper):
         self._current_agent = self.get_env().get_next_agent()
         self.start = self.get_env().start_lap
         self.t = 0
+        self.pit_counts = [0] * self.agents_count
 
         return s
 
@@ -136,18 +128,22 @@ class RaceWrapper(Wrapper):
         """Log pandas dataframe"""
         if len(self.logs) > 0:
             for log in self.logs:
-                df = pd.DataFrame(log, index=[0])
+                df = pd.DataFrame(log, index=[self.index])
+                self.index += 1
                 self.log_dataframe = self.log_dataframe.append(df)
             self.log_dataframe.to_csv(self.log_path)
 
     def finalize_logs(self):
-        final_ranking = self.get_env().get_agents_standings()
-        race = self.get_env().get_current_race()
-        for i in range(self.agents_count):
-            self.logs[i]["driver"] = self.active_drivers[i]
-            agent = final_ranking[i]  # ranking is a list containing the agents' identifiers, ordered by track position
-            self.logs[agent]["final_position"] = i + 1
-            self.logs[i]["agent"] = self.mcts[i].NAME
-            self.logs[i]["turn"] = i
-            self.logs[i]["race"] = int(race)
+        final_log = self.get_env().get_log_info()
+        for i in range(len(final_log)):
+            if final_log[i]['driver'] not in self.active_drivers:
+                final_log[i]['agent'] = "passive"
+                final_log[i]["turn"] = -1
+            else:
+                turn = np.argwhere(self.active_drivers == final_log[i]["driver"])[0][0]
+                print("turn:", turn)
+                final_log[i]["pit_count"] = self.pit_counts[turn]
+                final_log[i]["agent"] = self.mcts[turn].NAME
+                final_log[i]["turn"] = turn
+        self.logs = final_log
 
