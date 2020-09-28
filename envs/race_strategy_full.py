@@ -100,7 +100,8 @@ def compute_state(row):
 
 class RaceModel(gym.Env):
 
-    def __init__(self, gamma=0.95, horizon=20, scale_reward=False, positive_reward=True, start_lap=8, verbose=False):
+    def __init__(self, gamma=0.95, horizon=20, scale_reward=False, positive_reward=True, start_lap=8,
+                 verbose=False, n_cores=-1):
 
         self.verbose = verbose
         self._actions_queue = deque()
@@ -131,7 +132,7 @@ class RaceModel(gym.Env):
 
         self._t = -start_lap
 
-        self._model = RaceStrategyModel(year=self._year, verbose=False)
+        self._model = RaceStrategyModel(year=self._year, verbose=False, n_cores=n_cores)
         self._model.load()
 
         self._drivers_number = 0

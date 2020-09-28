@@ -27,3 +27,5 @@ notebooks/RiverSwim.zip
 
 .ipynb_checkpoints/
 /venv/
+
+*.model
