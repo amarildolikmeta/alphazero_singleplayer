@@ -8,13 +8,13 @@ DESTROY = True
 
 
 class StochasticAction(Action):
-    ''' StochasticAction object '''
+    """ StochasticAction object """
 
     def __init__(self, index, parent_state, Q_init=0.0):
         super(StochasticAction, self).__init__(index, parent_state, Q_init)
         self.child_states = []
         self.n_children = 0
-        self.state_indeces = {}
+        self.state_indices = {}
 
     def add_child_state(self, s1, r, terminal, signature, budget, env=None, max_depth=200):
         child_state = StochasticState(s1, r, terminal, self, self.parent_state.na, signature, budget, env=env,
@@ -25,7 +25,7 @@ class StochasticAction(Action):
 
         # s1_hash = s1.tostring()
         # self.state_indeces[sk.__hash__()] = self.n_children
-        self.state_indeces[sk] = self.n_children
+        self.state_indices[sk] = self.n_children
         self.n_children += 1
         return child_state, child_state.remaining_budget
 
@@ -34,7 +34,7 @@ class StochasticAction(Action):
         sk = KeySet(s1)
         try:
             #index = self.state_indeces[sk.__hash__()]
-            index = self.state_indeces[sk]
+            index = self.state_indices[sk]
             return index
         except KeyError:
             return -1
@@ -48,7 +48,7 @@ class StochasticAction(Action):
 
 
 class StochasticState(State):
-    ''' StochasticState object '''
+    """ StochasticState object """
 
     def __init__(self, index, r, terminal, parent_action, na, signature, budget, env=None, max_depth=200):
         super().__init__(index, r, terminal, parent_action, na, budget, env=env, max_depth=max_depth)
@@ -58,7 +58,7 @@ class StochasticState(State):
 
 
 class MCTSStochastic(MCTS):
-    ''' MCTS object '''
+    """ MCTS object """
 
     def __init__(self, root, root_index, na, gamma, alpha=0.6, model=None, depth_based_bias=False, beta=1):
         super(MCTSStochastic, self).__init__(root, root_index, na, gamma, depth_based_bias=depth_based_bias)

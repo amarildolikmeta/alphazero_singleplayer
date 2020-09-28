@@ -78,6 +78,10 @@ class State(object):
         self.n += 1
 
     def evaluate(self, env, budget, max_depth=200):
+
+        return self.random_rollout(budget, env, max_depth)
+
+    def random_rollout(self, budget, env, max_depth):
         """Run a random exploration from the state up to hitting a terminal state"""
         done = False
         t = 0
