@@ -82,12 +82,12 @@ class RaceState(State):
         assert owner is not None, "Owner parameter must be specified for RaceState class constructor"
         self.owner = owner
         super(RaceState, self).__init__(parent_action, na, env, budget, root, max_depth, reward, terminal, depth)
-        self.child_actions = [RaceAction(a, parent_state=self, owner=self.owner) for a in range(na)]
-        # if not self.terminal and len(self.reward) > 1:
-        #     self.reward = self.reward[owner]
+        self.terminal = env.is_terminal()
+        action_list = env.get_available_actions(owner)
+        self.child_actions = [RaceAction(a, parent_state=self, owner=owner) for a in action_list]
 
     def random_rollout(self, actions, env, budget, max_depth=200, terminal=False):
-        return strategic_rollout(env, budget, max_depth=200, terminal=False, root_owner=self.owner)
+        return strategic_rollout(env, budget, max_depth=200, terminal=terminal, root_owner=self.owner)
 
     def sample(self, env, action, budget, parent_owner=None):
         r, done, budget = sample(env, action, budget, parent_owner)
