@@ -15,7 +15,7 @@ def parse_game_params(args):
     elif args.game == 'RaceStrategy':
         game_params['scale_reward'] = args.scale_reward
     elif args.game == 'RaceStrategy-full':
-        game_params['n_cores'] = args.max_workers
+        game_params['n_cores'] = args.max_xgb_workers
     return game_params
 
 
