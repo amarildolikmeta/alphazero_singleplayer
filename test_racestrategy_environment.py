@@ -2,7 +2,7 @@ from envs.race_strategy_full import RaceModel
 import numpy as np
 import time
 
-mdp = RaceModel(verbose=False)
+mdp = RaceModel(verbose=False, n_cores=6)
 _ = mdp.reset()
 ret = 0
 lap = 1

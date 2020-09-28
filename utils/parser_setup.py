@@ -102,4 +102,8 @@ def setup_parser():
     parser.add_argument('--second_version', action='store_true', help='only for pf_uct2')
     parser.add_argument('--third_version', action='store_true', help='only for pf_uct3')
 
+    # Race strategy model arguments
+    parser.add_argument('--max_xgb_workers', type=int, default=-1, help="Number of threads to be used by each XGB model,"
+                                                                        "only used for RaceStrategy environment")
+
     return parser.parse_args()
