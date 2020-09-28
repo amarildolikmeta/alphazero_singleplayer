@@ -133,7 +133,7 @@ class RaceModel(gym.Env):
         self._t = -start_lap
 
         self._model = RaceStrategyModel(year=self._year, verbose=False, n_cores=n_cores)
-        self._model.load()
+        self._model.train() #
 
         self._drivers_number = 0
 

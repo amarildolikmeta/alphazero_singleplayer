@@ -84,9 +84,10 @@ def discard_suspended_races(data):
 
 class RaceStrategyModel(object):
     def __init__(self, year: int, verbose=False, n_cores=-1):
-        self.regular_model = XGBRegressor({"nthread": n_cores})
-        self.pit_model = XGBRegressor({"nthread": n_cores})
-        self.safety_model = XGBRegressor({"nthread": n_cores})
+        print("XGB using {} threads".format(n_cores))
+        self.regular_model = XGBRegressor(n_jobs=n_cores)
+        self.pit_model = XGBRegressor(n_jobs=n_cores)
+        self.safety_model = XGBRegressor(n_jobs=n_cores)
         self.test_race = None
         self.scaler = None
         self.test_race_pit_model = None
@@ -254,9 +255,9 @@ class RaceStrategyModel(object):
         self.scaler = None
         if self.verbose:
             print("Model uses {} cores".format(self.n_cores))
-        self.regular_model = XGBRegressor(n_jobs=self.n_cores)
-        self.pit_model = XGBRegressor(n_jobs=self.n_cores)
-        self.safety_model = XGBRegressor(n_jobs=self.n_cores)
+        # self.regular_model = XGBRegressor(n_jobs=self.n_cores)
+        # self.pit_model = XGBRegressor(n_jobs=self.n_cores)
+        # self.safety_model = XGBRegressor(n_jobs=self.n_cores)
 
         dataset = load_dataset()
         datasets, labels = self.__process_dataset(dataset)
@@ -324,9 +325,10 @@ class RaceStrategyModel(object):
         if self.verbose:
             print("Done!\n")
 
-        p = self.regular_model.get_para = self.n_cores
-        self.pit_model.n_jobs = self.n_cores
-        self.safety_model.n_jobs = self.n_cores
+        # self.regular_model.set_params(**{"n_jobs": self.n_cores})
+        # self.safety_model.set_params(**{"n_jobs": self.n_cores})
+        # self.pit_model.set_params(**{"n_jobs": self.n_cores})
+        print(self.regular_model.get_params())
 
     def save(self):
         """ Pickle the model objects to avoid retraining """
