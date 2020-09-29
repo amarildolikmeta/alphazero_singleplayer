@@ -11,6 +11,7 @@ class RacePFState(PFState):
         """ Initialize a new state """
         assert owner is not None, "Owner parameter must be specified for RacePFState class constructor"
         self.owner = owner
+        self.end_turn = env.has_transitioned()
         super().__init__(parent_action, na, env, particle, budget, root, max_depth, depth)
         action_list = env.get_available_actions(owner)
         self.child_actions = [RacePFAction(a, parent_state=self, owner=owner) for a in action_list]
@@ -41,8 +42,6 @@ class RacePFAction(PFAction):
         env.seed(np.random.randint(1e7))
         owner = env.get_next_agent()
         s, r, done, _ = env.partial_step(self.index, owner)
-        if not done:
-            r = r[self.owner]
         if env.has_transitioned() or done:
             budget -= 1
         new_particle = Particle(env.get_signature(), None, r, done, parent_particle=source_particle)
@@ -67,8 +66,6 @@ class RacePFAction(PFAction):
         owner = env.get_next_agent()
         env.seed(np.random.randint(1e7))
         s, r, done, _ = env.partial_step(self.index, owner)
-        if not done:
-            r = r[self.owner]
         if env.has_transitioned() or done:
             budget -= 1
         return Particle(env.get_signature(), None, r, done, parent_particle=particle), budget
@@ -171,19 +168,21 @@ class RacePFMCTS(PFMCTS):
 
             # Back-up
 
-            R = {}
-            for agent in range(env.agents_number):
-                R[agent] = 0
+            R = np.zeros(env.agents_number)
 
             if not state.terminal:
-                R[state.owner] = state.V
+                R = copy.deepcopy(state.V)
 
             state.update()
             particle = source_particle
+            agents_reward = copy.deepcopy(particle.reward)
             while state.parent_action is not None:  # loop back-up until root is reached
+                owner = state.parent_action.owner  # rewards are stored in the state following the action, which has different owner
                 r = particle.reward
+                if state.end_turn:
+                    agents_reward = copy.deepcopy(r)
                 if not particle.terminal:
-                    R[state.owner] = r + self.gamma * R[state.owner]
+                    R[owner] = agents_reward[owner] + self.gamma * R[owner]
                 else:
                     R = copy.deepcopy(r)
                 action = state.parent_action

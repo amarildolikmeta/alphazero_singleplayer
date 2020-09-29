@@ -12,10 +12,10 @@ class RaceStochasticState(StochasticState):
     def __init__(self, index, r, terminal, parent_action, na, signature, budget, env=None, max_depth=200, owner=None):
         assert owner is not None, "Owner parameter must be specified for RaceStochasticState class constructor"
         self.owner = owner
+        self.end_turn = env.has_transitioned()
 
         super(RaceStochasticState, self).__init__(index, r, terminal, parent_action, na, signature, budget,
                                                   env=env, max_depth=max_depth)
-
         action_list = env.get_available_actions(owner)
         self.child_actions = [RaceStochasticAction(a, parent_state=self, owner=owner) for a in action_list]
 
@@ -122,14 +122,18 @@ class RaceMCTSStochastic(MCTSStochastic):
                     st += 1
 
             # Back-up
-            R = [0] * mcts_env.agents_number
+            R = np.zeros(mcts_env.agents_number)
 
             if not state.terminal:
-                R[state.owner] = state.V
+                R = copy.deepcopy(state.V)
             state.update()
+            agents_reward = copy.deepcopy(state.r)
             while state.parent_action is not None:  # loop back-up until root is reached
+                owner = state.parent_action.owner  # rewards are stored in the state following the action, which has different owner
                 if not state.terminal:
-                    R[state.owner] = state.r + self.gamma * R[state.owner]
+                    if state.end_turn:
+                        agents_reward = copy.deepcopy(state.r)
+                    R[owner] = agents_reward[owner] + self.gamma * R[owner]
                 else:
                     R = copy.deepcopy(state.r)
                 action = state.parent_action

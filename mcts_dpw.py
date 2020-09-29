@@ -2,9 +2,6 @@ import numpy as np
 import copy
 from helpers import (argmax, is_atari_game, copy_atari_state, restore_atari_state, stable_normalizer)
 from mcts import MCTS, Action, State
-from igraph import Graph, EdgeSeq
-import plotly.graph_objects as go
-import plotly.io as pio
 
 class StochasticAction(Action):
     ''' StochasticAction object '''

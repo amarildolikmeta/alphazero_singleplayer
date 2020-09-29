@@ -269,7 +269,7 @@ class RaceModel(gym.Env):
             return self.step(actions)
 
         else:
-            return self.get_state(), self._reward, self._terminal, {}
+            return self.get_state(), np.zeros(self.agents_number), self._terminal, {}
 
     def has_transitioned(self):
         return len(self._actions_queue) == 0
