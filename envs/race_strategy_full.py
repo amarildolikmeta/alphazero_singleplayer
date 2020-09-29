@@ -430,12 +430,13 @@ class RaceModel(gym.Env):
                 data[self._current_tyres[index]] = 1
                 data['stop'] = self._pit_counts[index]
 
-            elif is_out:  # Crashed driver, non-controlled
+            else:
+                # Non-controlled driver
                 current_tyre = self._current_tyres[index]
                 strategy = self._default_strategies[index]
 
                 # Resort to a pre-defined strategy
-                if strategy[current_tyre] == int(self._tyre_age[index] * self._race_length):  # Time to pit
+                if strategy[current_tyre] <= int(self._tyre_age[index] * self._race_length):  # Time to pit
                     tyre_list = [self._soft_tyre, self._medium_tyre, self._hard_tyre]
                     tyre_duration = [strategy[self._soft_tyre],
                                      strategy[self._medium_tyre],
@@ -448,10 +449,6 @@ class RaceModel(gym.Env):
                 else:  # Stay out
                     self.__update_pit_flags(index)
 
-            else:  # Non-controlled driver, not crashed
-                self._pit_states[index] = data['pit']
-                self._pit_counts[index] = data['stop']
-                self._current_tyres[index] = get_current_tyres(data)
             state = compute_state(data)
             # prediction_model = self._model.get_prediction_model(state)
 
