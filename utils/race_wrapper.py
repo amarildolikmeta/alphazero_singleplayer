@@ -29,7 +29,7 @@ class RaceWrapper(Wrapper):
 
         os.mkdir(self.log_path)
         self.log_path += "race_log_{}b.csv".format(budget)
-
+        self.experiment_counter = 0
 
         # Load the active drivers
         with open('./envs/race_strategy_model/active_drivers.csv', newline='') as f:
@@ -109,6 +109,7 @@ class RaceWrapper(Wrapper):
 
     def reset(self):
         # Write the logs if any are present, then store initial conditions
+        self.experiment_counter += 1
         if self.enable_logging:
             self.write_log()
 
@@ -138,6 +139,7 @@ class RaceWrapper(Wrapper):
         """Log pandas dataframe"""
         if len(self.logs) > 0:
             for log in self.logs:
+                log["experiment"] = self.experiment_counter # A race might repeat, so we need to distinguish the data
                 df = pd.DataFrame(log, index=[self.index])
                 self.index += 1
                 self.log_dataframe = self.log_dataframe.append(df)
