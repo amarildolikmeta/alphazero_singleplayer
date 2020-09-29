@@ -62,9 +62,8 @@ def compute_ranking(cumulative_time):
 
 
 def get_default_strategies(race):
-    soft, med, hard = find_available_rubber(race)
+    hard, med, soft = find_available_rubber(race)
     tyre_stints = {soft: [], med: [], hard: []}
-
     for driver in race['driverId'].unique():
         driver_laps = race[race['driverId'] == driver].sort_values('lap')
         for compound in [soft, med, hard]:
@@ -78,7 +77,8 @@ def get_default_strategies(race):
                         stint_length = 1
                     else:
                         stint_length += 1
-                    prev_lap = row['lap']
+                    prev_lap = row['unnorm_lap']
+                tyre_stints[compound].append(stint_length)
 
     for compound in [soft, med, hard]:
         if len(tyre_stints[compound]) > 0:
@@ -231,13 +231,15 @@ class RaceModel(gym.Env):
     def __update_pit_flags(self, index):
         if self._pit_states[index] == -1:
             self._pit_states[index] = 1
-            self._tyre_age[index] = 0
+            self._tyre_age[index] = -1
 
         elif self._pit_states[index] == 1:
             self._pit_states[index] = 0
 
         else:
             self._pit_costs[index] = 0
+
+        self._tyre_age[index] += 1
 
     def get_available_actions(self, agent: int):
         """Allow another pit stop, signified by actions 1-3, only if the last pit
@@ -423,20 +425,15 @@ class RaceModel(gym.Env):
                 else:  # pit for hard tyre
                     self.__pit_driver(driver, self._hard_tyre, safety_laps)
 
-                data['pitstop-milliseconds'] = self._pit_costs[index]
-                data['pit-cost'] = self._pit_costs[index] / 2
-                data['tyre_age'] = self._tyre_age[index] / self._race_length
-                data['lap'] = (self._t + self.start_lap) / self._race_length
-                data[self._current_tyres[index]] = 1
-                data['stop'] = self._pit_counts[index]
-
             else:
                 # Non-controlled driver
                 current_tyre = self._current_tyres[index]
                 strategy = self._default_strategies[index]
 
                 # Resort to a pre-defined strategy
-                if strategy[current_tyre] <= int(self._tyre_age[index] * self._race_length):  # Time to pit
+                #print(strategy[current_tyre], int(self._tyre_age[index] * self._race_length))
+                self.__update_pit_flags(index)
+                if strategy[current_tyre] <= int(self._tyre_age[index]):  # Time to pit
                     tyre_list = [self._soft_tyre, self._medium_tyre, self._hard_tyre]
                     tyre_duration = [strategy[self._soft_tyre],
                                      strategy[self._medium_tyre],
@@ -444,22 +441,17 @@ class RaceModel(gym.Env):
                     remaining_laps = self._race_length - self._lap
                     # Select the tyre that can cover most of the remaining laps without overshooting
                     tyre_index = np.argmin(np.abs(remaining_laps - np.asarray(tyre_duration)))
-                    selected_tyre = tyre_list[tyre_index[0]]
+                    selected_tyre = tyre_list[tyre_index]
                     self.__pit_driver(driver, selected_tyre, safety_laps)
-                else:  # Stay out
-                    self.__update_pit_flags(index)
+
+            data['pitstop-milliseconds'] = self._pit_costs[index]
+            data['pit-cost'] = self._pit_costs[index] / 2
+            data['tyre_age'] = self._tyre_age[index] / self._race_length
+            data['lap'] = (self._t + self.start_lap) / self._race_length
+            data[self._current_tyres[index]] = 1
+            data['stop'] = self._pit_counts[index]
 
             state = compute_state(data)
-            # prediction_model = self._model.get_prediction_model(state)
-
-            # Normalize and remove unnecessary columns
-            #data = self._model.normalize_dataset(data)
-            #data = data.drop(columns=['unnorm_lap', 'race_length', 'raceId', 'driverId', 'nextLap'])
-
-            #data = fix_data_types(data)
-
-            # if not (state == 'pit' or state == 'safety'):
-            #     data = data.drop(columns=['pit', 'safety', 'pitstop-milliseconds', 'pit-cost'])
 
             #stop = time.time()
             #contribute['features'] += stop - start
@@ -479,11 +471,6 @@ class RaceModel(gym.Env):
 
             else:
                 self._next_lap_time[index] = row.squeeze()['nextLap']
-
-            # Predict the delta wrt pole lap
-            # predicted_lap = prediction_model.predict(data).squeeze()
-
-            # next_lap_time_rf = base_time + predicted_rf
 
         #start = time.time()
         if started:
@@ -590,7 +577,7 @@ class RaceModel(gym.Env):
             index = self._drivers_mapping[driver]
             strategy = {}
             for compound in [self._soft_tyre, self._medium_tyre, self._hard_tyre]:
-                compound_strategy = np.random.normal(tyre_average_stints[compound][0], tyre_average_stints[compound][0])
+                compound_strategy = np.random.normal(tyre_average_stints[compound][0], tyre_average_stints[compound][1])
                 if np.isinf(compound_strategy):
                     strategy[compound] = 10000  # put a large number in place of infinity
                 else:
@@ -609,7 +596,7 @@ class RaceModel(gym.Env):
                 self._next_lap_time[index] = self._base_time + data['nextLap']
                 self._pit_states[index] = data['pit']
                 self._pit_counts[index] = data['stop']
-                self._tyre_age[index] = data['tyre_age']
+                self._tyre_age[index] = data['tyre_age'] * self._race_length
                 self._current_tyres[index] = get_current_tyres(data)
 
         # Predict the first laps for any driver
@@ -630,13 +617,13 @@ class RaceModel(gym.Env):
                 self._next_lap_time[index] = self._base_time + data['nextLap']
                 self._pit_states[index] = data['pit']
                 self._pit_counts[index] = data['stop']
-                self._tyre_age[index] = data['tyre_age']
+                self._tyre_age[index] = data['tyre_age'] * self._race_length
                 self._current_tyres[index] = get_current_tyres(data)
 
         for driver in self._active_drivers:
             index = self._drivers_mapping[driver]
             agent_index = self._active_drivers_mapping[driver]
-            self._agents_last_pit[agent_index] = int(self._tyre_age[index] * self._race_length)
+            self._agents_last_pit[agent_index] = int(self._tyre_age[index])
 
         self._starting_positions = compute_ranking(self._cumulative_time)
 

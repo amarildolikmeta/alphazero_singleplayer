@@ -28,7 +28,7 @@ class RaceWrapper(Wrapper):
         self.log_path = log_path + today.strftime('%Y-%m-%d_%H-%M')
 
         os.mkdir(self.log_path)
-        self.log_path += "race_log_{}b.csv".format(budget)
+        self.log_path += "/race_log_{}b.csv".format(budget)
         self.experiment_counter = 0
 
         # Load the active drivers
