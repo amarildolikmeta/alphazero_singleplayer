@@ -83,7 +83,7 @@ def discard_suspended_races(data):
 
 
 class RaceStrategyModel(object):
-    def __init__(self, year: int, verbose=False, n_cores=-1):
+    def __init__(self, year: int, verbose=False, n_cores=1):
         print("XGB using {} threads".format(n_cores))
         self.regular_model = XGBRegressor(n_jobs=n_cores)
         self.pit_model = XGBRegressor(n_jobs=n_cores)
