@@ -16,6 +16,10 @@ class RaceStochasticState(StochasticState):
 
         super(RaceStochasticState, self).__init__(index, r, terminal, parent_action, na, signature, budget,
                                                   env=env, max_depth=max_depth)
+
+        if self.terminal or terminal:
+            self.V = np.zeros(env.agents_number)
+
         action_list = env.get_available_actions(owner)
         self.child_actions = [RaceStochasticAction(a, parent_state=self, owner=owner) for a in action_list]
 
@@ -29,9 +33,6 @@ class RaceStochasticAction(StochasticAction):
         super(RaceStochasticAction, self).__init__(index, parent_state, Q_init=Q_init)
 
     def add_child_state(self, s1, r, terminal, signature, budget, env=None, max_depth=200):
-        if not env.is_terminal():
-            r = r[self.owner]
-
         child_state = RaceStochasticState(s1, r, terminal, self, self.parent_state.na, signature, budget, env=env,
                                             max_depth=max_depth, owner=env.get_next_agent())
         self.child_states.append(child_state)

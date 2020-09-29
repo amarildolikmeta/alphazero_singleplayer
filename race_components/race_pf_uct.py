@@ -13,6 +13,10 @@ class RacePFState(PFState):
         self.owner = owner
         self.end_turn = env.has_transitioned()
         super().__init__(parent_action, na, env, particle, budget, root, max_depth, depth)
+
+        if self.terminal or root:
+            self.V = np.zeros(env.agents_number)
+
         action_list = env.get_available_actions(owner)
         self.child_actions = [RacePFAction(a, parent_state=self, owner=owner) for a in action_list]
 
