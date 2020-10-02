@@ -1,5 +1,7 @@
 import csv
+import os
 from collections import defaultdict
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -14,11 +16,20 @@ class RaceWrapper(Wrapper):
     def __init__(self, root_index, mcts_maker, model_save_file, model_wrapper_params,
                  mcts_params, is_atari, n_mcts, budget, mcts_env, c_dpw,
                  temp, game_maker=None, env=None, mcts_only=True, scheduler_params=None,
-                 enable_logging=True, log_path="./logs/Racestrategy-full/race_log.csv"):
+                 enable_logging=True, log_path="./logs/Racestrategy-full/"):
 
         super(RaceWrapper, self).__init__(root_index, mcts_maker, model_save_file, model_wrapper_params,
                                           mcts_params, is_atari, n_mcts, budget, mcts_env, c_dpw,
                                           temp, game_maker, env, mcts_only, scheduler_params)
+
+        # Create the log folder
+        today = datetime.now()
+
+        self.log_path = log_path + today.strftime('%Y-%m-%d_%H-%M')
+
+        os.mkdir(self.log_path)
+        self.log_path += "/race_log_{}b.csv".format(budget)
+        self.experiment_counter = 0
 
         # Load the active drivers
         with open('./envs/race_strategy_model/active_drivers.csv', newline='') as f:
@@ -34,7 +45,6 @@ class RaceWrapper(Wrapper):
         self.logs = []
         self.log_dataframe = pd.DataFrame()
         self.enable_logging = enable_logging
-        self.log_path = log_path
         self.pit_counts = [0] * self.agents_count
         self.index = 0
 
@@ -99,6 +109,7 @@ class RaceWrapper(Wrapper):
 
     def reset(self):
         # Write the logs if any are present, then store initial conditions
+        self.experiment_counter += 1
         if self.enable_logging:
             self.write_log()
 
@@ -128,6 +139,7 @@ class RaceWrapper(Wrapper):
         """Log pandas dataframe"""
         if len(self.logs) > 0:
             for log in self.logs:
+                log["experiment"] = self.experiment_counter # A race might repeat, so we need to distinguish the data
                 df = pd.DataFrame(log, index=[self.index])
                 self.index += 1
                 self.log_dataframe = self.log_dataframe.append(df)
@@ -141,7 +153,6 @@ class RaceWrapper(Wrapper):
                 final_log[i]["turn"] = -1
             else:
                 turn = np.argwhere(self.active_drivers == final_log[i]["driver"])[0][0]
-                print("turn:", turn)
                 final_log[i]["pit_count"] = self.pit_counts[turn]
                 final_log[i]["agent"] = self.mcts[turn].NAME
                 final_log[i]["turn"] = turn

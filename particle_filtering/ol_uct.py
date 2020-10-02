@@ -134,18 +134,16 @@ class State(object):
 
     def evaluate(self, env, budget, max_depth=200, terminal=False):
         actions = np.arange(self.na, dtype=int)
-        if budget > 0:
-            return_, budget = self.random_rollout(actions, env, budget, max_depth, terminal)
-        else:
-            return_ = 0
+        return_, budget = self.random_rollout(actions, env, budget, max_depth, terminal)
         return return_, budget
 
     @staticmethod
     def random_rollout(actions, env, budget, max_depth=200, terminal=False):
         """Rollout from the current state following a random policy up to hitting a terminal state"""
-        done = False
-        if terminal:
+        if terminal or budget <= 0:
             return 0, budget
+
+        done = False
         env.seed(np.random.randint(1e7))
         ret = 0
         t = 0
