@@ -16,3 +16,4 @@ from envs.continous_gridworld import generate_gridworld
 from envs.continuous_mountaincar import generate_mountain
 from envs.carpole import generate_cartpole
 from envs.race_strategy_full import generate_race_full
+from envs.race_strategy_event import generate_race_event
