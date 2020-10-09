@@ -120,7 +120,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
     # Setup the parameters for generating the search environments
 
-    if game=="RaceStrategy-v1":
+    if game == "RaceStrategy-v1" or game == "RaceStrategy-v2":
         mcts_maker, mcts_params, c_dpw = load_race_agents_config('envs/configs/race_strategy_full.json', gamma)
 
     else:
@@ -193,7 +193,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
             # model_wrapper.save(model_file)
 
-            if game == "RaceStrategy-v1":
+            if game == "RaceStrategy-v1" or game == "RaceStrategy-v2":
                 env_wrapper = RaceWrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, budget,
                                   mcts_env, c_dpw, temp, env=penv, game_maker=pgame, mcts_only=mcts_only,
                                   scheduler_params=scheduler_params)

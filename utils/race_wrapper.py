@@ -16,7 +16,7 @@ class RaceWrapper(Wrapper):
     def __init__(self, root_index, mcts_maker, model_save_file, model_wrapper_params,
                  mcts_params, is_atari, n_mcts, budget, mcts_env, c_dpw,
                  temp, game_maker=None, env=None, mcts_only=True, scheduler_params=None,
-                 enable_logging=True, log_path="./logs/Racestrategy-full/"):
+                 enable_logging=False, log_path="./logs/Racestrategy-full/"):
 
         super(RaceWrapper, self).__init__(root_index, mcts_maker, model_save_file, model_wrapper_params,
                                           mcts_params, is_atari, n_mcts, budget, mcts_env, c_dpw,
@@ -24,10 +24,11 @@ class RaceWrapper(Wrapper):
 
         # Create the log folder
         today = datetime.now()
+        self.timestamp = today.strftime('%Y-%m-%d_%H-%M')
+        self.log_path = log_path + self.timestamp
 
-        self.log_path = log_path + today.strftime('%Y-%m-%d_%H-%M')
-
-        os.mkdir(self.log_path)
+        if enable_logging:
+            os.mkdir(self.log_path)
         self.log_path += "/race_log_{}b.csv".format(budget)
         self.experiment_counter = 0
 
@@ -95,7 +96,7 @@ class RaceWrapper(Wrapper):
         if self.enable_logging:
             if a > 0:
                 self.pit_counts[agent] += 1
-            print("Lap {}: Agent {}, action {}".format(self.start + self.t, agent, a))
+        print("Lap {}: Agent {}, action {}".format(self.start + self.t, agent, a))
         s, r, done, _ = self.get_env().partial_step(a, agent)
 
         self._current_agent = self.get_env().get_next_agent()
@@ -113,6 +114,8 @@ class RaceWrapper(Wrapper):
         if self.enable_logging:
             self.write_log()
 
+        if self.experiment_counter > 1:
+            self.get_env().save_results(self.timestamp)
         s = self.get_env().reset()
 
         self.make_mcts()

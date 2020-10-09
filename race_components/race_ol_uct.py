@@ -5,8 +5,11 @@ import numpy as np
 
 from rl.make_game import is_atari_game
 
-DEFAULT_STRATEGY = [0.91, 0.03, 0.03, 0.03]
 MAX_P = [1]
+PROB_1 = [0.95, 0.05]
+PROB_2 = [0.95, 0.025, 0.025]
+PROB_3 = [0.91, 0.03, 0.03, 0.03]
+PROBS = {1: MAX_P, 2: PROB_1, 3: PROB_2, 4:PROB_3}
 
 
 def sample(env, action, budget, agent):
@@ -30,11 +33,8 @@ def strategic_rollout(env, budget, max_depth=200, terminal=False, root_owner=Non
 
     while budget > 0 and t / env.agents_number < max_depth and not done:
         actions = env.get_available_actions(agent)
-        if len(actions) > 1: # Pit-stop can be done
-            prob = DEFAULT_STRATEGY
-        else: # Pit-stop is not available
-            prob = MAX_P
-        action = np.random.choice(actions, p = prob)
+        prob = PROBS[len(actions)]
+        action = np.random.choice(actions, p=prob)
         s, r, done, _ = env.partial_step(action, agent)
 
         ret += r
@@ -178,7 +178,7 @@ class RaceOL_MCTS(OL_MCTS):
                 else:
                     if state.terminal:
                         R = copy.deepcopy(state.reward)
-                    else: # ???
+                    else:  # ???
                         R[owner] = state.reward[owner]
                     terminal = False
                 action = state.parent_action

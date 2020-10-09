@@ -10,6 +10,8 @@ from gym import register
 from envs.race_strategy_model.prediction_model import RaceStrategyModel
 import pandas as pd
 
+pd.set_option('display.max_columns', None)
+pd.set_option('display.max_rows', 200)
 
 def generate_race_full(**game_params):
     if game_params is None:
@@ -36,7 +38,7 @@ def get_current_tyres(df: pd.DataFrame):
 def find_available_rubber(race):
     available = []
     for col in ['tyre_1', 'tyre_2', 'tyre_3', 'tyre_4', 'tyre_5', 'tyre_6']:
-        if race[col].any() > 0:
+        if (race[col] > 0).any():
             available.append(col)
 
     if len(available) < 3:
@@ -90,9 +92,9 @@ def get_default_strategies(race):
 
 
 def compute_state(row):
-    if row['pit'].all() != 0:
+    if (row['pit'] != 0).all():
         return 'pit'
-    elif row['safety'].all() != 0:
+    elif (row['safety'] != 0).all() :
         return 'safety'
     else:
         return 'regular'
@@ -116,6 +118,7 @@ class RaceModel(gym.Env):
         self.scale_reward = scale_reward
         self.positive_reward = positive_reward
         self.viewer = None
+        self.step_id = 0
 
         with open('./envs/race_strategy_model/active_drivers.csv', newline='') as f:
             reader = csv.reader(f)
@@ -132,8 +135,12 @@ class RaceModel(gym.Env):
 
         self._t = -start_lap
 
-        self._model = RaceStrategyModel(year=self._year, verbose=False, n_cores=n_cores)
-        self._model.train() #
+        self._model = RaceStrategyModel(year=self._year, start_lap=self.start_lap, verbose=False, n_cores=n_cores)
+        #self._model.train() #
+
+        df = pd.DataFrame(columns=self._model.dummy_columns)
+        df['step'] = None
+        df.to_csv('./logs/pred_log.csv')
 
         self._drivers_number = 0
 
@@ -235,6 +242,7 @@ class RaceModel(gym.Env):
 
         elif self._pit_states[index] == 1:
             self._pit_states[index] = 0
+            self._pit_costs[index] = 0
 
         else:
             self._pit_costs[index] = 0
@@ -277,6 +285,7 @@ class RaceModel(gym.Env):
         return len(self._actions_queue) == 0
 
     def step(self, actions: np.ndarray):
+        self.step_id += 1
         #start = time.time()
         # assert len(actions) == len(self._active_drivers), \
         #     "Fewer actions were provided than the number of active drivers"
@@ -298,7 +307,8 @@ class RaceModel(gym.Env):
         # Compute current positions for XGBoost predicted cumulative times
         ranks = compute_ranking(self._cumulative_time)
 
-        safety_laps = self._model.test_race[self._model.test_race['lap'] == lap_norm]['safety'].max()
+        #safety_laps = self._model.test_race[self._model.test_race['lap'] == lap_norm]['safety'].max()
+        safety_laps = 0
 
         x_data = []
         x_pit_data = []
@@ -460,7 +470,7 @@ class RaceModel(gym.Env):
 
             if started:
                 if state == "pit":
-                    pitting.append(index)
+                    pitting.append((index, data['pit'].values[0]))
                     x_pit_data.append(data)
                 else:
                     no_pit.append(index)
@@ -476,24 +486,62 @@ class RaceModel(gym.Env):
         if started:
             if len(pitting) > 0:
                 x_pit_data = pd.concat(x_pit_data)
-                self._model.normalize_dataset(x_pit_data)
-                x_pit_data = x_pit_data.drop(columns=['unnorm_lap', 'race_length', 'raceId', 'driverId', 'nextLap'])
+                x_pit_data_unnorm = x_pit_data.copy()
+                x_pit_data, _, _, _= self._model.normalize_dataset(x_pit_data, compute_masks=False)
+                x_pit_data = x_pit_data.drop(columns=['unnorm_lap', 'raceId', 'driverId', 'nextLap', 'wet_quali'])
                 pit_predictions = self._model.pit_model.predict(x_pit_data)
-                for index, prediction in zip(pitting, pit_predictions):
-                    self._next_lap_time[index] = np.random.normal(self._base_time + prediction, 100)
+                # print("######################## Pit ########################")
+                x_pit_data_unnorm['step'] = self.step_id
+                inverse_predictions = []
+                for pit_data, prediction in zip(pitting, pit_predictions):
+                    #print(prediction)
+                    index, status = pit_data
+                    prediction = self._model.target_scalers["pit"].inverse_transform(prediction.reshape(-1, 1))[0, 0]
+                    # print(prediction, index, status)
+                    lap_time = np.random.normal(self._base_time + prediction, 100)
+                    inverse_predictions.append(lap_time)
+                    self._next_lap_time[index] = lap_time
+                x_pit_data_unnorm['nextLap'] = inverse_predictions
+                x_pit_data_unnorm.to_csv('./logs/pred_log.csv', mode='a', header=False)
+
+
 
             if len(no_pit) > 0:
                 x_data = pd.concat(x_data)
-                self._model.normalize_dataset(x_data)
-                x_data = x_data.drop(columns=['unnorm_lap', 'race_length', 'raceId', 'driverId', 'nextLap'])
+                x_data_unnorm = x_data.copy()
+                # print(x_data)
+                x_data, _, _, _ = self._model.normalize_dataset(x_data, compute_masks=False)
+                x_data = x_data.drop(columns=['unnorm_lap', 'raceId', 'driverId', 'nextLap', 'wet_quali'])
+                safety = False
                 if safety_laps:
+                    safety = True
+                    #print("######################## Safety Lap ########################")
                     prediction_model = self._model.safety_model
                 else:
+                    # print("######################## Lap ########################")
                     x_data = x_data.drop(columns=['pit', 'safety', 'pitstop-milliseconds', 'pit-cost'])
                     prediction_model = self._model.regular_model
+
                 predictions = prediction_model.predict(x_data)
+                # print(x_data.describe())
+                # min = np.inf
+                # max = - np.inf
+                x_data_unnorm['step'] = self.step_id
+                inverse_predictions = []
                 for index, prediction in zip(no_pit, predictions):
-                    self._next_lap_time[index] = np.random.normal(self._base_time + prediction, 100)
+                    # print(prediction)
+                    prediction = self._model.target_scalers["safety" if safety else "regular"].inverse_transform(prediction.reshape(-1, 1))[0, 0]
+                    lap_time = np.random.normal(self._base_time + prediction, 100)
+                    # if lap_time < min:
+                    #     min = lap_time
+                    # if lap_time > max:
+                    #     max = lap_time
+                    # print(prediction, index)
+                    inverse_predictions.append(lap_time)
+                    self._next_lap_time[index] = lap_time
+                x_data_unnorm['nextLap'] = inverse_predictions
+                x_data_unnorm.to_csv('./logs/pred_log.csv', mode='a', header=False)
+                # print(max-min)
 
         for driver in self._active_drivers:
             active_index = self._active_drivers_mapping[driver]
@@ -507,7 +555,6 @@ class RaceModel(gym.Env):
 
         self._t += 1
         self._terminal = True if self._t >= self.horizon or lap >= len(self._laps) else False
-        # self.state = self.get_state()
 
         # stop = time.time()
         # contribute['predict'] = stop - start
