@@ -64,7 +64,7 @@ class RacePFAction(PFAction):
         """Generate the successor particle for a given particle"""
         # Do not give any reward if a particle is being generated from a terminal state particle
         if particle.terminal:
-            return Particle(particle.state, None, 0, True, parent_particle=particle), budget
+            return Particle(particle.state, None, np.zeros(env.agents_number), True, parent_particle=particle), budget
         # Apply the selected action to the state encapsulated by the particle and store the new state and reward
         env.set_signature(particle.state)
         owner = env.get_next_agent()

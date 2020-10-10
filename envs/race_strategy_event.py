@@ -12,7 +12,6 @@ import numpy as np
 from gym import spaces
 from gym.utils import seeding
 from gym import register
-import pandas as pd
 
 # Since the module race_simulation was forked it is not configured to work with the repository's folder structure
 ROOT_PATH = os.path.dirname(os.path.dirname(__file__))
@@ -24,8 +23,14 @@ from race_simulation.racesim.src.check_pars import check_pars
 
 MCS_PARS_FILE = 'pars_mcs.ini'
 
-pd.set_option('display.max_columns', None)
-pd.set_option('display.max_rows', 200)
+SIM_OPTS = {"use_prob_infl": True,
+            "create_rand_events": False,
+            "use_vse": False,
+            "no_sim_runs": 1,
+            "no_workers": 1,
+            "use_print": False,
+            "use_print_result": False,
+            "use_plot": False}
 
 
 def generate_race_event(**game_params):
@@ -218,7 +223,7 @@ class RaceEnv(gym.Env):
         self._lap = self._race_sim.get_cur_lap()
 
         if self._t >= self.horizon or self._lap >= self.race_length:
-            return self.get_state(), [0] * self.agents_number, True, {}
+            return self.get_state(), np.zeros(self.agents_number), True, {}
 
         pit_info = []
         for action, idx in zip(actions, range(len(actions))):
@@ -277,24 +282,14 @@ class RaceEnv(gym.Env):
         print(race_pars_file)
         self._races_config_files.append(race_pars_file)
 
-        sim_opts = {"use_prob_infl": True,
-                    "create_rand_events": False,
-                    "use_vse": False,
-                    "no_sim_runs": 1,
-                    "no_workers": 1,
-                    "use_print": False,
-                    "use_print_result": False,
-                    "use_plot": False}
-
-
         # load parameters
-        pars_in, vse_paths = import_pars(use_print=sim_opts["use_print"],
-                                                                 use_vse=sim_opts["use_vse"],
-                                                                 race_pars_file=race_pars_file,
-                                                                 mcs_pars_file=MCS_PARS_FILE)
+        pars_in, vse_paths = import_pars(use_print=SIM_OPTS["use_print"],
+                                         use_vse=SIM_OPTS["use_vse"],
+                                         race_pars_file=race_pars_file,
+                                         mcs_pars_file=MCS_PARS_FILE)
 
         # check parameters
-        check_pars(sim_opts=sim_opts, pars_in=pars_in)
+        check_pars(sim_opts=SIM_OPTS, pars_in=pars_in)
 
         self._race_sim = Race(race_pars=pars_in["race_pars"],
                               driver_pars=pars_in["driver_pars"],
@@ -303,14 +298,13 @@ class RaceEnv(gym.Env):
                               track_pars=pars_in["track_pars"],
                               vse_pars=pars_in["vse_pars"],
                               vse_paths=vse_paths,
-                              use_prob_infl=sim_opts['use_prob_infl'],
-                              create_rand_events=sim_opts['create_rand_events'],
+                              use_prob_infl=SIM_OPTS['use_prob_infl'],
+                              create_rand_events=SIM_OPTS['create_rand_events'],
                               monte_carlo_pars=pars_in["monte_carlo_pars"],
                               event_pars=pars_in["event_pars"],
                               disable_retirements=True)
 
         self._compound_initials = pars_in["vse_pars"]["param_dry_compounds"]
-        print(self._compound_initials)
         state = self._race_sim.get_simulation_state()
 
         # Initialize the driver number / array indices mapping
@@ -326,6 +320,10 @@ class RaceEnv(gym.Env):
 
         self._race_sim.set_controlled_drivers(list(self._active_drivers))
         self.race_length = self._race_sim.get_race_length()
+
+        # Enable pit stops for the drivers
+        for driver in self._active_drivers:
+            self._agents_last_pit[driver] = 5
 
         return self.get_state()
 
