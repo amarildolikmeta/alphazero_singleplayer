@@ -33,3 +33,5 @@ notebooks/RiverSwim.zip
 data/
 
 envs/race_strategy_model/pickled_models/
+
+.vscode/
