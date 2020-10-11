@@ -16,15 +16,23 @@ class RaceWrapper(Wrapper):
     def __init__(self, root_index, mcts_maker, model_save_file, model_wrapper_params,
                  mcts_params, is_atari, n_mcts, budget, mcts_env, c_dpw,
                  temp, game_maker=None, env=None, mcts_only=True, scheduler_params=None,
-                 enable_logging=False, log_path="./logs/Racestrategy-full/"):
+                 enable_logging=False, log_path="./logs/Racestrategy-full/", log_timestamp=None, verbose=False):
 
         super(RaceWrapper, self).__init__(root_index, mcts_maker, model_save_file, model_wrapper_params,
                                           mcts_params, is_atari, n_mcts, budget, mcts_env, c_dpw,
                                           temp, game_maker, env, mcts_only, scheduler_params)
 
+
+        self.verbose = verbose
         # Create the log folder
-        today = datetime.now()
-        self.timestamp = today.strftime('%Y-%m-%d_%H-%M')
+        if not log_timestamp:
+            today = datetime.now()
+            self.timestamp = today.strftime('%Y-%m-%d_%H-%M')
+        else:
+            assert type(log_timestamp) == str, "Timestamp must be provided as string"
+            self.timestamp = log_timestamp
+
+        self.timestamp = self.timestamp + "_" + str(budget) + "b"
         self.log_path = log_path + self.timestamp
 
         if enable_logging:
@@ -66,6 +74,7 @@ class RaceWrapper(Wrapper):
             if len(self.get_env().get_available_actions(self.get_mcts().owner)) > 1:
                 self.search(self.n_mcts, self.c_dpw[self._current_agent], self.mcts_env, max_depth)
                 state, pi, V = self.return_results(self.temp)  # TODO put 0 if the network is enabled
+                #print(pi)
             else:
                 pi = np.zeros(self.get_mcts().na)
                 pi[0] = 1.
@@ -96,16 +105,20 @@ class RaceWrapper(Wrapper):
         if self.enable_logging:
             if a > 0:
                 self.pit_counts[agent] += 1
-        print("Lap {}: Agent {}, action {}".format(self.start + self.t, agent, a))
+        if self.verbose:
+            print("Lap {}: Agent {}, action {}".format(self.start + self.t, agent, a))
         s, r, done, _ = self.get_env().partial_step(a, agent)
 
         self._current_agent = self.get_env().get_next_agent()
         if self.get_env().has_transitioned():
             self.t += 1
         # print("Next agent:", self._current_agent)
-        print()
-        if done and self.enable_logging:
-            self.finalize_logs()
+        if self.verbose:
+            print()
+        if done:
+            self.get_env().save_results(self.timestamp)
+            if self.enable_logging:
+                self.finalize_logs()
         return s, r, done, {}
 
     def reset(self):
@@ -113,9 +126,6 @@ class RaceWrapper(Wrapper):
         self.experiment_counter += 1
         if self.enable_logging:
             self.write_log()
-
-        if self.experiment_counter > 1:
-            self.get_env().save_results(self.timestamp)
         s = self.get_env().reset()
 
         self.make_mcts()
