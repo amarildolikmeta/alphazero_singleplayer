@@ -59,7 +59,7 @@ class PolicyWithValue(object):
         self.sess = sess
         self.prob = tf.nn.softmax(self.pd.flatparam())
         #out = tf.reduce_mean(tf.log(tf.reduce_sum(self.prob * action_selected, axis=1)))
-        self.vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="pi/pi")
+        self.vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="pi")
         self.set_from_flat = tf_util.SetFromFlat(self.vars)
         try:
             self.action_ph = tf.placeholder(tf.int64, [None], name='targets_placeholder')
@@ -72,6 +72,7 @@ class PolicyWithValue(object):
                                             name='targets_placeholder')
             gradients = tf.gradients(-self.pd.neglogp(self.action_ph), self.vars)
         #gradients = tf.gradients(out, self.vars)
+        print(gradients, self.vars)
         if gradients[0] is not None:
             flat_grad = tf_util.GetFlat(gradients).op
             self.compute_gradients = tf_util.function(
