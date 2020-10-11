@@ -14,6 +14,8 @@ from gym.utils import seeding
 from gym import register
 
 # Since the module race_simulation was forked it is not configured to work with the repository's folder structure
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+
 ROOT_PATH = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(os.path.join(ROOT_PATH, 'race_simulation'))
 
@@ -32,6 +34,17 @@ SIM_OPTS = {"use_prob_infl": True,
             "use_print_result": False,
             "use_plot": False}
 
+COMPOUND_MAPPING = {"A1": 1,
+                    "A2": 2,
+                    "A3": 3,
+                    "A4": 4,
+                    "A5": 5,
+                    "A6": 6,
+                    "I": 7,
+                    "W": 8}
+
+FLAGS = ["G", "Y", "R", "FCY", "SC", "VSC"]
+COMPOUNDS = ["A1", "A2", "A3", "A4", "A5", "A6", "I", "W"]
 
 def generate_race_event(**game_params):
     if game_params is None:
@@ -59,17 +72,17 @@ def select_races(year: int, ini_path="./race_simulation/racesim/input/parameters
 
 class RaceEnv(gym.Env):
 
-    def __init__(self, gamma=0.95, horizon=20, scale_reward=False, positive_reward=True, start_lap=8,
+    def __init__(self, gamma=0.95, horizon=20, scale_reward=True, positive_reward=True, start_lap=8,
                  verbose=False, config_path='./envs/race_strategy_model/active_drivers.csv', n_cores=-1):
-
         self.verbose = verbose
         self._actions_queue = deque()
         self._agents_queue = deque()
         self._agents_last_pit = defaultdict(int)
         self.horizon = horizon
         self.gamma = gamma
-        self.obs_dim = 7
-        self.action_space = spaces.Discrete(n=4)
+        # TODO regulate dynamically the number of actions and drivers
+        self.obs_dim = 267
+        self.action_space = spaces.Discrete(n=3)
         self.observation_space = spaces.Box(low=0., high=self.horizon,
                                             shape=(self.obs_dim,), dtype=np.float32)
         self.scale_reward = scale_reward
@@ -128,7 +141,7 @@ class RaceEnv(gym.Env):
         self._drivers_number = 0
 
         # Take the base time, the predictions will be deltas from this time
-        self.max_lap_time = 600
+        self.max_lap_time = 300
         self._drivers = []
         self._race_length = 0
 
@@ -141,14 +154,48 @@ class RaceEnv(gym.Env):
         self._terminal = False
         self._compound_initials = []
 
+        self._flags_encoder = OneHotEncoder(sparse=False)
+        self._compound_encoder = OneHotEncoder(sparse=False)
+        self._flags_encoder.fit(np.array(FLAGS).reshape(-1, 1))
+        self._compound_encoder.fit(np.array(COMPOUNDS).reshape(-1, 1))
         self.seed()
 
         if self.scale_reward and verbose:
             print("Reward is being normalized")
 
     def get_state(self) -> dict:
+        rl_state = []
         state = self._race_sim.get_simulation_state()
-        return state
+
+        lap = state["lap"]
+        current_lap_times = state["lap_times"][lap].tolist()
+        drivers_count = len(current_lap_times)
+
+        cumulative_times = state["race_time"][lap].tolist()
+        still_racing = state['still_racing'][lap].tolist()
+        flags = self._flags_encoder.transform(np.array([state['flag_state'][lap]]).reshape(-1, 1)).squeeze()
+        overtake_ok = state['overtake_allowed'][lap].tolist()
+        tires = []
+        tire_age = []
+
+        # TODO convert to float all data types
+
+        for d in state['drivers']:
+            tires.append(d.car.tireset.compound)
+            tire_age.append(d.car.tireset.age_tot)
+
+        tires = self._compound_encoder.transform(np.array(tires).reshape(-1, 1))
+
+        # Build the state matrix with shape (features, drivers)
+        rl_state = [current_lap_times, cumulative_times, still_racing,
+                    overtake_ok, tire_age]
+        rl_state = np.asarray(rl_state, dtype=float).T
+        rl_state = np.hstack((rl_state, tires))
+
+        # Make a single row from the matrix
+        rl_state = rl_state.ravel()
+        rl_state = np.hstack(([lap], flags, rl_state))
+        return rl_state
 
     def __set_state(self, state):
         pass
@@ -184,13 +231,14 @@ class RaceEnv(gym.Env):
 
     def map_action_to_compound(self, action_index: int) -> str:
         assert len(self._compound_initials) > 0, "[ERROR] Env has not been reset yet"
+        assert action_index <= len(self._compound_initials), "The desired compound is not enabled in this race"
         if action_index == 0:
             return ""
         else:
             return self._compound_initials[action_index - 1]
 
     def partial_step(self, action, owner):
-        """Accept an action for an gent, but perform the model transition only when an action for each agent has
+        """Accept an action for an agent, but perform the model transition only when an action for each agent has
         been specified"""
 
         agent = self.get_next_agent()
@@ -208,7 +256,7 @@ class RaceEnv(gym.Env):
             while not len(self._actions_queue) == 0:
                 action, owner_index = self._actions_queue.popleft()
                 actions[owner_index] = action
-            return self.step(actions)
+            return self.__step(actions)
 
         else:
             return self.get_state(), np.zeros(self.agents_number), self._terminal, {}
@@ -216,7 +264,11 @@ class RaceEnv(gym.Env):
     def has_transitioned(self):
         return len(self._actions_queue) == 0
 
-    def step(self, actions: np.ndarray):
+    def step(self, action):
+        agent = self.get_next_agent()
+        return self.partial_step(action, agent)
+
+    def __step(self, actions: np.ndarray):
         assert self._race_sim is not None, "[ERROR] You tried to perform a step in the environment before resetting it"
         self.step_id += 1
 
@@ -279,8 +331,10 @@ class RaceEnv(gym.Env):
         self._t = -self.start_lap
         self._terminal = False
         race_pars_file = self._races_config_files.pop(0)
-        print(race_pars_file)
+        # print(race_pars_file)
         self._races_config_files.append(race_pars_file)
+
+        race_pars_file = "pars_Catalunya_2017.ini"
 
         # load parameters
         pars_in, vse_paths = import_pars(use_print=SIM_OPTS["use_print"],
@@ -322,8 +376,8 @@ class RaceEnv(gym.Env):
         self.race_length = self._race_sim.get_race_length()
 
         # Enable pit stops for the drivers
-        for driver in self._active_drivers:
-            self._agents_last_pit[driver] = 5
+        for i in range(len(self._active_drivers)):
+            self._agents_last_pit[i] = 6
 
         return self.get_state()
 

@@ -176,10 +176,7 @@ class RaceOL_MCTS(OL_MCTS):
                         print("R:", R)
                         print("agents_reward:", agents_reward)
                 else:
-                    if state.terminal:
-                        R = copy.deepcopy(state.reward)
-                    else:  # ???
-                        R[owner] = state.reward[owner]
+                    R = copy.deepcopy(state.reward)
                     terminal = False
                 action = state.parent_action
                 action.update(R[action.owner])
