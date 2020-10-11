@@ -29,3 +29,7 @@ notebooks/RiverSwim.zip
 /venv/
 
 *.model
+
+data/
+
+envs/race_strategy_model/pickled_models/
