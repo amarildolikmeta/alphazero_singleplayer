@@ -4,6 +4,8 @@
 One-player Alpha Zero
 @author: Thomas Moerland, Delft University of Technology
 """
+from datetime import datetime
+
 from joblib import Parallel, delayed
 import pandas as pd
 import numpy as np
@@ -14,6 +16,11 @@ from utils.parser_setup import setup_parser, parse_game_params, parse_alg_name
 plt.style.use('ggplot')
 from agent import agent
 
+def compute_time_string():
+    today = datetime.now()
+    timestamp = today.strftime('%Y-%m-%d_%H-%M')
+    return timestamp
+
 #### Command line call, parsing and plotting ##
 colors = ['r', 'b', 'g', 'orange', 'c', 'k', 'purple', 'y']
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
@@ -22,11 +29,9 @@ if __name__ == '__main__':
 
     # Obtain the command_line arguments
     args = setup_parser()
+    time_str = compute_time_string()
 
-    start_time = time.time()
-    time_str = str(start_time)
     out_dir = 'logs/' + args.game + '/' + time_str + '/'
-
 
     def pre_process():
         from gym.envs.registration import register
@@ -88,14 +93,22 @@ if __name__ == '__main__':
             n_mcts = np.inf
 
             out_dir_i = out_dir + str(i) + '/'
-            alg = parse_alg_name(args)
+
+            if args.game == 'RaceStrategy-v2':
+                alg = "multiagent/"
+            else:
+                alg = parse_alg_name(args)
 
             out_dir = "logs/" + args.game
+
             if args.game == 'RiverSwim-continuous':
                 out_dir += "/" + "fail_" + str(args.fail_prob)
             out_dir += "/" + alg + time_str + '/'
+
             if not os.path.exists(out_dir):
                 os.makedirs(out_dir)
+            print(out_dir)
+
             # Run the algorithm
             episode_returns, timepoints, a_best, \
             seed_best, R_best, offline_scores = agent(game=args.game,

@@ -38,7 +38,7 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
             ep_lengths.append(np.array(r[1]))
             action_counts.append(r[2])
             if out_dir is not None:
-                res.append(np.sum(r[0]))
+                res.append(np.sum(r[0], axis=0))
                 np.save(out_dir + '/results.npy', res)
         # p.join()
         p.close()
@@ -54,14 +54,14 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
             ep_lengths.append(np.array(r[1]))
             action_counts.append(r[2])
             if out_dir is not None:
-                res.append(np.sum(r[0]))
+                res.append(np.sum(r[0], axis=0))
                 np.save(out_dir + '/results.npy', res)
         # p.join()
         p.close()
 
-    total_rewards = [np.sum(rew) for rew in rewards_per_timestep]
-    avg = np.mean(total_rewards)
-    std = np.std(total_rewards)
+    total_rewards = [np.sum(rew, axis=0) for rew in rewards_per_timestep]
+    avg = np.mean(total_rewards, axis=0)
+    std = np.std(total_rewards, axis=0)
     if verbose or True:
         print("Average Return = {0} +- {1}".format(avg, std))
     wrapper.reset()
@@ -85,14 +85,14 @@ def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, inter
                                  render=render)
         rewards_per_timestep.append(np.array(rew))
         if out_dir is not None:
-            res.append(np.sum(rew))
+            res.append(np.sum(rew, axis=0))
             np.save(out_dir + '/results.npy', res)
         ep_lengths.append(t)
         action_counts.append(count)
 
-    total_rewards = [np.sum(rew) for rew in rewards_per_timestep]
-    avg = np.mean(total_rewards)
-    std = np.std(total_rewards)
+    total_rewards = [np.sum(rew, axis=0) for rew in rewards_per_timestep]
+    avg = np.mean(total_rewards, axis=0)
+    std = np.std(total_rewards, axis=0)
     if verbose or True:
         print("Average Return = {0} +- {1}".format(avg, std))
     wrapper.reset()

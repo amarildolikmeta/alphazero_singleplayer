@@ -226,6 +226,8 @@ class OL_MCTS(object):
         """ Process the output at the root node """
         counts = np.array([child_action.n for child_action in self.root.child_actions])
         Q = np.array([child_action.Q for child_action in self.root.child_actions])
+        # print(Q)
+        # print(counts)
         if on_visits:
             pi_target = stable_normalizer(counts, temp)
         else:
