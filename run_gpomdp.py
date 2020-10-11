@@ -35,7 +35,6 @@ def load_policy(model_path, input_dim, output_dim, num_hidden, num_layers, init_
     #                             state_dependent_variance=True, beta=beta, init_logstd=init_logstd)()
     ob_space = env.observation_space
     ac_space = env.action_space
-
     ob = observation_placeholder(ob_space)
     policy_train = build_policy_trpo(env, network, value_network='copy')(observ_placeholder=ob)
     U.initialize()
@@ -45,7 +44,7 @@ def load_policy(model_path, input_dim, output_dim, num_hidden, num_layers, init_
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--game', default='RaceStrategy-v0', help='Training environment')
+parser.add_argument('--game', default='RaceStrategy-v2', help='Training environment')
 parser.add_argument('--grid', type=str, default="grid.txt", help='TXT file specfying the game grid')
 parser.add_argument('--batch_size', type=int, default=20, help='Number of episodes in a gradient batch')
 parser.add_argument('--horizon', type=int, default=100, help='steps of the horizon')
@@ -88,6 +87,8 @@ try:
 except:
     action_dim = env.action_space.high.shape[0]
     discrete = False
+
+print(env.observation_space)
 pi = load_policy(model_path='', input_dim=state_dim, output_dim=action_dim, num_hidden=args.n_hidden_units,
                  num_layers=args.n_hidden_layers, discrete=discrete, beta=1.0)
 # s = env.reset()

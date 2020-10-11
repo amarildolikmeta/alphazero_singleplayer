@@ -10,25 +10,28 @@ import os
 from shutil import copyfile
 from gym import spaces
 
+
 def max_Q(x):
     bestA = np.random.choice(np.argwhere(x == np.max(x))[0])
     probs = np.array([0.] * len(x))
     probs[bestA] = 1.
     return probs
 
+
 def stable_normalizer(x, temp):
-    ''' Computes x[i]**temp/sum_i(x[i]**temp) '''
+    """ Computes x[i]**temp/sum_i(x[i]**temp) """
     if temp == 0:
         bestA = np.random.choice(np.argwhere(x == np.max(x))[0])
         probs = np.array([0.] * len(x))
         probs[bestA] = 1.
         return probs
     x = (x / np.max(x)) ** (.1 / temp)
-    return np.abs(x / np.sum(x))
+    probs = np.abs(x / np.sum(x))
+    return probs
 
 
 def argmax(x):
-    ''' assumes a 1D vector x '''
+    """ assumes a 1D vector x """
     x = x.flatten()
     try:
         if np.any(np.isnan(x)):
