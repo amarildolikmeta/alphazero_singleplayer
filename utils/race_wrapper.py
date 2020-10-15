@@ -16,24 +16,14 @@ class RaceWrapper(Wrapper):
     def __init__(self, root_index, mcts_maker, model_save_file, model_wrapper_params,
                  mcts_params, is_atari, n_mcts, budget, mcts_env, c_dpw,
                  temp, game_maker=None, env=None, mcts_only=True, scheduler_params=None,
-                 enable_logging=False, log_path="./logs/Racestrategy-full/", log_timestamp=None, verbose=False):
+                 enable_logging=False, log_path="./logs/", log_timestamp=None, verbose=False):
 
         super(RaceWrapper, self).__init__(root_index, mcts_maker, model_save_file, model_wrapper_params,
                                           mcts_params, is_atari, n_mcts, budget, mcts_env, c_dpw,
-                                          temp, game_maker, env, mcts_only, scheduler_params)
+                                          temp, game_maker, env, mcts_only, scheduler_params, log_path, log_timestamp)
 
         self.verbose = verbose
         # Create the log folder
-        if not log_timestamp:
-            today = datetime.now()
-            self.timestamp = today.strftime('%Y-%m-%d_%H-%M')
-        else:
-            assert type(log_timestamp) == str, "Timestamp must be provided as string"
-            self.timestamp = log_timestamp
-
-        self.timestamp = self.timestamp + "_" + str(budget) + "b"
-        self.log_path = log_path + self.timestamp
-
         if enable_logging:
             os.mkdir(self.log_path)
         self.log_path += "/race_log_{}b.csv".format(budget)

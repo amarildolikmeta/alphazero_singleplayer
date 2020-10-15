@@ -1,6 +1,7 @@
 import copy
 import random
 import signal
+from datetime import datetime
 
 import numpy as np
 
@@ -18,7 +19,8 @@ def signal_handler(signum, frame):
 class Wrapper(object):
     def __init__(self, root_index, mcts_maker, model_save_file, model_wrapper_params,
                  mcts_params, is_atari, n_mcts, budget, mcts_env, c_dpw,
-                 temp, game_maker=None, env=None, mcts_only=True, scheduler_params=None):
+                 temp, game_maker=None, env=None, mcts_only=True, scheduler_params=None,
+                 log_path="./logs/", log_timestamp=None):
 
         assert game_maker is not None or env is not None, "No environment or maker provided to the wrapper"
 
@@ -49,6 +51,16 @@ class Wrapper(object):
 
         if not self.is_atari:
             self.mcts_env = None
+
+        # Set the timestamp
+        if not log_timestamp:
+            today = datetime.now()
+            self.timestamp = today.strftime('%Y-%m-%d_%H-%M')
+        else:
+            assert type(log_timestamp) == str, "Timestamp must be provided as string"
+            self.timestamp = log_timestamp
+
+        self.timestamp = self.timestamp + "_" + str(budget) + "b"
 
     @staticmethod
     def schedule(x, k=1, width=1, mid=0):
@@ -150,6 +162,9 @@ class Wrapper(object):
             self.get_mcts().forward(a, s, r)
 
     def step(self, a):
+        s, r, done, _ = self.get_env().step(a)
+        if done and self.game_maker["game"] == 'RaceStrategy-v2':
+            self.get_env().save_results(self.timestamp)
         return self.get_env().step(a)
 
     def search(self, n_mcts, c_dpw, mcts_env, max_depth=200):
