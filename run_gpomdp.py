@@ -2,7 +2,6 @@ from rl.gpomdp import learn
 from rl.make_game import make_game
 import tensorflow.compat.v1 as tf
 tf.disable_v2_behavior()
-from rl.policies.policies_bc import build_policy
 from rl.common.policies import build_policy as build_policy_trpo
 import utils.tf_util as U
 from rl.common.models import mlp
@@ -45,7 +44,7 @@ def load_policy(model_path, input_dim, output_dim, num_hidden, num_layers, init_
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--game', default='RaceStrategy-v0', help='Training environment')
+parser.add_argument('--game', default='RaceStrategy', help='Training environment')
 parser.add_argument('--grid', type=str, default="grid.txt", help='TXT file specfying the game grid')
 parser.add_argument('--batch_size', type=int, default=20, help='Number of episodes in a gradient batch')
 parser.add_argument('--horizon', type=int, default=100, help='steps of the horizon')
@@ -65,7 +64,7 @@ game_params = {}
 
 # Disable GPU acceleration if not specifically requested
 if not args.gpu:
-    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 # Accept custom grid if the environment requires it
 if args.game == 'Taxi' or args.game == 'TaxiEasy':

@@ -104,7 +104,7 @@ class Estimator:
         weights = node.weights
         candidate_particle = np.random.choice(particles, p=weights / np.sum(weights))
         ending_state = candidate_particle.state
-        p_x = self.multi_step_model(starting_state, node.depth - 1, ending_state)
+        p_x = self.multi_step_model(starting_state, node.depth - 1, ending_state, candidate_particle)
         p_f_x = candidate_particle.weight / np.sum(weights)
         new_weight = self.get_sample_weight(p_x, p_f_x)
         new_weights = self.get_new_weights_balance_heuristic(p_x, p_f_x)
@@ -132,18 +132,29 @@ class Estimator:
             self.multi_steps_Ps.append(multi)
             prev_p = multi
 
-    def multi_step_model(self, starting_state, depth, ending_state):
-        return self.multi_steps_Ps[depth][starting_state, ending_state]
+    def multi_step_model(self, starting_state, depth, ending_state, particle):
+        p = 1.
+        while particle.parent_particle is not None:
+            prev_state = particle.parent_particle.state
+            state = particle.state
+            p *= self.env.P[prev_state, self.action_sequence[depth], state]
+            depth -= 1
+            particle = particle.parent_particle
+        assert depth == -1, "Something wrong"
+        # return self.multi_steps_Ps[depth][starting_state, ending_state]
+        return p
 
     def run_monte_carlo_estimation(self, n=1000, budget=1000):
         evaluations = []
         signature = self.starting_signature
         m = int(np.ceil(budget / self.full_cost))
+        stds = []
         for i in range(n):
             #print("MC estimation #" + str(i + 1))
             self.env.set_signature(signature)
             self.env.seed()
             sum_returns = 0
+            rets = []
             for j in range(m):
                 ret = 0
                 self.env.set_signature(signature)
@@ -151,8 +162,11 @@ class Estimator:
                     s, r, _, _ = self.env.step(a)
                     ret += r * self.gamma ** t
                 sum_returns += ret
+                rets.append(ret)
             evaluations.append(sum_returns / m)
-        return evaluations
+            stds.append(np.std(rets))
+
+        return evaluations, stds
 
     def backup(self, node, particle):
         #weight = particle.weight
@@ -192,6 +206,7 @@ class Estimator:
         depths = np.zeros(self.full_cost)
         counts = []
         ess = []
+        std = []
         for i in range(n):
             # print("Particle estimation #" + str(i + 1))
             root_particle = Particle(starting_state, signature=signature, reward=0, terminal=False, weight=1)
@@ -339,7 +354,7 @@ if __name__ == '__main__':
     bins = 50
 
     print("Doing " + str(n) + " MC estimations with " + str(budget) + " samples")
-    estimations_mc = estimator.run_monte_carlo_estimation(n, budget)
+    estimations_mc, stds = estimator.run_monte_carlo_estimation(n, budget)
     pyplot.hist(estimations_mc, bins, alpha=0.5, label='MC', density=True)
     #
     # print("Doing " + str(n) + " simple particle estimations with " + str(budget) + " samples")
@@ -347,25 +362,27 @@ if __name__ == '__main__':
     # pyplot.hist(estimations_p, bins, alpha=0.5, label='Particle One Step')
     #
     print("Doing " + str(n) + " Particle estimations with " + str(budget) + " samples")
-    estimations_particle, ess, depths, counts = estimator.run_particle_estimation(n, budget)
+    estimations_particle, ess, depths, counts = estimator.run_particle_estimation(n, budget, resample_prob=1.)
     pyplot.hist(estimations_particle, bins, alpha=0.5, label='PARTICLE', density=True)
     pyplot.xlabel("Return")
     pyplot.legend(loc='upper right')
     pyplot.savefig('Estimators.pdf')
     pyplot.show()
     #
-    # pyplot.hist(ess, bins, alpha=0.5, label='ess')
-    # pyplot.legend(loc='upper right')
-    # pyplot.show()
-    #
-    # pyplot.plot(np.arange(action_length), depths, alpha=0.5, label='depths')
-    # pyplot.legend(loc='upper right')
-    # pyplot.show()
-    #
-    # pyplot.hist(counts, bins, alpha=0.5, label='particle samples')
-    # pyplot.legend(loc='upper right')
-    # pyplot.show()
+    pyplot.hist(ess, bins, alpha=0.5, label='ess')
+    pyplot.legend(loc='upper right')
+    pyplot.show()
 
+    pyplot.plot(np.arange(action_length), depths, alpha=0.5, label='depths')
+    pyplot.legend(loc='upper right')
+    pyplot.show()
+
+    pyplot.hist(counts, bins, alpha=0.5, label='particle samples')
+    pyplot.legend(loc='upper right')
+    pyplot.show()
+
+    print("MC:" + str(np.mean(estimations_mc)) + " +/- " + str(np.std(estimations_mc)) + " with " + str(budget / action_length) + " samples")
+    print("Particle:" + str(np.mean(estimations_particle)) + " +/- " + str(np.std(estimations_particle)) + " with " + str(np.mean(counts)) + " samples")
 
     ## Check Error rates
     budgets = [10, 20, 30, 40, 50, 70, 80, 100, 200, 300, 400, 500]
@@ -374,16 +391,22 @@ if __name__ == '__main__':
     ys_mc = []
     ys_p = []
     ys_particle = []
+    ys_particle_2 = []
+    ys_particle_3 = []
+    ys_particle_4 = []
     true_mean_samples = 20000
     estimations_mc = estimator.run_monte_carlo_estimation(true_mean_samples, 10)
     mean = np.mean(estimations_mc)
     std_hat = np.std(estimations_mc, ddof=1)
-
-
-
     print("Mean=" + str(mean) + "+/- " + str(2 * std_hat / np.sqrt(true_mean_samples)))
     samples_p = []
     ess_p = []
+    samples_p_2 = []
+    ess_p_2 = []
+    samples_p_3 = []
+    ess_p_3 = []
+    samples_p_4 = []
+    ess_p_4 = []
     for b in budgets:
         estimations_mc = estimator.run_monte_carlo_estimation(n, b)
         error = ((np.array(estimations_mc) - mean) ** 2).mean()
@@ -391,24 +414,65 @@ if __name__ == '__main__':
         # estimations_p = estimator.basic_one_step_estimator(n, b)
         # error = ((np.array(estimations_p) - mean) ** 2).mean()
         # ys_p.append(error)
-        estimations_particle, ess, _, counts = estimator.run_particle_estimation(n, b)
+        estimations_particle, ess, _, counts = estimator.run_particle_estimation(n, b, resample_prob=0.2)
         error = ((np.array(estimations_particle) - mean) ** 2).mean()
         ys_particle.append(error)
         samples_p.append(np.mean(counts))
         ess_p.append(np.mean(ess))
+
+        estimations_particle, ess, _, counts = estimator.run_particle_estimation(n, b, resample_prob=0.5)
+        error = ((np.array(estimations_particle) - mean) ** 2).mean()
+        ys_particle_2.append(error)
+        samples_p_2.append(np.mean(counts))
+        ess_p_2.append(np.mean(ess))
+
+        estimations_particle, ess, _, counts = estimator.run_particle_estimation(n, b, resample_prob=0.05)
+        error = ((np.array(estimations_particle) - mean) ** 2).mean()
+        ys_particle_3.append(error)
+        samples_p_3.append(np.mean(counts))
+        ess_p_3.append(np.mean(ess))
+
+
+        estimations_particle, ess, _, counts = estimator.run_particle_estimation(n, b, resample_prob=1.)
+        error = ((np.array(estimations_particle) - mean) ** 2).mean()
+        ys_particle_4.append(error)
+        samples_p_4.append(np.mean(counts))
+        ess_p_4.append(np.mean(ess))
         print("Finished budget " + str(b))
+
     xs = np.array(budgets) / action_length
     pyplot.plot(xs, ys_mc, alpha=0.5, label='MC error', marker='x')
-    # pyplot.plot(xs, ys_p, alpha=0.5, label='particle error')
+
     pyplot.plot(samples_p, ys_particle, alpha=0.5, label='particle_error(N)', marker='o')
     pyplot.plot(ess_p, ys_particle, alpha=0.5, label='particle_error(ess)', marker='o')
-    pyplot.plot(ess_p, np.array(ys_particle) * (ys_mc[0] / ys_particle[0]), alpha=0.5,
-                label='particle_error_corrected(ess)', marker='o')
+    # pyplot.plot(xs, ys_p, alpha=0.5, label='particle error')
+    # if ys_mc[0] / ys_particle[0] < 0.95:
+    #     pyplot.plot(ess_p, np.array(ys_particle) * (ys_mc[0] / ys_particle[0]), alpha=0.5,
+    #                 label='particle_error_corrected(ess)', marker='o')
     pyplot.plot(xs,  std_hat**2 / np.array(xs), alpha=0.5, label='1/x')
     pyplot.legend(loc='upper right')
     pyplot.xlabel("Samples")
     pyplot.ylabel("Error")
     pyplot.savefig("Error.pdf")
+    pyplot.show()
+
+    # pyplot.plot(samples_p, ys_particle, alpha=0.5, label='particle_error(N)', marker='o')
+    pyplot.plot(ess_p, ys_particle, alpha=0.5, label='p=0.2(ess)', marker='o')
+
+    # pyplot.plot(samples_p_2, ys_particle_2, alpha=0.5, label='p=0.5(N)', marker='o')
+    pyplot.plot(ess_p_2, ys_particle_2, alpha=0.5, label='p=0.5(ess)', marker='o')
+
+    # pyplot.plot(samples_p_3, ys_particle_3, alpha=0.5, label='p=0.05(N)', marker='o')
+    pyplot.plot(ess_p_3, ys_particle_3, alpha=0.5, label='p=0.05(ess)', marker='o')
+
+    # pyplot.plot(samples_p_2, ys_particle_2, alpha=0.5, label='p=0.5(N)', marker='o')
+    pyplot.plot(ess_p_4, ys_particle_4, alpha=0.5, label='p=1(ess)', marker='o')
+
+    pyplot.plot(xs, std_hat ** 2 / np.array(xs), alpha=0.5, label='1/x')
+    pyplot.legend(loc='upper right')
+    pyplot.xlabel("Samples")
+    pyplot.ylabel("Particle Error")
+    pyplot.savefig("Error_p.pdf")
     pyplot.show()
 
     pyplot.plot(xs, samples_p, alpha=0.5, label='samples(budget)', marker='o')
@@ -419,7 +483,7 @@ if __name__ == '__main__':
     pyplot.show()
 
 
-    resample_probs = np.arange(0.05, 0.62, 0.05)
+    resample_probs = np.arange(0.05, 1.02, 0.05)
     budget = 200
     ys_particle = []
     samples_p = []
