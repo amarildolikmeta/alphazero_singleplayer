@@ -1,6 +1,9 @@
 import os
 import sys
+from datetime import datetime
+
 import tensorflow.compat.v1 as tf
+from tqdm import trange
 
 tf.disable_v2_behavior()
 tf.logging.set_verbosity(tf.logging.ERROR)
@@ -25,23 +28,21 @@ def train_trpo(game, num_timesteps, eval_episodes, seed, horizon, out_dir='.', l
                gamma=0.99, timesteps_per_batch=500, num_layers=0, num_hidden=32, checkpoint_freq=20, max_kl=0.01):
     start_time = time.time()
     clip = None
-    dir = 'game'
+    dir = game
     game_params = {}
 
     # Accept custom grid if the environment requires it
     if game == 'Taxi' or game == 'TaxiEasy':
         game_params['grid'] = args.grid
         game_params['box'] = True
-    if game in ['RaceStrategy-v0', 'Cliff-v0']:
+    if game in ['RaceStrategy-v0', 'Cliff-v0', 'RaceStrategy-v2']:
         game_params['horizon'] = horizon
-    if game == ['RaceStrategy-v2']:
-        game_params['']
 
     # env = Race(gamma=gamma, horizon=horizon, )
     # env_eval = Race(gamma=gamma, horizon=horizon)
     env = make_game(args.game, game_params)
     env_eval = make_game(args.game, game_params)
-    directory_output = (dir + '/trpo_' + str(num_layers) + '_'+ str(num_hidden) + '_'+  str(max_kl) + '/')
+    directory_output = (dir + '/trpo_' + str(num_layers) + '_' + str(num_hidden) + '_' + str(max_kl))
 
     def eval_policy_closure(**args):
         return eval_policy(env=env_eval, gamma=gamma, **args)
@@ -50,7 +51,12 @@ def train_trpo(game, num_timesteps, eval_episodes, seed, horizon, out_dir='.', l
     sess = U.single_threaded_session()
     sess.__enter__()
     rank = MPI.COMM_WORLD.Get_rank()
-    time_str = str(start_time)
+
+    today = datetime.now()
+    timestamp = today.strftime('%Y-%m-%d_%H-%M')
+    out_dir += timestamp
+
+    time_str = timestamp
     if rank == 0:
         logger.configure(dir=out_dir + '/' + directory_output + '/logs',
                          format_strs=['stdout', 'csv'], suffix=time_str)
@@ -60,34 +66,52 @@ def train_trpo(game, num_timesteps, eval_episodes, seed, horizon, out_dir='.', l
 
     network = mlp(num_hidden=num_hidden, num_layers=num_layers)
 
-
-    optimized_policy = trpo_mpi.learn(network=network, env=env, eval_policy=eval_policy_closure, timesteps_per_batch=timesteps_per_batch,
-                   max_kl=max_kl, cg_iters=10, cg_damping=1e-3,
-                   total_timesteps=num_timesteps, gamma=gamma, lam=1.0, vf_iters=3, vf_stepsize=1e-4,
-                   checkpoint_freq=checkpoint_freq,
-                   checkpoint_dir_out=out_dir + '/' + directory_output + '/models/' + time_str + '/',
-                   load_path=load_path, checkpoint_path_in=checkpoint_path_in,
-                   eval_episodes=eval_episodes,
-                   init_std=1,
-                   trainable_variance=True,
-                   trainable_bias=True,
-                   clip=clip)
+    optimized_policy = trpo_mpi.learn(network=network, env=env, eval_policy=eval_policy_closure,
+                                      timesteps_per_batch=timesteps_per_batch,
+                                      max_kl=max_kl, cg_iters=10, cg_damping=1e-3,
+                                      total_timesteps=num_timesteps, gamma=gamma, lam=1.0, vf_iters=3, vf_stepsize=1e-4,
+                                      checkpoint_freq=checkpoint_freq,
+                                      checkpoint_dir_out=out_dir + '/' + directory_output + '/models/' + time_str + '/',
+                                      load_path=load_path, checkpoint_path_in=checkpoint_path_in,
+                                      eval_episodes=eval_episodes,
+                                      init_std=1,
+                                      trainable_variance=True,
+                                      trainable_bias=True,
+                                      clip=clip)
 
     s = env.reset()
     done = False
 
-    states = []
-    actions = []
-    s = 0
-    delta_state = 0.2
-    while s < env.dim[0]:
-        a, _, _, _ = optimized_policy.step([s])
-        states.append(s)
-        actions.append(a[0])
-        s += delta_state
-    s = env.reset()
-    plt.plot(states, actions)
-    plt.show()
+    today = datetime.now()
+    timestamp = today.strftime('%Y-%m-%d_%H-%M')
+    timestamp += "_trpo_" + str(num_layers) + '_' + str(num_hidden) + '_' + str(max_kl)
+
+    for i in range(20):
+        s = env.reset()
+        print()
+        print("Episode:", i + 1)
+        while not done:
+            a, _, _, logits = optimized_policy.step([s])
+            print("Logits", logits)
+            print("Action", a)
+            s, _, done, _ = env.step(a)
+        tires = env.used_compounds[0]
+        print("Used tires:", tires)
+        env.save_results(timestamp)
+        done = False
+
+    # states = []
+    # actions = []
+    # s = 0
+    # delta_state = 0.2
+    # while s < env.dim[0]:
+    #     a, _, _, _ = optimized_policy.step([s])
+    #     states.append(s)
+    #     actions.append(a[0])
+    #     s += delta_state
+    # s = env.reset()
+    # plt.plot(states, actions)
+    # plt.show()
     print('TOTAL TIME:', time.time() - start_time)
     print("Time taken: %f seg" % ((time.time() - start_time)))
     print("Time taken: %f hours" % ((time.time() - start_time) / 3600))
@@ -97,9 +121,9 @@ def train_trpo(game, num_timesteps, eval_episodes, seed, horizon, out_dir='.', l
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--game', default='RaceStrategy-v0', help='Training environment')
-    parser.add_argument('--num_layers', type=int, default=1)
-    parser.add_argument('--num_hidden', type=int, default=8)
+    parser.add_argument('--game', default='RaceStrategy-v2', help='Training environment')
+    parser.add_argument('--num_layers', type=int, default=2)
+    parser.add_argument('--num_hidden', type=int, default=16)
     parser.add_argument('--timesteps_per_batch', type=int, default=2000)
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--max_kl', type=float, default=0.001)

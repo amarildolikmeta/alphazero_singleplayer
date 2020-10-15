@@ -11,7 +11,7 @@ def eval_policy(pi, env, num_episodes=50, gamma=0.99, horizon=50, stochastic=Fal
     num_stops = []
     avg_damages = []
     total_times = []
-
+    actions = []
     for i in range(num_episodes):
         state = env.reset()
         ret = 0
@@ -19,8 +19,12 @@ def eval_policy(pi, env, num_episodes=50, gamma=0.99, horizon=50, stochastic=Fal
         num_pits = 0
         avg_damage = 0
         t = 0
+        action_counts = [0] * env.n_actions
         while not done and t < horizon:
             a, _, _, _ = pi.step(state, stochastic=stochastic)
+            if len(a) == 1:
+                action = int(a[0])
+                action_counts[action] += 1
             state, reward, done, info = env.step(a)
             #num_pits += (1 if a == 0 else 0)
             #tire_damage = state[1]
@@ -33,8 +37,9 @@ def eval_policy(pi, env, num_episodes=50, gamma=0.99, horizon=50, stochastic=Fal
         rets.append(ret)
         num_stops.append(num_pits)
         avg_damages.append(avg_damage)
+        actions.append(action_counts)
         #total_times.append(env.time)
-    return rets, num_stops, avg_damages, total_times
+    return rets, actions, avg_damages, total_times
 
 
 def create_batch_trajectories(pi,
@@ -134,22 +139,24 @@ def learn(
         if it % eval_frequency == 0:
             pb.set_description("Ret %f # grad_norm %f # Evaluating..." % (mean_return, grad_norm))
             # print("Evaluating policy for %d episodes" % (eval_episodes))
-            rets, stops, damages, total_times = eval_policy(pi, env, num_episodes=eval_episodes, stochastic=False, horizon=horizon)
+            rets, action_counts, damages, total_times = eval_policy(pi, env, num_episodes=eval_episodes, stochastic=False, horizon=horizon)
             mean_return = np.mean(rets)
-            mean_pit_count = np.mean(stops)
+            mean_action_count = np.mean(action_counts, axis=0)
             mean_damage = np.mean(damages)
             mean_time = np.mean(total_times)
             policy_perf = mean_return
             # print("Policy performance %f" % (mean_return))
 
-            df = pd.DataFrame({'disc_return': [mean_return],
-                               'n_pits': mean_pit_count,
-                               'damage': mean_damage,
-                               'time': mean_pit_count,
-                               'n_ep': eval_episodes})
-            df.to_csv(logdir + "offline_scores.csv", mode='a', header=False, index=False)
+            # df = pd.DataFrame({'disc_return': [mean_return],
+            #                    'n_pits': mean_pit_count,
+            #                    'damage': mean_damage,
+            #                    'time': mean_pit_count,
+            #                    'n_ep': eval_episodes})
+            # df.to_csv(logdir + "offline_scores.csv", mode='a', header=False, index=False)
 
-            offline_scores.append([mean_return, mean_pit_count, mean_damage, mean_time])
+            data = [mean_return, mean_damage, mean_time]
+            data.extend(mean_action_count.tolist())
+            offline_scores.append(data)
             np.save(logdir + 'offline_scores.npy', offline_scores)
             pi.save(logdir + 'last')
             if mean_return > best_eval:

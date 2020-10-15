@@ -8,6 +8,7 @@ def eval_policy(env, pi, n_episodes, verbose=True, interactive=False, gamma=0.99
     num_stops = []
     avg_damages = []
     logs = []
+    actions = []
 
     for i in range(n_episodes):
 
@@ -16,12 +17,15 @@ def eval_policy(env, pi, n_episodes, verbose=True, interactive=False, gamma=0.99
         t = 0
         rew = 0
         disc_rew = 0
+        action_counts = [0] * 4
         num_pits = 0
         avg_damage = 0
         while True:
             a = pi(s)
+            if len(a) == 1:
+                action_counts[a[0]] += 1
             ns, r, done, inf = env.step(a[0])
-            #num_pits += (1 if a == 0 else 0)
+            num_pits += (1 if a > 0 else 0)
             #tire_damage = s[1]
             #avg_damage += tire_damage
             s = ns
@@ -43,6 +47,7 @@ def eval_policy(env, pi, n_episodes, verbose=True, interactive=False, gamma=0.99
         disc_rewards.append(disc_rew)
         num_stops.append(num_pits)
         avg_damages.append(avg_damage)
+        actions.append(action_counts)
         logs.append({"reward": rew})
 
     avg = np.mean(rewards)
@@ -52,4 +57,4 @@ def eval_policy(env, pi, n_episodes, verbose=True, interactive=False, gamma=0.99
 
     env.reset()
 
-    return avg, std, logs, disc_rewards, num_stops, avg_damages
+    return avg, std, logs, disc_rewards, actions, avg_damages

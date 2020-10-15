@@ -1,9 +1,14 @@
+from datetime import datetime
+
+from tqdm import trange
+
 from rl.gpomdp import learn
 from rl.make_game import make_game
 import tensorflow.compat.v1 as tf
+
 tf.disable_v2_behavior()
 from rl.policies.policies_bc import build_policy
-from rl.common.policies import build_policy as build_policy_trpo
+from rl.common.policies_gpomdp import build_policy as build_policy_trpo
 import utils.tf_util as U
 from rl.common.models import mlp
 from gym.spaces import Discrete, Box
@@ -13,6 +18,7 @@ import numpy as np
 import os
 from rl.common.input import observation_placeholder
 import matplotlib.pyplot as plt
+
 
 def load_policy(model_path, input_dim, output_dim, num_hidden, num_layers, init_logstd=1., discrete=False,
                 beta=1.0):
@@ -55,8 +61,8 @@ parser.add_argument('--eval_frequency', type=int, default=20, help='Frequency of
 parser.add_argument('--eval_episodes', type=int, default=20, help='Number of episodes of evaluation')
 parser.add_argument('--logdir', type=str, default='data/', help='Directory of logs')
 parser.add_argument('--gpu', action='store_true')
-parser.add_argument('--n_hidden_layers', type=int, default=2, help='Number of hidden layers in NN')
-parser.add_argument('--n_hidden_units', type=int, default=16, help='Number of units per hidden layers in NN')
+parser.add_argument('--n_hidden_layers', type=int, default=1, help='Number of hidden layers in NN')
+parser.add_argument('--n_hidden_units', type=int, default=8, help='Number of units per hidden layers in NN')
 parser.add_argument('--n_epochs', type=int, default=200, help='Number of epochs of training')
 
 args = parser.parse_args()
@@ -70,14 +76,17 @@ if not args.gpu:
 if args.game == 'Taxi' or args.game == 'TaxiEasy':
     game_params['grid'] = args.grid
     game_params['box'] = True
-if args.game == 'RaceStrategy-v0':
+if args.game in ['RaceStrategy-v0', 'RaceStrategy-v2']:
     game_params['horizon'] = args.horizon
 
 basedir = args.logdir
-ts = str(time.time())
-logdir = basedir + args.game + '/' + ts + '/'
+
+today = datetime.now()
+timestamp = today.strftime('%Y-%m-%d_%H-%M')
+
+logdir = basedir + args.game + '/' + timestamp + '_gpomdp/'
 if not os.path.exists(logdir):
-        os.makedirs(logdir)
+    os.makedirs(logdir)
 env = make_game(args.game, game_params)
 state_dim = env.observation_space.shape[0]
 
@@ -107,22 +116,39 @@ done = False
 states = []
 actions = []
 s = 0
-delta_state = 0.2
-while s < env.dim[0]:
-    a, _, _, _ = optimized_policy.step([s])
-    states.append(s)
-    actions.append(a[0])
-    s += delta_state
-s = env.reset()
-plt.plot(states, actions)
-plt.show()
+delta_state = 1
+# while s < env.dim[0]:
+#     a, _, _, _ = optimized_policy.step([s])
+#     states.append(s)
+#     actions.append(a[0])
+#     s += delta_state
+# s = env.reset()
+# plt.plot(states, actions)
+# plt.show()
 
-while not done:
-    print("State:", s)
-    a, _, _, _ = optimized_policy.step(s)
-    s, r, _, _ = env.step(a)
-    print("Action: ", a)
-    input()
+
+timestamp += "_gpomdp_" + str(args.n_hidden_units) + '_' + str(args.n_hidden_layers)
+
+for i in range(20):
+    s = env.reset()
+    print()
+    print("Episode:", i + 1)
+    while not done:
+        a, _, _, logits = optimized_policy.step([s])
+        print("Logits", logits)
+        print("Action", a)
+        s, _, done, _ = env.step(a)
+    tires = env.used_compounds[0]
+    print("Used tires:", tires)
+    env.save_results(timestamp)
+    done = False
+
+# while not done:
+#     print("State:", s)
+#     a, _, _, _ = optimized_policy.step(s)
+#     s, r, _, _ = env.step(a)
+#     print("Action: ", a)
+#     input()
 
 
 print("Finished")

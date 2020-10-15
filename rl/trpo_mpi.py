@@ -339,8 +339,9 @@ def learn(*,
                 ac, vpred, _, _ = pi.step(ob, stochastic=True)
                 return ac
 
-            rew, _, logs, disc_rets, num_stops, avg_damages = eval_policy(pi=pi_wrapper, n_episodes=eval_episodes, verbose=True)
-            offline_scores.append([np.mean(disc_rets), np.mean(num_stops), np.mean(avg_damages)])
+            rew, _, logs, disc_rets, action_counts, avg_damages = eval_policy(pi=pi_wrapper, n_episodes=eval_episodes, verbose=True)
+            offline_scores.append([np.mean(disc_rets), np.mean(avg_damages)])
+            offline_scores.extend(np.mean(action_counts, axis=0).tolist())
             np.save(os.path.join(checkpoint_dir_out, 'offline_scores.npy'), offline_scores)
             for log in logs:
                 log['iter'] = iters_eval
