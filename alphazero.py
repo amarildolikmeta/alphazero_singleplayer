@@ -11,7 +11,6 @@ import pandas as pd
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-import time
 from utils.parser_setup import setup_parser, parse_game_params, parse_alg_name
 plt.style.use('ggplot')
 from agent import agent

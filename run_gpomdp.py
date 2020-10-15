@@ -70,7 +70,7 @@ game_params = {}
 
 # Disable GPU acceleration if not specifically requested
 if not args.gpu:
-    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 # Accept custom grid if the environment requires it
 if args.game == 'Taxi' or args.game == 'TaxiEasy':

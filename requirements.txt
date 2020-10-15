@@ -19,3 +19,6 @@ mpi4py
 pandas
 statsmodels
 xgboost
+pytest==5.4.3
+# required in opt_strategy_basic
+cvxpy==1.0.31
