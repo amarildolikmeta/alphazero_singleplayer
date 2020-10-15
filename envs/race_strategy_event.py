@@ -27,7 +27,7 @@ MCS_PARS_FILE = 'pars_mcs.ini'
 
 SIM_OPTS = {"use_prob_infl": True,
             "create_rand_events": False,
-            "use_vse": True,
+            "use_vse": False,
             "no_sim_runs": 1,
             "no_workers": 1,
             "use_print": False,
@@ -321,6 +321,8 @@ class RaceEnv(gym.Env):
             action = action[0]
         elif type(action) == np.int64:
             action = int(action)
+        elif type(action) == int:
+            pass
         else:
             raise NotImplementedError
 
@@ -335,7 +337,7 @@ class RaceEnv(gym.Env):
             state, reward, terminal, sig = self.partial_step(0, agent)
             rew += reward
 
-        return state, rew, terminal, sig
+        return state, rew[0], terminal, sig
 
     def __step(self, actions: np.ndarray):
         assert self._race_sim is not None, "[ERROR] Tried to perform a step in the environment before resetting it"
