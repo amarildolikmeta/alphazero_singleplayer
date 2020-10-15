@@ -1,11 +1,10 @@
 {
   "agents": [
     {
-      "agent_class": "race_pf_uct",
+      "agent_class": "race_ol_uct",
       "parameters": {
         "variance":  false,
         "depth_based_bias": false,
-        "alpha": 0.8,
         "beta": 1
       },
       "c_dpw": 10
