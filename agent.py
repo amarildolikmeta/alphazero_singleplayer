@@ -3,10 +3,9 @@ from datetime import datetime
 from statistics import mean
 import numpy as np
 import time
-from helpers import is_atari_game, store_safely, Database
+from helpers import is_atari_game,  Database
 from race_components.helpers import load_race_agents_config
 from rl.make_game import make_game
-from models.model_tf2 import ModelWrapper
 from policies.eval_policy import eval_policy, parallelize_eval_policy
 import json
 from utils.env_wrapper import Wrapper
@@ -157,7 +156,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                     "n_hidden_units": n_hidden_units,
                     "joint_networks": True}
 
-    model_wrapper = ModelWrapper(**model_params)
+
 
     t_total = 0  # total steps
     R_best = -np.Inf
@@ -169,6 +168,11 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     stds = []
 
     # Run the episodes
+    if not mcts_only:
+        from models.model_tf2 import ModelWrapper
+        model_wrapper = ModelWrapper(**model_params)
+    else:
+        model_wrapper = None
     for ep in range(n_ep):
 
         if DEBUG_TAXI:
@@ -191,9 +195,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 pgame = None
 
             model_file = os.path.join(out_dir, "model.h5")
-
-            # model_wrapper.save(model_file)
-
+            if not mcts_only:
+                model_wrapper.save(model_file)
             if game == "RaceStrategy-v1" or game == "RaceStrategy-v2":
                 # Create the log folder
                 today = datetime.now()
