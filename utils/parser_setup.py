@@ -106,5 +106,6 @@ def setup_parser():
     # Race strategy model arguments
     parser.add_argument('--max_xgb_workers', type=int, default=1, help="Number of threads to be used by each XGB model,"
                                                                         "only used for RaceStrategy environment")
+    parser.add_argument('--multiagent', action='store_true', help='only for RaceStrategy-v2/v1')
 
     return parser.parse_args()
