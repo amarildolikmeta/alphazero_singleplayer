@@ -25,7 +25,8 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
 
 
 def train_trpo(game, num_timesteps, eval_episodes, seed, horizon, out_dir='.', load_path=None, checkpoint_path_in=None,
-               gamma=0.99, timesteps_per_batch=500, num_layers=0, num_hidden=32, checkpoint_freq=20, max_kl=0.01):
+               gamma=0.99, timesteps_per_batch=500, num_layers=0, num_hidden=32, checkpoint_freq=20, max_kl=0.01,
+               ent_coef=0.):
     start_time = time.time()
     clip = None
     dir = game
@@ -77,7 +78,8 @@ def train_trpo(game, num_timesteps, eval_episodes, seed, horizon, out_dir='.', l
                                       init_std=1,
                                       trainable_variance=True,
                                       trainable_bias=True,
-                                      clip=clip)
+                                      clip=clip,
+                                      ent_coef=ent_coef)
 
     s = env.reset()
     done = False
@@ -142,6 +144,7 @@ if __name__ == '__main__':
                         default='')
     parser.add_argument('--checkpoint_path_in', help='directory where to load model',
                         default='')
+    parser.add_argument('--ent_coef', type=float, default=0.)
 
     args = parser.parse_args()
 
@@ -166,4 +169,5 @@ if __name__ == '__main__':
                num_layers=args.num_layers,
                num_hidden=args.num_hidden,
                checkpoint_freq=args.checkpoint_freq,
-               max_kl=args.max_kl)
+               max_kl=args.max_kl,
+               ent_coef=args.ent_coef)
