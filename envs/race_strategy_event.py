@@ -27,7 +27,7 @@ MCS_PARS_FILE = 'pars_mcs.ini'
 
 SIM_OPTS = {"use_prob_infl": True,
             "create_rand_events": False,
-            "use_vse": False,
+            "use_vse": True,
             "no_sim_runs": 1,
             "no_workers": 1,
             "use_print": False,
@@ -45,6 +45,7 @@ COMPOUND_MAPPING = {"A1": 1,
 
 FLAGS = ["G", "Y", "R", "FCY", "SC", "VSC"]
 COMPOUNDS = ["A1", "A2", "A3", "A4", "A5", "A6", "I", "W"]
+
 
 def generate_race_event(**game_params):
     if game_params is None:
@@ -74,6 +75,7 @@ class RaceEnv(gym.Env):
 
     def __init__(self, gamma=0.95, horizon=20, scale_reward=True, positive_reward=True, start_lap=8,
                  verbose=False, config_path='./envs/race_strategy_model/active_drivers.csv', n_cores=-1):
+        # print("////////////////////////////////////////", horizon)
         self.verbose = verbose
         self._actions_queue = deque()
         self._agents_queue = deque()
@@ -81,8 +83,9 @@ class RaceEnv(gym.Env):
         self.horizon = horizon
         self.gamma = gamma
         # TODO regulate dynamically the number of actions and drivers
-        self.obs_dim = 267
-        self.action_space = spaces.Discrete(n=3)
+        self.obs_dim = 30
+        self.n_actions = 3
+        self.action_space = spaces.Discrete(n=self.n_actions)
         self.observation_space = spaces.Box(low=0., high=self.horizon,
                                             shape=(self.obs_dim,), dtype=np.float32)
         self.scale_reward = scale_reward
@@ -152,7 +155,10 @@ class RaceEnv(gym.Env):
         self._index_to_driver = {}
 
         self._terminal = False
+        self._pit_counts = [0] * self.agents_number
+        self.used_compounds = [set() for _ in range(self.agents_number)]
         self._compound_initials = []
+        self._available_compounds = []
 
         self._flags_encoder = OneHotEncoder(sparse=False)
         self._compound_encoder = OneHotEncoder(sparse=False)
@@ -163,58 +169,88 @@ class RaceEnv(gym.Env):
         if self.scale_reward and verbose:
             print("Reward is being normalized")
 
-    def get_state(self) -> dict:
+    def get_state(self, controlled_only=False):
+        if self.agents_number > 1:
+            return None
         rl_state = []
         state = self._race_sim.get_simulation_state()
+        assert self.race_length > 0, "Problem with race length"
 
         lap = state["lap"]
-        current_lap_times = state["lap_times"][lap].tolist()
+        current_lap_times = (state["lap_times"][lap] / self.max_lap_time).tolist()
         drivers_count = len(current_lap_times)
 
-        cumulative_times = state["race_time"][lap].tolist()
-        still_racing = state['still_racing'][lap].tolist()
+        cumulative_times = (state["race_time"][lap] / 7200).tolist()  # A F1 race lasts at most 2h = 7200s
+        # still_racing = state['still_racing'][lap].tolist()
         flags = self._flags_encoder.transform(np.array([state['flag_state'][lap]]).reshape(-1, 1)).squeeze()
         overtake_ok = state['overtake_allowed'][lap].tolist()
+        # drs = state['drs']
         tires = []
         tire_age = []
-
-        # TODO convert to float all data types
+        lap /= self.race_length
 
         for d in state['drivers']:
-            tires.append(d.car.tireset.compound)
-            tire_age.append(d.car.tireset.age_tot)
+            if d.carno in self._active_drivers:
+                sim_index = self._race_sim.drivers_mapping[d.carno]
+                env_index = self._active_drivers_mapping[d.carno]
+                available_tires = self._available_compounds[env_index]
+                available_compounds = np.zeros(len(COMPOUNDS)).T
+                for compound in available_tires:
+                    if available_tires[compound] > 0:
+                        available_compounds += self._compound_encoder.transform(np.array([compound]).reshape(-1, 1)).squeeze()
 
-        tires = self._compound_encoder.transform(np.array(tires).reshape(-1, 1))
+                overtake_available = overtake_ok[sim_index]
+                tires = d.car.tireset.compound
+                tires = self._compound_encoder.transform(np.array([tires]).reshape(-1, 1)).squeeze()
+                tire_age = d.car.tireset.age_tot / self.race_length
+                lap_time = current_lap_times[sim_index]
+                cumulative = cumulative_times[sim_index]
+                pit_count = self._pit_counts[env_index] / 5
+                changed_compound = len(self.used_compounds) > 1
+                break
+
 
         # Build the state matrix with shape (features, drivers)
-        rl_state = [current_lap_times, cumulative_times, still_racing,
-                    overtake_ok, tire_age]
+        rl_state = [lap, lap_time, cumulative, tire_age, pit_count, changed_compound,
+                    overtake_available]
         rl_state = np.asarray(rl_state, dtype=float).T
-        rl_state = np.hstack((rl_state, tires))
+        rl_state = np.hstack((rl_state, tires, available_compounds))
 
         # Make a single row from the matrix
         rl_state = rl_state.ravel()
         rl_state = np.hstack(([lap], flags, rl_state))
+        # print(rl_state.shape)
+
         return rl_state
 
     def __set_state(self, state):
         pass
 
-    def get_signature(self):
+    def get_signature(self) -> dict:
         sig = {'state': deepcopy(self.get_state()),
                'action_queue': deepcopy(self._actions_queue),
                'agents_queue': deepcopy(self._agents_queue),
                'last_pits': deepcopy(self._agents_last_pit),
-               'simulator': deepcopy(self._race_sim)
+               'simulator': deepcopy(self._race_sim),
+               't': deepcopy(self._t),
+               'terminal': deepcopy(self._terminal),
+               'available_compounds': deepcopy(self._available_compounds),
+               'pit_count': deepcopy(self._pit_counts),
+               'used_compounds': deepcopy(self.used_compounds)
                }
         return sig
 
-    def set_signature(self, sig):
+    def set_signature(self, sig: dict) -> None:
         self.__set_state(sig["state"])
-        self._race_sim = sig['simulator']
-        self._actions_queue = sig['action_queue']
-        self._agents_queue = sig['agents_queue']
-        self._agents_last_pit = sig['last_pits']
+        self._race_sim = deepcopy(sig['simulator'])
+        self._actions_queue = deepcopy(sig['action_queue'])
+        self._agents_queue = deepcopy(sig['agents_queue'])
+        self._agents_last_pit = deepcopy(sig['last_pits'])
+        self._t = deepcopy(sig['t'])
+        self._terminal = deepcopy(sig['terminal'])
+        self._available_compounds = deepcopy(sig['available_compounds'])
+        self._pit_counts = deepcopy(sig['pit_count'])
+        self.used_compounds = deepcopy(sig['used_compounds'])
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -225,8 +261,12 @@ class RaceEnv(gym.Env):
         for the same agents was at least 5 laps earlier"""
 
         actions = [0]
+        # Check if the agent can do a pit stop
         if self._agents_last_pit[agent] > 5:
-            actions.extend([i for i in range(1, len(self._compound_initials) + 1)])
+            # Check if the agent has left any of the tyres
+            for i in range(1, len(self._compound_initials) + 1):
+                if self._available_compounds[agent][self.map_action_to_compound(i)] > 0:
+                    actions.append(i)
         return actions
 
     def map_action_to_compound(self, action_index: int) -> str:
@@ -248,33 +288,62 @@ class RaceEnv(gym.Env):
         self._actions_queue.append((action, owner))
         if action == 0:  # No pit, increment the time from last pit
             self._agents_last_pit[owner] += 1
-        else:  # Pit, reset time
+        else:  # Pit, reset time and remove a compound unit
             self._agents_last_pit[owner] = 0
+            # print("################")
+            # print(self._pit_counts)
+            # print(self._available_compounds)
+            compound = self.map_action_to_compound(action)
+            assert self._available_compounds[owner][compound] > 0, \
+                "Trying to pit for a missing tyre unit"
+            self._available_compounds[owner][compound] -= 1
+            self.used_compounds[owner].add(compound)
+            self._pit_counts[owner] += 1
 
-        if len(self._actions_queue) == self.agents_number:
+        if len(self._actions_queue) == self.agents_number:  # We have an action for each agent, perform the transition
             actions = np.zeros(self.agents_number, dtype=int)
             while not len(self._actions_queue) == 0:
                 action, owner_index = self._actions_queue.popleft()
                 actions[owner_index] = action
             return self.__step(actions)
 
-        else:
+        else:  # No transition, we don't have actions for all the agents
+            print("AAA")
             return self.get_state(), np.zeros(self.agents_number), self._terminal, {}
 
     def has_transitioned(self):
         return len(self._actions_queue) == 0
 
     def step(self, action):
+        """Step wrapper for single-agent execution"""
+
+        if type(action) == np.ndarray and len(action) == 1:
+            action = action[0]
+        elif type(action) == np.int64:
+            action = int(action)
+        else:
+            raise NotImplementedError
+
+        assert self.agents_number == 1, "Cannot use this function with more than one agent, use partial_step instead"
         agent = self.get_next_agent()
-        return self.partial_step(action, agent)
+        if not(action in self.get_available_actions(agent)):
+            action = 0
+
+        state, rew, terminal, sig = self.partial_step(action, agent)
+
+        while len(self.get_available_actions(agent)) == 1 and not terminal:
+            state, reward, terminal, sig = self.partial_step(0, agent)
+            rew += reward
+
+        return state, rew, terminal, sig
 
     def __step(self, actions: np.ndarray):
-        assert self._race_sim is not None, "[ERROR] You tried to perform a step in the environment before resetting it"
-        self.step_id += 1
+        assert self._race_sim is not None, "[ERROR] Tried to perform a step in the environment before resetting it"
 
         self._lap = self._race_sim.get_cur_lap()
-
-        if self._t >= self.horizon or self._lap >= self.race_length:
+        self._terminal = True if self._t >= self.horizon or self._lap >= self._race_sim.get_race_length() else False
+        if self._terminal:
+            print("BBB", self._t, self.horizon, self._lap, self._race_sim.get_race_length())
             return self.get_state(), np.zeros(self.agents_number), True, {}
 
         pit_info = []
@@ -288,7 +357,11 @@ class RaceEnv(gym.Env):
         for lap_time, driver in zip(predicted_times, driver_info):
             index = self._drivers_mapping[driver.carno]
             lap_times[index] = lap_time
-            #self._cumulative_time[index] += lap_time
+            # self._cumulative_time[index] += lap_time
+
+        self._t += 1
+        self._lap = self._race_sim.get_cur_lap()
+        self._terminal = True if self._t >= self.horizon or self._lap >= self._race_sim.get_race_length() else False
 
         reward = np.ones(self.agents_number) * self.max_lap_time
         for driver in self._active_drivers:
@@ -296,14 +369,19 @@ class RaceEnv(gym.Env):
             index = self._drivers_mapping[driver]
             reward[active_index] = -np.clip(lap_times[index], 0, self.max_lap_time)
 
+        if self._terminal:  # Penalize if no pit stop has been done or if no two different compounds have been used
+            for i in range(self.agents_number):
+                reward[i] = -10000 if self._pit_counts == 0 or len(self.used_compounds) == 1 else reward[i]
+
         if self.scale_reward:
             reward /= self.max_lap_time
             if self.positive_reward:
                 reward = 1 + reward
 
-        self._t += 1
-        self._lap = self._race_sim.get_cur_lap()
-        self._terminal = True if self._t >= self.horizon or self._lap >= self.race_length else False
+        # print(self._lap, self._race_length, self._terminal)
+
+        # if self._terminal:
+        #     print("//////////////////////////////////", reward)
 
         return self.get_state(), reward, self._terminal, {}
 
@@ -328,7 +406,6 @@ class RaceEnv(gym.Env):
         # use_print:            set if prints to console should be used or not (does not suppress hints/warnings)
         # use_print_result:     set if result should be printed to console or not
         # use_plot:             set if plotting should be used or not
-        self._t = -self.start_lap
         self._terminal = False
         race_pars_file = self._races_config_files.pop(0)
         # print(race_pars_file)
@@ -358,6 +435,10 @@ class RaceEnv(gym.Env):
                               event_pars=pars_in["event_pars"],
                               disable_retirements=True)
 
+        # Remove the VSE because it contains Tensorflow objects which can't be serialized, its work is already done
+        # during the initialization of the Race object
+        self._race_sim.vse = None
+
         self._compound_initials = pars_in["vse_pars"]["param_dry_compounds"]
         state = self._race_sim.get_simulation_state()
 
@@ -371,13 +452,32 @@ class RaceEnv(gym.Env):
         # Use the default strategies before the actual start
         while self._race_sim.get_cur_lap() < self.start_lap:
             self._race_sim.step([])
-
-        self._race_sim.set_controlled_drivers(list(self._active_drivers))
+        self._t = 0
+        start_strategies = self._race_sim.set_controlled_drivers(list(self._active_drivers))
         self.race_length = self._race_sim.get_race_length()
 
-        # Enable pit stops for the drivers
-        for i in range(len(self._active_drivers)):
+        # Setup initial tyre allocation for different availabilities
+        if len(self._compound_initials) == 2:
+            default_availabilities = {self._compound_initials[0]: 3, self._compound_initials[1]: 2}
+        elif len(self._compound_initials) == 3:
+            default_availabilities = {self._compound_initials[0]: 2,
+                                      self._compound_initials[1]: 2,
+                                      self._compound_initials[2]: 1}
+        else:
+            raise ValueError("Unexpected compound availabilities number, {}", self._compound_initials)
+        self._available_compounds = [deepcopy(default_availabilities)] * len(self._active_drivers)
+
+        self.used_compounds = [set() for _ in range(self.agents_number)]
+        # Enable pit stops for the drivers and remove one unit the starting tire from the available compounds
+        for i in range(self.agents_number):
             self._agents_last_pit[i] = 6
+            driver = self._index_to_active[i]
+            start_compound = start_strategies[driver]
+            self.used_compounds[i].add(start_compound)
+            self._available_compounds[i][start_compound] -= 1
+
+        # Reset the pit counter
+        self._pit_counts = [0] * self.agents_number
 
         return self.get_state()
 

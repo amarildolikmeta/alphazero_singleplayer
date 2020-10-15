@@ -22,7 +22,6 @@ class RaceWrapper(Wrapper):
                                           mcts_params, is_atari, n_mcts, budget, mcts_env, c_dpw,
                                           temp, game_maker, env, mcts_only, scheduler_params)
 
-
         self.verbose = verbose
         # Create the log folder
         if not log_timestamp:
@@ -74,8 +73,15 @@ class RaceWrapper(Wrapper):
             if len(self.get_env().get_available_actions(self.get_mcts().owner)) > 1:
                 self.search(self.n_mcts, self.c_dpw[self._current_agent], self.mcts_env, max_depth)
                 state, pi, V = self.return_results(self.temp)  # TODO put 0 if the network is enabled
-                #print(pi)
-            else:
+                # This is just the policy over the compacted action list, need to remap to full action space
+                fixed_pi = np.zeros(self.get_mcts().na)
+                actions = self.get_env().get_available_actions(self.get_mcts().owner)
+                for i in range(len(pi)):
+                    action_index = actions[i]
+                    fixed_pi[action_index] = pi[i]  # Set the probability mass only for those actions that are available
+                pi = fixed_pi
+
+            else:  # Pit-stop cannot be performed, skip the search and default to stay on track action
                 pi = np.zeros(self.get_mcts().na)
                 pi[0] = 1.
             self.curr_probs.append(pi)

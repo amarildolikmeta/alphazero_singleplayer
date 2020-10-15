@@ -12,12 +12,17 @@ class RacePFState(PFState):
         assert owner is not None, "Owner parameter must be specified for RacePFState class constructor"
         self.owner = owner
         self.end_turn = env.has_transitioned()
+
+        mcts_env = copy.deepcopy(env)
         super().__init__(parent_action, na, env, particle, budget, root, max_depth, depth)
 
         if self.terminal or root:
             self.V = np.zeros(env.agents_number)
 
-        action_list = env.get_available_actions(owner)
+        action_list = mcts_env.get_available_actions(owner)
+        if parent_action and parent_action.index > 0 and len(action_list) > 1:
+            print("WTF")
+
         self.child_actions = [RacePFAction(a, parent_state=self, owner=owner) for a in action_list]
 
     def random_rollout(self, actions, env, budget, max_depth=200, terminal=False):
@@ -69,7 +74,10 @@ class RacePFAction(PFAction):
         env.set_signature(particle.state)
         owner = env.get_next_agent()
         env.seed(np.random.randint(1e7))
+        pre_terminal = copy.deepcopy(env._terminal)
         s, r, done, _ = env.partial_step(self.index, owner)
+        # if done:
+        #     print("#######################################", r, pre_terminal)
         if env.has_transitioned() or done:
             budget -= 1
         return Particle(env.get_signature(), None, r, done, parent_particle=particle), budget
@@ -117,8 +125,12 @@ class RacePFMCTS(PFMCTS):
 
     def search(self, n_mcts, c, env, mcts_env, budget, max_depth=200, fixed_depth=True):
         """ Perform the MCTS search from the root """
-        env = copy.deepcopy(env)
-        self.create_root(env, budget)
+
+        root_env = copy.deepcopy(env)
+        self.create_root(root_env, budget)
+
+        # default_actions = copy.deepcopy(env.get_available_actions(self.root.owner))
+
         if self.root.terminal:
             raise (ValueError("Can't do tree search from a terminal state"))
 
@@ -126,6 +138,7 @@ class RacePFMCTS(PFMCTS):
         if is_atari:
             raise NotImplementedError
         while budget > 0:
+            # assert len(self.root.child_actions) == len(default_actions)
             state = self.root  # reset to root for new trace
             if not is_atari:
                 mcts_env = copy.deepcopy(env)  # copy original Env to rollout from
@@ -170,6 +183,8 @@ class RacePFMCTS(PFMCTS):
                 if mcts_env.has_transitioned():
                     st += 1
 
+            # print("Backup trace")
+
             # Back-up
 
             R = np.zeros(env.agents_number)
@@ -177,12 +192,25 @@ class RacePFMCTS(PFMCTS):
             if not state.terminal:
                 R = copy.deepcopy(state.V)
 
+            # print("\nInitial R:", R)
+
             state.update()
             particle = source_particle
             agents_reward = copy.deepcopy(particle.reward)
+            # trace = []
+            # rewards = []
+            # print("### New Trace ###")
+            # print("Lap:", self.root.particles[0].state['simulator'].get_cur_lap())
             while state.parent_action is not None:  # loop back-up until root is reached
                 owner = state.parent_action.owner  # rewards are stored in the state following the action, which has different owner
                 r = particle.reward
+                # rewards.append(r)
+                # trace.append(state.parent_action.index)
+                # print("Terminal particle:", particle.terminal)
+                # print("Particle reward:", particle.reward)
+                # print("End turn:", state.end_turn)
+                # print("Owner:", owner)
+                # print("Parent action:", state.parent_action.index)
                 if state.end_turn:
                     agents_reward = copy.deepcopy(r)
                 if not particle.terminal:
@@ -194,3 +222,8 @@ class RacePFMCTS(PFMCTS):
                 state = action.parent_state
                 state.update()
                 particle = particle.parent_particle
+                #input()
+
+            # for action, reward in zip(reversed(trace), reversed(rewards)):
+            #     print("Action:", action)
+            #     print("Reward:", reward)
