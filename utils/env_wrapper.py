@@ -155,7 +155,7 @@ class Wrapper(object):
     def search(self, n_mcts, c_dpw, mcts_env, max_depth=200):
         self.get_mcts().search(n_mcts=n_mcts,
                                c=c_dpw,
-                               env=self.get_env(),
+                               Env=self.get_env(),
                                mcts_env=mcts_env,
                                max_depth=max_depth,
                                budget=min(self.budget, self.scheduler_budget))

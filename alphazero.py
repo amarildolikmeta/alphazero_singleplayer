@@ -147,7 +147,8 @@ if __name__ == '__main__':
                                                       out_dir=out_dir,
                                                       render=args.render,
                                                       second_version=args.second_version,
-                                                      third_version=args.third_version)
+                                                      third_version=args.third_version,
+                                                      multiagent=args.multiagent)
 
             total_rewards = offline_scores[0][0]
             undiscounted_returns = offline_scores[0][1]

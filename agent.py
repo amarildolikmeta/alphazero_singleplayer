@@ -26,7 +26,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
           pre_process=None, visualize=False, game_params={}, parallelize_evaluation=False, mcts_only=False,
           particles=0, show_plots=False, n_workers=1, use_sampler=False, budget=np.inf, unbiased=False, biased=False,
           max_workers=100, variance=False, depth_based_bias=False, scheduler_params=None, out_dir=None,
-          render=False, second_version=False, third_version=False):
+          render=False, second_version=False, third_version=False, multiagent=False):
     visualizer = None
 
     # if particles:
@@ -121,7 +121,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
     # Setup the parameters for generating the search environments
 
-    if game == "RaceStrategy-v1" or game == "RaceStrategy-v2":
+    if game == "RaceStrategy-v1" or game == "RaceStrategy-v2" and multiagent:
         mcts_maker, mcts_params, c_dpw = load_race_agents_config('envs/configs/race_strategy_full.json', gamma)
 
     else:
@@ -131,11 +131,13 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 mcts_params['particles'] = particles
                 mcts_params['sampler'] = sampler
             elif biased:
+                print("\nUsing PFMCTS\n")
                 mcts_params['alpha'] = alpha
                 mcts_maker = PFMCTS
 
             mcts_params['depth_based_bias'] = depth_based_bias
             if unbiased:
+                print("\nUsing OLMCTS\n")
                 mcts_params['variance'] = variance
                 mcts_maker = OL_MCTS
 
@@ -194,7 +196,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
             # model_wrapper.save(model_file)
 
-            if game == "RaceStrategy-v1" or game == "RaceStrategy-v2":
+            if game in ['RaceStrategy-v1', 'RaceStrategy-v2'] and multiagent:
                 # Create the log folder
                 today = datetime.now()
                 timestamp = today.strftime('%Y-%m-%d_%H-%M')
