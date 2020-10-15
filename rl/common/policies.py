@@ -60,6 +60,8 @@ class PolicyWithValue(object):
         self.prob = tf.nn.softmax(self.pd.flatparam())
         #out = tf.reduce_mean(tf.log(tf.reduce_sum(self.prob * action_selected, axis=1)))
         self.vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="pi/pi")
+        if len(self.vars) == 0:
+            self.vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="pi")
         self.set_from_flat = tf_util.SetFromFlat(self.vars)
         try:
             self.action_ph = tf.placeholder(tf.int64, [None], name='targets_placeholder')
