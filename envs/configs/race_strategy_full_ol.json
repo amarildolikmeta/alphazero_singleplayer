@@ -4,8 +4,7 @@
       "agent_class": "race_ol_uct",
       "parameters": {
         "variance":  false,
-        "depth_based_bias": false,
-        "beta": 1
+        "depth_based_bias": false
       },
       "c_dpw": 10
     }
