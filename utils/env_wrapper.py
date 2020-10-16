@@ -97,7 +97,7 @@ class Wrapper(object):
                     state, pi, V = self.return_results(self.temp)  # TODO put 0 if the network is enabled
                     # This is just the policy over the compacted action list, need to remap to full action space
                     fixed_pi = np.zeros(self.get_mcts().na)
-                    actions = self.get_env().get_available_actions(self.get_mcts().owner)
+                    actions = self.get_env().get_available_actions(owner)
                     for i in range(len(pi)):
                         action_index = actions[i]
                         fixed_pi[action_index] = pi[i]  # Set the probability mass only for those actions that are available
@@ -186,7 +186,7 @@ class Wrapper(object):
         s, r, done, _ = self.get_env().step(a)
         if done and self.game_maker["game"] == 'RaceStrategy-v2':
             self.get_env().save_results(self.timestamp)
-        return self.get_env().step(a)
+        return s, r, done, _
 
     def search(self, n_mcts, c_dpw, mcts_env, max_depth=200):
         self.get_mcts().search(n_mcts=n_mcts,

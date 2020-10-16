@@ -38,6 +38,8 @@ def train_trpo(game, num_timesteps, eval_episodes, seed, horizon, out_dir='.', l
         game_params['box'] = True
     if game in ['RaceStrategy-v0', 'Cliff-v0', 'RaceStrategy-v2']:
         game_params['horizon'] = horizon
+    if game == 'RaceStrategy-v2':
+        game_params['skip_steps'] = True
 
     # env = Race(gamma=gamma, horizon=horizon, )
     # env_eval = Race(gamma=gamma, horizon=horizon)
