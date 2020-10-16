@@ -6,12 +6,67 @@ from igraph import Graph
 import plotly.graph_objects as go
 import json
 
-
 def sample(env, action, budget):
-        env.seed(np.random.randint(1e7))
-        _, r, done, _ = env.step(action)
+    env.seed(np.random.randint(1e7))
+    _, r, done, _ = env.step(action)
+    budget -= 1
+    return r, done, budget
+
+
+def random_rollout(actions, env, budget, max_depth=200, terminal=False):
+    """Rollout from the current state following a random policy up to hitting a terminal state"""
+    if terminal or budget <= 0:
+        return 0, budget
+
+    done = False
+    env.seed(np.random.randint(1e7))
+    ret = 0
+    t = 0
+    while budget > 0 and t < max_depth and not done:
+        action = np.random.choice(actions)
+        s, r, done, _ = env.step(action)
+        ret += r
         budget -= 1
-        return r, done, budget
+        t += 1
+    return ret, budget
+
+# TODO remove, only for debugging raceStrategy
+
+MAX_P = [1]
+PROB_1 = [0.95, 0.05]
+PROB_2 = [0.95, 0.025, 0.025]
+PROB_3 = [0.91, 0.03, 0.03, 0.03]
+PROBS = {1: MAX_P, 2: PROB_1, 3: PROB_2, 4:PROB_3}
+
+
+def strategic_rollout(env, budget, max_depth=200, terminal=False, root_owner=None):
+    """Rollout from the current state following a default policy up to hitting a terminal state"""
+    done = False
+    ret = np.zeros(env.agents_number)
+    if terminal or budget <= 0:
+        return ret, budget
+    env.seed(np.random.randint(1e7))
+    t = 0
+
+    agent = root_owner
+
+    while budget > 0 and t / env.agents_number < max_depth and not done:
+        actions = env.get_available_actions(agent)
+        prob = PROBS[len(actions)]
+        action = np.random.choice(actions, p=prob)
+        s, r, done, _ = env.partial_step(action, agent)
+
+        ret += r
+        t += 1
+
+        # Get the agent ranking to specify the turn order
+        if env.has_transitioned():
+            budget -= 1
+
+        agent = env.get_next_agent()
+
+    return ret, budget
+
 
 
 class Action(object):
@@ -28,8 +83,8 @@ class Action(object):
         self.rewards = []
         self.child_state = None
 
-    def add_child_state(self, env, budget,  max_depth=200, depth=0):
-        reward, terminal, budget = sample(env, self.index,  budget)
+    def add_child_state(self, env, budget, max_depth=200, depth=0):
+        reward, terminal, budget = sample(env, self.index, budget)
         self.child_state = State(parent_action=self,
                                  na=self.parent_state.na,
                                  env=env,
@@ -63,7 +118,7 @@ class Action(object):
 class State(object):
     """ State object """
 
-    def __init__(self, parent_action, na, env, budget,  root=False, max_depth=200, reward=0, terminal=False, depth=0):
+    def __init__(self, parent_action, na, env, budget, root=False, max_depth=200, reward=0, terminal=False, depth=0):
 
         """ Initialize a new state """
         self.parent_action = parent_action
@@ -75,12 +130,19 @@ class State(object):
         self.reward = reward
         self.root = root
         self.n = 0
-        self.child_actions = [Action(a, parent_state=self) for a in range(na)]
+
+        # TODO remove, only for debugging raceStrategy
+        if hasattr(env, "get_available_actions") and hasattr(env, "get_next_agent"):
+            owner = env.get_next_agent()
+            action_list = env.get_available_actions(owner)
+            self.child_actions = [Action(a, parent_state=self) for a in action_list]
+        else:
+            self.child_actions = [Action(a, parent_state=self, ) for a in range(na)]
 
         if self.terminal or root or terminal:
             self.V = 0.
         elif env is None:
-            print("Warning, no environment was provided, initializing to 0 the value of the state!")
+            print("[WARNING] No environment was provided, initializing to 0 the value of the state!")
             self.V = 0
         else:
             self.V, self.remaining_budget = self.evaluate(env, budget, max_depth, terminal)
@@ -96,7 +158,7 @@ class State(object):
         }
         return json.dumps(inf)
 
-    def sample(self, env, action,  budget):
+    def sample(self, env, action, budget):
         r, done, budget = sample(env, action, budget)
         self.reward = r
         return done, budget
@@ -134,30 +196,23 @@ class State(object):
 
     def evaluate(self, env, budget, max_depth=200, terminal=False):
         actions = np.arange(self.na, dtype=int)
-        return_, budget = self.random_rollout(actions, env, budget, max_depth, terminal)
+        return_, budget = self.rollout(actions, env, budget, max_depth, terminal)
         return return_, budget
 
+    # TODO remove, only for debugging raceStrategy
     @staticmethod
-    def random_rollout(actions, env, budget, max_depth=200, terminal=False):
-        """Rollout from the current state following a random policy up to hitting a terminal state"""
-        if terminal or budget <= 0:
-            return 0, budget
-
-        done = False
-        env.seed(np.random.randint(1e7))
-        ret = 0
-        t = 0
-        while budget > 0 and t < max_depth and not done:
-            action = np.random.choice(actions)
-            s, r, done, _ = env.step(action)
-            ret += r
-            budget -= 1
-            t += 1
-        return ret, budget
+    def rollout(actions, env, budget, max_depth=200, terminal=False):
+        if hasattr(env, "get_available_actions") and hasattr(env, "get_next_agent"):
+            owner = env.get_next_agent()
+            ret, budget = strategic_rollout(env, budget, max_depth, terminal, owner)
+            return ret[0], budget
+        else:
+            return random_rollout(actions, env, budget, max_depth, terminal)
 
 
 class OL_MCTS(object):
     ''' MCTS object '''
+
     def __init__(self, root, root_index, na, gamma, model=None, variance=False, depth_based_bias=False):
         self.root = root
         self.root_index = root_index
@@ -204,7 +259,7 @@ class OL_MCTS(object):
                         break
                 else:
                     rollout_depth = max_depth if fixed_depth else max_depth - st
-                    state, budget = action.add_child_state(mcts_env,  budget, rollout_depth, depth=st)  # expand
+                    state, budget = action.add_child_state(mcts_env, budget, rollout_depth, depth=st)  # expand
                     break
 
             # Back-up

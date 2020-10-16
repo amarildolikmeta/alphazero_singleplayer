@@ -82,10 +82,16 @@ class PFState(State):
         self.n_particles = 1
         self.particles = [particle]
 
+        # TODO remove, only for debugging raceStrategy
+        if hasattr(env, "get_available_actions") and hasattr(env, "get_next_agent"):
+            owner = env.get_next_agent()
+            action_list = env.get_available_actions(owner)
+            self.child_actions = [PFAction(a, parent_state=self) for a in action_list]
+
         if self.terminal or root or particle.terminal:
             self.V = 0
         elif env is None:
-            print("Warning, no environment was provided, initializing to 0 the value of the state!")
+            print("[WARNING] No environment was provided, initializing to 0 the value of the state!")
             self.V = 0
         else:
             env.set_signature(particle.state)

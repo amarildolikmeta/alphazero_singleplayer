@@ -89,12 +89,33 @@ class Wrapper(object):
             # print("\nDepth: {}\nBudget: {}".format(current_depth, self.scheduler_budget))
 
         if self.mcts_only:
-            self.search(self.n_mcts, self.c_dpw, self.mcts_env, max_depth)
-            state, pi, V = self.return_results(self.temp)  # TODO put 0 if the network is enabled
-            self.curr_probs.append(pi)
-            a_w = argmax(pi)
-            # max_p = np.max(pi)
-            # a_w = np.random.choice(np.argwhere(pi == max_p)[0])
+            # TODO remove, only for raceStrategy debugging
+            if hasattr(self.get_env(), "get_available_actions") and hasattr(self.get_env(), "get_next_agent"):
+                owner = self.get_env().get_next_agent()
+                if len(self.get_env().get_available_actions(owner)) > 1:
+                    self.search(self.n_mcts, self.c_dpw, self.mcts_env, max_depth)
+                    state, pi, V = self.return_results(self.temp)  # TODO put 0 if the network is enabled
+                    # This is just the policy over the compacted action list, need to remap to full action space
+                    fixed_pi = np.zeros(self.get_mcts().na)
+                    actions = self.get_env().get_available_actions(self.get_mcts().owner)
+                    for i in range(len(pi)):
+                        action_index = actions[i]
+                        fixed_pi[action_index] = pi[i]  # Set the probability mass only for those actions that are available
+                    pi = fixed_pi
+                else:  # Pit-stop cannot be performed, skip the search and default to stay on track action
+                    pi = np.zeros(self.get_mcts().na)
+                    pi[0] = 1.
+                self.curr_probs.append(pi)
+                a_w = argmax(pi)
+                # max_p = np.max(pi)
+                # a_w = np.random.choice(np.argwhere(pi == max_p)[0])
+            else:
+                self.search(self.n_mcts, self.c_dpw, self.mcts_env, max_depth)
+                state, pi, V = self.return_results(self.temp)  # TODO put 0 if the network is enabled
+                self.curr_probs.append(pi)
+                a_w = argmax(pi)
+                # max_p = np.max(pi)
+                # a_w = np.random.choice(np.argwhere(pi == max_p)[0])
         else:
             pi_w = self.get_model().predict_pi(s).flatten()
             self.curr_probs.append(pi_w)

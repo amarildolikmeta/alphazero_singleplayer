@@ -89,7 +89,7 @@ class RaceState(State):
         if self.terminal or terminal or root:
             self.V = np.zeros(env.agents_number)
 
-    def random_rollout(self, actions, env, budget, max_depth=200, terminal=False):
+    def rollout(self, actions, env, budget, max_depth=200, terminal=False):
         return strategic_rollout(env, budget, max_depth=200, terminal=terminal, root_owner=self.owner)
 
     def sample(self, env, action, budget, parent_owner=None):

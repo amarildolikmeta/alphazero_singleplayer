@@ -26,7 +26,7 @@ class RaceWrapper(Wrapper):
         # Create the log folder
         if enable_logging:
             os.mkdir(self.log_path)
-        self.log_path += "/race_log_{}b.csv".format(budget)
+            self.log_path += "/race_log_{}b.csv".format(budget)
         self.experiment_counter = 0
 
         # Load the active drivers

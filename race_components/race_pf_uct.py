@@ -25,7 +25,7 @@ class RacePFState(PFState):
 
         self.child_actions = [RacePFAction(a, parent_state=self, owner=owner) for a in action_list]
 
-    def random_rollout(self, actions, env, budget, max_depth=200, terminal=False):
+    def rollout(self, actions, env, budget, max_depth=200, terminal=False):
         return strategic_rollout(env, budget, max_depth=200, terminal=terminal, root_owner=self.owner)
 
     def is_terminal(self, max_depth, env):

@@ -74,7 +74,7 @@ def select_races(year: int, ini_path="./race_simulation/racesim/input/parameters
 class RaceEnv(gym.Env):
 
     def __init__(self, gamma=0.95, horizon=20, scale_reward=True, positive_reward=True, start_lap=8,
-                 verbose=False, config_path='./envs/race_strategy_model/active_drivers.csv', n_cores=-1):
+                 verbose=False, config_path='./envs/race_strategy_model/active_drivers.csv', skip_steps=False, n_cores=-1):
         # print("////////////////////////////////////////", horizon)
         self.verbose = verbose
         self._actions_queue = deque()
@@ -91,8 +91,8 @@ class RaceEnv(gym.Env):
         self.scale_reward = scale_reward
         self.positive_reward = positive_reward
         self.viewer = None
-        self.step_id = 0
 
+        self._skip_steps = skip_steps
         # get repo path
         repo_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -328,14 +328,19 @@ class RaceEnv(gym.Env):
 
         assert self.agents_number == 1, "Cannot use this function with more than one agent, use partial_step instead"
         agent = self.get_next_agent()
-        if not(action in self.get_available_actions(agent)):
+
+        # Fix actions for RL agents with a fixed action space
+        if self._skip_steps and not(action in self.get_available_actions(agent)):
             action = 0
 
         state, rew, terminal, sig = self.partial_step(action, agent)
 
-        while len(self.get_available_actions(agent)) == 1 and not terminal:
-            state, reward, terminal, sig = self.partial_step(0, agent)
-            rew += reward
+        # No need to do step by step for an RL agent if there is only one action available, fast forward the env
+        # to the next decision step
+        if self._skip_steps:
+            while len(self.get_available_actions(agent)) == 1 and not terminal:
+                state, reward, terminal, sig = self.partial_step(0, agent)
+                rew += reward
 
         return state, rew[0], terminal, sig
 
