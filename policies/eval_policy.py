@@ -15,7 +15,6 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
     action_counts = []
 
     # Run the evaluation on multiple threads
-    start = time.time()
     n_workers = min(n_episodes, multiprocessing.cpu_count())
     n_workers = min(n_workers, max_workers)
 
@@ -27,6 +26,7 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
     remainder = n_episodes % n_workers if n_workers < n_episodes else 0
 
     for it in range(iterations):
+        start = time.time()
         p = multiprocessing.Pool(n_workers)
         results = p.starmap(evaluate, [(add_terminal, copy.deepcopy(wrapper), i, interactive, max_len, verbose) for i in
                                    range(n_workers)])
@@ -43,6 +43,7 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
         # p.join()
         p.close()
     if remainder > 0:
+        start = time.time()
         p = multiprocessing.Pool(remainder)
         results = p.starmap(evaluate, [(add_terminal, copy.deepcopy(wrapper), i, interactive, max_len, verbose) for i in
                                        range(remainder)])
