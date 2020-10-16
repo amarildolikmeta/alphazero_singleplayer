@@ -82,18 +82,19 @@ class PFState(State):
         self.n_particles = 1
         self.particles = [particle]
 
+        env.set_signature(particle.state)
+        # TODO remove, only for debugging raceStrategy
+        if hasattr(env, "get_available_actions") and hasattr(env, "get_next_agent"):
+            owner = env.get_next_agent()
+            action_list = env.get_available_actions(owner)
+            self.child_actions = [PFAction(a, parent_state=self) for a in action_list]
+
         if self.terminal or root or particle.terminal:
             self.V = 0
         elif env is None:
             print("[WARNING] No environment was provided, initializing to 0 the value of the state!")
             self.V = 0
         else:
-            env.set_signature(particle.state)
-            # TODO remove, only for debugging raceStrategy
-            if hasattr(env, "get_available_actions") and hasattr(env, "get_next_agent"):
-                owner = env.get_next_agent()
-                action_list = env.get_available_actions(owner)
-                self.child_actions = [PFAction(a, parent_state=self) for a in action_list]
             self.V, self.remaining_budget = self.evaluate(env, budget, max_depth, particle.terminal)
         self.last_particle = particle
 
