@@ -56,13 +56,12 @@ def train_trpo(game, num_timesteps, eval_episodes, seed, horizon, out_dir='.', l
     rank = MPI.COMM_WORLD.Get_rank()
 
     today = datetime.now()
-    timestamp = today.strftime('%Y-%m-%d_%H-%M')
-    out_dir += timestamp
+    timestamp = today.strftime('%Y-%m-%d_%H-%M_%S')
 
     time_str = timestamp
     if rank == 0:
-        logger.configure(dir=out_dir + '/' + directory_output + '/logs',
-                         format_strs=['stdout', 'csv'], suffix=time_str)
+        logger.configure(dir=out_dir + '/' + directory_output + '/logs/' + timestamp,
+                         format_strs=['stdout', 'csv'])
     else:
         logger.configure(format_strs=[])
         logger.set_level(logger.DISABLED)
@@ -85,10 +84,6 @@ def train_trpo(game, num_timesteps, eval_episodes, seed, horizon, out_dir='.', l
 
     s = env.reset()
     done = False
-
-    today = datetime.now()
-    timestamp = today.strftime('%Y-%m-%d_%H-%M')
-    timestamp += "_trpo_" + str(num_layers) + '_' + str(num_hidden) + '_' + str(max_kl)
 
     for i in range(20):
         s = env.reset()
