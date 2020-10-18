@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import copy
 from gym.utils import seeding
 
+
 class MDP(object):
     """
     A class representing a Markov decision process (MDP).
