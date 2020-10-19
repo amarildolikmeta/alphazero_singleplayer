@@ -2,6 +2,7 @@ import json
 
 from race_components.race_ol_uct import RaceOL_MCTS
 from race_components.race_pf_uct import RacePFMCTS
+from race_components.race_dpw import RaceMCTSStochastic
 
 
 def load_race_agents_config(path: str, gamma: float):
@@ -18,6 +19,8 @@ def load_race_agents_config(path: str, gamma: float):
             mcts_makers.append(RaceOL_MCTS)
         elif agent['agent_class'] == "race_pf_uct":
             mcts_makers.append(RacePFMCTS)
+        elif agent['agent_class'] == "race_dpw":
+            mcts_makers.append(RaceMCTSStochastic)
         else:
             raise ValueError("Agent {} does not exist for race strategy".format(agent["agent_class"]))
 

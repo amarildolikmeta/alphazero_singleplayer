@@ -49,42 +49,29 @@ class RaceStochasticAction(StochasticAction):
         return child_state, child_state.remaining_budget
 
 class RaceMCTSStochastic(MCTSStochastic):
-    def __init__(self, root, root_index, model, na, gamma, alpha=0.6, depth_based_bias=False, owner=None):
-        super(RaceMCTSStochastic, self).__init__(root, root_index, model, na, gamma,
-                                                 alpha=alpha, depth_based_bias=depth_based_bias)
+    def __init__(self, root, root_index, na, gamma, alpha=0.6, depth_based_bias=False, beta=1, owner=None):
+        super(RaceMCTSStochastic, self).__init__(root, root_index, na, gamma,
+                                                 alpha=alpha,
+                                                 depth_based_bias=depth_based_bias,
+                                                 beta=beta)
 
         assert owner is not None, "Owner must be specified for RaceMCTSStochastic constructor"
         self.owner = owner
 
-    def search(self, n_mcts, c, Env, mcts_env, budget, max_depth=200):
-        ''' Perform the MCTS search from the root '''
-        is_atari = is_atari_game(Env)
+    def search(self, n_mcts, c, env, mcts_env, budget, max_depth=200):
+        """ Perform the MCTS search from the root """
+        is_atari = is_atari_game(env)
         if is_atari:
-            snapshot = copy_atari_state(Env)  # for Atari: snapshot the root at the beginning
+            snapshot = copy_atari_state(env)  # for Atari: snapshot the root at the beginning
         else:
-            mcts_env = copy.deepcopy(Env)  # copy original Env to rollout from
+            mcts_env = copy.deepcopy(env)  # copy original Env to rollout from
         # else:
         #     restore_atari_state(mcts_env, snapshot)
-
-        # Check that the environment has been copied correctly
-        try:
-            sig1 = mcts_env.get_signature()
-            sig2 = Env.get_signature()
-            if sig1.keys() != sig2.keys():
-                raise AssertionError
-            if not all(np.array_equal(sig1[key], sig2[key]) for key in sig1):
-                raise AssertionError
-        except AssertionError:
-            print("Something wrong while copying the environment")
-            sig1 = mcts_env.get_signature()
-            sig2 = Env.get_signature()
-            print(sig1.keys(), sig2.keys())
-            exit()
 
         if self.root is None:
             # initialize new root
             self.root = RaceStochasticState(self.root_index, r=0.0, terminal=False, parent_action=None,
-                                            na=self.na, signature=Env.get_signature(),
+                                            na=self.na, signature=env.get_signature(),
                                             env=mcts_env, budget=budget, owner=self.owner)
         else:
             self.root.parent_action = None  # continue from current root
@@ -93,18 +80,21 @@ class RaceMCTSStochastic(MCTSStochastic):
 
         while budget > 0:
             state = self.root  # reset to root for new trace
+            assert state is not None
             if not is_atari:
-                mcts_env = copy.deepcopy(Env)  # copy original Env to rollout from
+                mcts_env = copy.deepcopy(env)  # copy original Env to rollout from
             else:
                 restore_atari_state(mcts_env, snapshot)
             mcts_env.seed()
             st = 0
             while not state.terminal:
+                current_agent = mcts_env.get_next_agent()
+
                 bias = c * self.gamma ** st / (1 - self.gamma) if self.depth_based_bias else c
                 action = state.select(c=bias)
                 k = np.ceil(self.beta * action.n ** self.alpha)
                 if k >= action.n_children:
-                    s1, r, t, _ = mcts_env.step(action.index)
+                    s1, r, t, _ = mcts_env.partial_step(action.index, current_agent)
                     # if action.index == 0 and not np.array_equal(s1.flatten(), action.parent_state.index.flatten()):
                     #     print("WTF")
                     if mcts_env.has_transitioned():

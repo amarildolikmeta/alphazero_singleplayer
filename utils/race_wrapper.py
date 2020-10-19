@@ -139,7 +139,6 @@ class RaceWrapper(Wrapper):
     def make_mcts(self):
         self.mcts = [self.mcts_maker[i](root_index=self.root_index,
                                         root=None,
-                                        model=self.get_model(),
                                         na=self.env.action_space.n,
                                         **self.mcts_params[i],
                                         owner=i) for i in range(self.agents_count)]

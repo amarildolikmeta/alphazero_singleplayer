@@ -165,7 +165,7 @@ class MCTS(object):
 
     def forward(self, a, s1, r):
         """ Move the root forward """
-        if not hasattr(self.root.child_actions[a], 'child_state'):
+        if not (self.root and hasattr(self.root.child_actions[a], 'child_state')):
             self.root = None
             self.root_index = s1
         elif np.linalg.norm(self.root.child_actions[a].child_state.index - s1) > 0.01:
