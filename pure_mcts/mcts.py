@@ -165,16 +165,20 @@ class MCTS(object):
 
     def forward(self, a, s1, r):
         """ Move the root forward """
-        if not (self.root and hasattr(self.root.child_actions[a], 'child_state')):
-            self.root = None
-            self.root_index = s1
-        elif np.linalg.norm(self.root.child_actions[a].child_state.index - s1) > 0.01:
-            print('Warning: this domain seems stochastic. Not re-using the subtree for next search. ' +
-                  'To deal with stochastic environments, implement progressive widening.')
-            self.root = None
+
+        if not self.root:
             self.root_index = s1
         else:
-            self.root = self.root.child_actions[a].child_state
+            if not hasattr(self.root.child_actions[a], 'child_state'):
+                self.root = None
+                self.root_index = s1
+            elif np.linalg.norm(self.root.child_actions[a].child_state.index - s1) > 0.01:
+                print('Warning: this domain seems stochastic. Not re-using the subtree for next search. ' +
+                      'To deal with stochastic environments, implement progressive widening.')
+                self.root = None
+                self.root_index = s1
+            else:
+                self.root = self.root.child_actions[a].child_state
 
     def visualize(self):
         g = Graph()
