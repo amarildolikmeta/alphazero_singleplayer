@@ -45,7 +45,9 @@ def train_trpo(game, num_timesteps, eval_episodes, seed, horizon, out_dir='.', l
     # env_eval = Race(gamma=gamma, horizon=horizon)
     env = make_game(args.game, game_params)
     env_eval = make_game(args.game, game_params)
-    directory_output = (dir + '/trpo_' + str(num_layers) + '_' + str(num_hidden) + '_' + str(max_kl))
+    epochs = int(num_timesteps/timesteps_per_batch)
+    directory_output = (dir + '/trpo_' + str(num_layers) + '_' + str(num_hidden) + '_' +
+                        str(max_kl) + '_' + str(epochs) + 'e')
 
     def eval_policy_closure(**args):
         return eval_policy(env=env_eval, gamma=gamma, **args)
@@ -82,6 +84,9 @@ def train_trpo(game, num_timesteps, eval_episodes, seed, horizon, out_dir='.', l
                                       clip=clip,
                                       ent_coef=ent_coef)
 
+    num_epochs = int(num_timesteps / timesteps_per_batch)
+    full_timestamp = timestamp + '_trpo_' + str(num_layers) + '_' +\
+                     str(num_hidden) + '_' + str(max_kl) + '_' + str(epochs)
     rews = []
     for i in range(20):
         done = False
@@ -98,8 +103,8 @@ def train_trpo(game, num_timesteps, eval_episodes, seed, horizon, out_dir='.', l
         rews.append(rew)
         tires = env.used_compounds[0]
         print("Used tires:", tires)
-        env.save_results(timestamp)
-    np.save(out_dir + '/' + directory_output + '/logs/' + timestamp + "/final_evaluation_scores.npy", rews)
+        env.save_results(full_timestamp)
+    np.save(out_dir + '/' + directory_output + '/logs/' + full_timestamp + "/final_evaluation_scores.npy", rews)
 
     # states = []
     # actions = []
