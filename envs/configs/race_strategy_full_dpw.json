@@ -1,0 +1,13 @@
+{
+  "agents": [
+    {
+      "agent_class": "race_dpw",
+      "parameters": {
+        "alpha":  0.4,
+        "beta": 0.6,
+        "depth_based_bias": false
+      },
+      "c_dpw": 10
+    }
+  ]
+}
