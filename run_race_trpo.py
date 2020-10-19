@@ -82,22 +82,24 @@ def train_trpo(game, num_timesteps, eval_episodes, seed, horizon, out_dir='.', l
                                       clip=clip,
                                       ent_coef=ent_coef)
 
-    s = env.reset()
-    done = False
-
+    rews = []
     for i in range(20):
+        done = False
         s = env.reset()
         print()
         print("Episode:", i + 1)
+        rew = 0
         while not done:
             a, _, _, logits = optimized_policy.step([s])
-            print("Logits", logits)
-            print("Action", a)
-            s, _, done, _ = env.step(a)
+            # print("Logits", logits)
+            # print("Action", a)
+            s, r, done, _ = env.step(a)
+            rew += r
+        rews.append(rew)
         tires = env.used_compounds[0]
         print("Used tires:", tires)
         env.save_results(timestamp)
-        done = False
+    np.save(out_dir + '/' + directory_output + '/logs/' + timestamp + "/final_evaluation_scores.npy", rews)
 
     # states = []
     # actions = []
