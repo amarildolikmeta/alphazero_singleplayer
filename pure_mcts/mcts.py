@@ -166,7 +166,7 @@ class MCTS(object):
     def forward(self, a, s1, r):
         """ Move the root forward """
 
-        if not self.root:
+        if self.root is None:
             self.root_index = s1
         else:
             if not hasattr(self.root.child_actions[a], 'child_state'):

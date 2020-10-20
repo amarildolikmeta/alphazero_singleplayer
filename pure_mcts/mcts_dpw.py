@@ -157,17 +157,18 @@ class MCTSStochastic(MCTS):
         return self.root.index, pi_target, V_target
 
     def forward(self, a, s1, r):
-        ''' Move the root forward '''
-        action = self.root.child_actions[a]
-        if not DESTROY and action.n_children > 0:
-            if action.get_state_ind(s1) == -1:
-                self.root = None
+        """ Move the root forward """
+        if self.root is not None:
+            action = self.root.child_actions[a]
+            if not DESTROY and action.n_children > 0:
+                if action.get_state_ind(s1) == -1:
+                    self.root = None
+                else:
+                    self.root = action.child_states[action.get_state_ind(s1)]
+                    self.root.parent_action = None
+                    self.root.r = r
             else:
-                self.root = action.child_states[action.get_state_ind(s1)]
-                self.root.parent_action = None
-                self.root.r = r
-        else:
-            self.root = None
+                self.root = None
         self.root_index = s1
 
     def inorderTraversal(self, root, g, vertex_index, parent_index, v_label, a_label):
