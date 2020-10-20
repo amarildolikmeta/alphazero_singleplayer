@@ -1,19 +1,21 @@
 import numpy as np
 from mdp import random_mdp
 from matplotlib import pyplot
+import time
 
 
 def check_sub_trajectory(nu, distribution, depth):
     for particle in distribution:
         t = depth
         p = nu[t]
+        sampled_p = particle
         while particle.state == p.state and particle.parent_particle is not None:  # and particle.reward == p.reward
             particle = particle.parent_particle
             t -= 1
             p = nu[t]
         if particle.parent_particle is None:
-            return True
-    return False
+            return True, sampled_p
+    return False, None
 
 
 def compute_ess(weights):
@@ -25,13 +27,14 @@ def compute_ess(weights):
 class Particle(object):
     """Class storing information about a particle"""
 
-    def __init__(self, state, signature, reward, terminal, weight, parent_particle=None):
+    def __init__(self, state, signature, reward, terminal, weight, prob, parent_particle=None):
         self.state = state
         self.signature = signature
         self.reward = reward
         self.terminal = terminal
         self.weight = weight
         self.parent_particle = parent_particle
+        self.prob = prob
 
     def __str__(self):
         return str(self.state)
@@ -94,25 +97,22 @@ class Estimator:
         for i in range(T):
             sample_depth = depths[i]
             nu = trajectories[i]
-            p_nu, d = self.multi_step_model(depth=sample_depth - 1, particle=particles[i])
-            assert d == -1., "Error in p_nu"
+            p_nu = particles[i].prob
             qs = []
             for j in range(T):
                 num_particles_j = distributions[j][1]
                 if depths[j] > sample_depth:
                     qs.append(0)
                 else:
-                    valid = check_sub_trajectory(nu=nu, distribution=distributions[j][0][:num_particles_j],
-                                                 depth=depths[j])
-                    if i == j:
-                        assert valid, "Error in checking validity of behavioral distribution"
+                    valid, valid_particle = check_sub_trajectory(nu=nu, distribution=distributions[j][0][:num_particles_j],
+                                                                 depth=depths[j])
+                    # if i == j:
+                    #     assert valid, "Error in checking validity of behavioral distribution"
                     if valid:
                         if depths[j] == sample_depth:
                             p_nu_j = 1
                         else:
-                            p_nu_j, d = self.multi_step_model(depth=sample_depth - 1, particle=particles[i],
-                                                              len=sample_depth-depths[j])
-                            assert d+1 == depths[j], "Error in p_nu_j"
+                            p_nu_j = particles[i].prob / valid_particle.prob
                         qs.append(p_nu_j / num_particles_j)
                     else:
                         qs.append(0)
@@ -149,8 +149,7 @@ class Estimator:
         particles = node.particles
         weights = node.weights
         candidate_particle = np.random.choice(particles, p=weights / np.sum(weights))
-        p_x, d = self.multi_step_model(node.depth - 1, candidate_particle)
-        assert d == -1
+        p_x = candidate_particle.prob
         p_f_x = candidate_particle.weight / np.sum(weights)
         if bh:
             p = candidate_particle
@@ -258,17 +257,21 @@ class Estimator:
         self.env.seed()
         depth = node.depth
         parent_particle = particle
+        prob = particle.prob
+        prev_state = particle.state
         for a in self.action_sequence[depth:]:
             s, r, done, _ = self.env.step(a)
-            particle = Particle(s, self.env.get_signature(), r, done, weight=1,
+            prob = prob * self.env.P[prev_state, a, s]
+            particle = Particle(s, self.env.get_signature(), r, done, weight=1, prob=prob,
                                 parent_particle=parent_particle)
             new_node = node.child_node
             new_node.add_particle(particle)
             node = new_node
             parent_particle = particle
+            prev_state = s
         return particle
 
-    def run_particle_estimation(self, n=1000, budget=1000, resample_prob=1., bh=False):
+    def run_particle_estimation(self, n=1000, budget=1000, bh=False):
         evaluations = []
         starting_state = self.starting_state
         signature = self.starting_signature
@@ -278,7 +281,7 @@ class Estimator:
         ess = []
         for i in range(n):
             self.root_particle = root_particle = Particle(starting_state, signature=signature, reward=0, terminal=False,
-                                                          weight=1)
+                                                          prob=1., weight=1)
             self.root = root = Node(depth=0)
             root.add_particle(root_particle)
             self.last_node = last_node = None
@@ -293,16 +296,20 @@ class Estimator:
                 node = root
                 if j == 0:
                     # first sample
-                    parent_particle = root_particle
+                    parent_particle = particle = root_particle
+                    prob = 1.
+                    prev_state = parent_particle.state
                     for depth, a in enumerate(action_sequence):
                         s, r, done, _ = self.env.step(a)
-                        particle = Particle(s, self.env.get_signature(),  r, done, weight=1,
+                        prob = prob * self.env.P[prev_state, a, s]
+                        particle = Particle(s, self.env.get_signature(),  r, done, weight=1, prob=prob,
                                             parent_particle=parent_particle)
                         new_node = Node(parent_node=node, depth=depth+1)
                         new_node.add_particle(particle)
                         node.add_child(new_node)
                         node = new_node
                         parent_particle = particle
+                        prev_state = s
                     remaining_budget -= self.full_cost
                     j = 1
                     last_node = node
@@ -356,50 +363,50 @@ class Estimator:
             ess.append(compute_ess(weights))
 
         return evaluations, ess, depths / n, counts
-
-    def basic_one_step_estimator(self, n=1000, budget=1000, m=20):
-        evaluations = []
-        starting_state = self.starting_state
-        signature = self.starting_signature
-
-        for i in range(n):
-            self.ess = 0
-            particles = []
-            weights = []
-            root_particle = Particle(starting_state, signature=signature, reward=0, terminal=False, weight=1)
-            for i in range(m):
-                self.env.set_signature(signature)
-                self.env.seed()
-                s, r, done, _ = self.env.step(self.action_sequence[0])
-                particle = Particle(s, self.env.get_signature(), r, done, weight=1,
-                                    parent_particle=root_particle)
-                particles.append(particle)
-                weights.append(1)
-            remaining_budget = budget
-            samples = []
-            sample_weights = []
-            while remaining_budget > self.full_cost - 2:
-                candidate_particle = np.random.choice(particles, p=weights / np.sum(weights))
-                ending_state = candidate_particle.state
-                p_x, _ = self.multi_step_model(starting_state, 0, ending_state)
-                p_f_x = candidate_particle.weight / np.sum(weights)
-                new_weight = p_x / p_f_x
-                self.env.set_signature(candidate_particle.signature)
-                self.env.seed()
-                self.weights.append(new_weight)
-                self.ess =compute_ess(self.weights)
-                ret = candidate_particle.reward
-                for d, a in enumerate(self.action_sequence[1:]):
-                    s, r, done, _ = self.env.step(a)
-                    ret += r * self.gamma ** (d+1)
-                samples.append(ret)
-                sample_weights.append(new_weight)
-                remaining_budget -= (self.full_cost - 1)
-            samples = np.array(samples)
-            sample_weights = np.array(sample_weights)
-            estimate = np.sum(sample_weights * samples) / (np.sum(sample_weights))
-            evaluations.append(estimate)
-        return evaluations
+    #
+    # def basic_one_step_estimator(self, n=1000, budget=1000, m=20):
+    #     evaluations = []
+    #     starting_state = self.starting_state
+    #     signature = self.starting_signature
+    #
+    #     for i in range(n):
+    #         self.ess = 0
+    #         particles = []
+    #         weights = []
+    #         root_particle = Particle(starting_state, signature=signature, reward=0, terminal=False, weight=1)
+    #         for i in range(m):
+    #             self.env.set_signature(signature)
+    #             self.env.seed()
+    #             s, r, done, _ = self.env.step(self.action_sequence[0])
+    #             particle = Particle(s, self.env.get_signature(), r, done, weight=1,
+    #                                 parent_particle=root_particle)
+    #             particles.append(particle)
+    #             weights.append(1)
+    #         remaining_budget = budget
+    #         samples = []
+    #         sample_weights = []
+    #         while remaining_budget > self.full_cost - 2:
+    #             candidate_particle = np.random.choice(particles, p=weights / np.sum(weights))
+    #             ending_state = candidate_particle.state
+    #             p_x, _ = self.multi_step_model(starting_state, 0, ending_state)
+    #             p_f_x = candidate_particle.weight / np.sum(weights)
+    #             new_weight = p_x / p_f_x
+    #             self.env.set_signature(candidate_particle.signature)
+    #             self.env.seed()
+    #             self.weights.append(new_weight)
+    #             self.ess =compute_ess(self.weights)
+    #             ret = candidate_particle.reward
+    #             for d, a in enumerate(self.action_sequence[1:]):
+    #                 s, r, done, _ = self.env.step(a)
+    #                 ret += r * self.gamma ** (d+1)
+    #             samples.append(ret)
+    #             sample_weights.append(new_weight)
+    #             remaining_budget -= (self.full_cost - 1)
+    #         samples = np.array(samples)
+    #         sample_weights = np.array(sample_weights)
+    #         estimate = np.sum(sample_weights * samples) / (np.sum(sample_weights))
+    #         evaluations.append(estimate)
+    #     return evaluations
 
 
 if __name__ == '__main__':
@@ -412,7 +419,7 @@ if __name__ == '__main__':
     mdp = random_mdp(n_states=num_states, n_actions=num_actions)
     estimator = Estimator(mdp, action_sequence, gamma=gamma)
     n = 400
-    budget = 5000
+    budget = 400
     bins = 50
 
     print("Doing " + str(n) + " MC estimations with " + str(budget) + " budget")
@@ -424,8 +431,11 @@ if __name__ == '__main__':
     pyplot.hist(estimations_particle, bins, alpha=0.5, label='PARTICLE SIMPLE', density=True)
 
     print("Doing " + str(n) + " Particle BH estimations with " + str(budget) + " budget")
+    start = time.time()
     estimations_particle_bh, ess_bh, depths_bh, counts_bh = estimator.run_particle_estimation(n, budget, bh=True)
     pyplot.hist(estimations_particle_bh, bins, alpha=0.3, label='PARTICLE BH', density=True)
+    end = time.time()
+    print("Time Elapsed:" + str(end - start))
 
     pyplot.xlabel("Return")
     pyplot.title("Return - " + str(n) + " samples with budget " + str(budget))
