@@ -63,7 +63,7 @@ class Wrapper(object):
         self.timestamp = self.timestamp + "_" + str(budget) + "b"
 
     @staticmethod
-    def schedule(x, k=1, width=1, mid=0):
+    def schedule(x, k=1, width=1, min_depth=1):
         # if x == 0:
         #     return 0
         # elif x == width:

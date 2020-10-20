@@ -84,7 +84,7 @@ if __name__ == '__main__':
             assert args.slope >= 1.0, "Slope lesser than 1 causes weird schedule function shapes"
             scheduler_params = {"slope": args.slope,
                                 "min_budget": args.min_budget,
-                                "mid": args.mid}
+                                "min_depth": args.min_depth}
 
         # Run experiments
         for i in range(args.n_experiments):

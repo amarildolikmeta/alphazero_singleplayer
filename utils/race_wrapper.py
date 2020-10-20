@@ -39,6 +39,7 @@ class RaceWrapper(Wrapper):
         assert len(mcts_maker) == len(mcts_params) == self.agents_count, "Mismatch in number of agents and config data"
 
         self.start = self.get_env().start_lap
+        self._race_length = self.get_env().get_race_length()
         self.t = 0
         self.logs = []
         self.log_dataframe = pd.DataFrame()
@@ -48,13 +49,34 @@ class RaceWrapper(Wrapper):
 
         self._current_agent = self.get_env().get_next_agent()
 
+    @staticmethod
+    def schedule(x, k=1, width=1, min_depth=1) -> float:
+        """The method computes a reduction factor for the budget tu use during search.
+        The intuition is that it requires less budget to build the full tree when next to the final states,
+        so the search would take lots of time.
+
+        """
+
+        if x <= min_depth:
+            return 1
+        elif x == width:
+            return 0
+
+        x -= min_depth
+
+        width = float(width)
+        norm_x = x / width
+        parenth = norm_x / (1 - norm_x)
+        denom = 1 + parenth ** k
+        return 1/denom
+
     def pi_wrapper(self, s, current_depth, max_depth):
         # Compute the reduced budget as function of the search root depth
         if self.scheduler_params:
-            l = self.schedule(current_depth,
+            l = self.schedule(current_depth + self.start,
                               k=self.scheduler_params["slope"],
-                              mid=self.scheduler_params["mid"],
-                              width=current_depth + max_depth)
+                              min_depth=self.scheduler_params["min_depth"],
+                              width=self._race_length)
             # self.scheduler_budget = max(int(self.budget * (1 - l)), self.scheduler_params["min_budget"])
             self.scheduler_budget = max(int(self.budget * l), self.scheduler_params["min_budget"])
             # print("\nDepth: {}\nBudget: {}".format(current_depth, self.scheduler_budget))
@@ -96,7 +118,7 @@ class RaceWrapper(Wrapper):
                                budget=min(self.budget, self.scheduler_budget))
         # self.get_mcts().visualize()
 
-    def step(self, a):
+    def step(self, a) -> tuple:
         agent = self._current_agent
         if self.enable_logging:
             if a > 0:
@@ -123,6 +145,8 @@ class RaceWrapper(Wrapper):
         if self.enable_logging:
             self.write_log()
         s = self.get_env().reset()
+        self.start = self.get_env().start_lap
+        self._race_length = self.get_env().get_race_length()
 
         self.make_mcts()
         self.starting_states.append(s)
