@@ -104,7 +104,7 @@ def train_trpo(game, num_timesteps, eval_episodes, seed, horizon, out_dir='.', l
         tires = env.used_compounds[0]
         print("Used tires:", tires)
         env.save_results(full_timestamp)
-    np.save(out_dir + '/' + directory_output + '/logs/' + full_timestamp + "/final_evaluation_scores.npy", rews)
+    np.save(out_dir + '/' + directory_output + '/logs/' + timestamp + "/final_evaluation_scores.npy", rews)
 
     # states = []
     # actions = []
