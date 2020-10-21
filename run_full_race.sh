@@ -1,1 +1,1 @@
-python3 alphazero.py --game=RaceStrategy-v2 --budget=100000 --gamma=1 --max_ep_len=70 --eval_freq=1 --temp=0 --c=1.2 --n_ep=1 --eval_episodes=10 --mcts_only --n_experiments=1 --max_workers=10 --alpha 0.85 --min_budget=100 --max_ep_len=100  --budget_scheduler --scale_reward --parallel
+python3 alphazero.py --game=RaceStrategy-v2 --budget=100000 --gamma=1 --max_ep_len=70 --temp=0 --n_ep=1 --eval_episodes=10 --n_experiments=1 --mcts_only --biased --particles=1 --max_workers=10 --scale_reward --budget_scheduler --min_budget=30000 --parallel --multiagent --min_depth=15 --slope=4.8
