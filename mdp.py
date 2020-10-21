@@ -159,6 +159,45 @@ def random_mdp(n_states, n_actions, gamma=0.99):
     return MDP(n_states, n_actions, P, R, P0, gamma)
 
 
+def random_biased_mdp(n_states, n_actions, gamma=0.99, alpha=0.8):
+    """
+    Creates a random MDP.
+
+    :param n_states: number of states
+    :param n_actions: number of actions
+    :param gamma: discount factor
+    :return: and MDP with S state, A actions, and randomly generated transitions and rewards
+    """
+
+    # Create a random transition matrix
+    P = np.random.rand(n_states, n_actions,  n_states)
+    # Make sure the probabilities are normalized
+    for s in range(n_states):
+        for a in range(n_actions):
+            P[s, a, :] = P[s, a, :] / np.sum(P[s, a, :])
+
+    P2 = np.zeros(n_states, n_actions, n_states)
+
+    for s in range(n_states):
+        for a in range(n_actions):
+            ps = np.ones(n_states)
+            ps[s] = 0 # don't stay in same state
+            ps = ps / ps.sum()
+            next_state = np.random.choice(n_states, p=ps)
+            P2[s, a, next_state] = 1
+    P = alpha * P + (1 - alpha) * P2
+    P /= np.sum(P, axis=-1)
+    # Create a random reward matrix
+    R = np.random.rand(n_states, n_actions)
+
+    # Create a random initial-state distribution
+    P0 = np.random.rand(n_states)
+    # Normalize
+    P0 /= np.sum(P0)
+
+    return MDP(n_states, n_actions, P, R, P0, gamma)
+
+
 class Node:
     def __init__(self, action_seq, mdp, init_state):
         self.n = 0

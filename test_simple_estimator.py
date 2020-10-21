@@ -77,7 +77,7 @@ class Estimator:
         self.gamma = gamma
         self.root = None
         self.full_cost = len(action_sequence)
-        self.starting_state = self.env.reset()
+        self.starting_state = self.env.state
         self.starting_signature = self.env.get_signature()
 
     def reset(self, bh=False):
@@ -371,7 +371,7 @@ class Estimator:
                     parent_particle = particle = root_particle
                     prob = 1.
                     prev_state = parent_particle.state
-                    for depth, a in enumerate(action_sequence):
+                    for depth, a in enumerate(self.action_sequence):
                         s, r, done, _ = self.env.step(a)
                         prob = prob * self.env.P[prev_state, a, s]
                         particle = Particle(s, self.env.get_signature(),  r, done, weight=1, prob=prob,
