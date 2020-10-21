@@ -534,7 +534,7 @@ if __name__ == '__main__':
 
     pyplot.xlabel("ESS")
     # pyplot.hist(ess, bins, alpha=0.5, label='simple estimator')
-    pyplot.hist(ess_bh, bins, alpha=0.3, label='bh estimator')
+    pyplot.hist(ess_bh, bins, alpha=0.5, label='bh estimator')
     pyplot.legend(loc='upper right')
     pyplot.show()
 
@@ -546,7 +546,7 @@ if __name__ == '__main__':
 
     pyplot.xlabel("Number of Samples")
     # pyplot.hist(counts, bins, alpha=0.5, label='simple estimator')
-    pyplot.hist(counts_bh, bins, alpha=0.2, label='bh estimator')
+    pyplot.hist(counts_bh, bins, alpha=0.5, label='bh estimator')
     pyplot.legend(loc='upper right')
     pyplot.show()
 
