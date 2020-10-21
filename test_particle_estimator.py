@@ -10,7 +10,7 @@ if __name__ == '__main__':
     num_actions = 3
     num_states = 10
     gamma = 1.
-    alpha = 0.1
+    alpha = 0.0
     delta_alpha = 0.1
     max_alpha = 1.05
     n = 200
