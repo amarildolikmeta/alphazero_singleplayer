@@ -23,13 +23,12 @@ if __name__ == '__main__':
     P2 = np.zeros((num_states, num_actions, num_states))
 
     for s in range(num_states):
+        ps = np.ones(num_states)
+        ps[s] = 0  # don't stay in same state
+        ps = ps / ps.sum()
         for a in range(num_actions):
-            ps = np.ones(num_states)
-            ps[s] = 0  # don't stay in same state
-            ps = ps / ps.sum()
             next_state = np.random.choice(num_states, p=ps)
             P2[s, a, next_state] = 1
-
     signature = mdp.get_signature()
     P = np.array(mdp.P)
     alphas = []
@@ -42,6 +41,7 @@ if __name__ == '__main__':
     ys_particle_bh = []
     samples_p_bh = []
     ess_p_bh = []
+
     while alpha < max_alpha:
         # reset mdp
         new_P = (1 - alpha) * P + alpha * P2
