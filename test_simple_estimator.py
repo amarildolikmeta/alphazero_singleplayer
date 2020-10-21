@@ -493,30 +493,38 @@ if __name__ == '__main__':
     mdp = random_mdp(n_states=num_states, n_actions=num_actions)
     estimator = Estimator(mdp, action_sequence, gamma=gamma)
     n = 400
-    budget = 400
+    budget = 800
     bins = 50
-
+    samples = n
     print("Doing " + str(n) + " MC estimations with " + str(budget) + " budget")
     start = time.time()
     estimations_mc = estimator.run_monte_carlo_estimation(n, budget)
     end = time.time()
     print("Time Elapsed:" + str(end - start))
-    pyplot.hist(estimations_mc, bins, alpha=0.8, label='MC', density=True)
+    mean = np.mean(estimations_mc)
+    std_hat = np.std(estimations_mc, ddof=1)
+    print("Mean=" + str(mean) + "+/- " + str(2 * std_hat / np.sqrt(n)))
+    pyplot.hist(estimations_mc, bins, alpha=0.5, label='MC', density=True, color='c')
 
-    print("Doing " + str(n) + " Particle Simple estimations with " + str(budget) + " budget")
-    start = time.time()
-    estimations_particle, ess, depths, counts = estimator.run_particle_estimation(n, budget, bh=False)
-    end = time.time()
-    print("Time Elapsed:" + str(end - start))
-    pyplot.hist(estimations_particle, bins, alpha=0.5, label='PARTICLE SIMPLE', density=True)
+    # print("Doing " + str(n) + " Particle Simple estimations with " + str(budget) + " budget")
+    # start = time.time()
+    # estimations_particle, ess, depths, counts = estimator.run_particle_estimation(n, budget, bh=False)
+    # end = time.time()
+    # print("Time Elapsed:" + str(end - start))
+    # mean = np.mean(estimations_particle)
+    # std_hat = np.std(estimations_particle, ddof=1)
+    # print("Mean=" + str(mean) + "+/- " + str(2 * std_hat / np.sqrt(n)))
+    # pyplot.hist(estimations_particle, bins, alpha=0.5, label='PARTICLE SIMPLE', density=True)
 
     print("Doing " + str(n) + " Particle BH estimations with " + str(budget) + " budget")
     start = time.time()
     estimations_particle_bh, ess_bh, depths_bh, counts_bh = estimator.run_particle_estimation(n, budget, bh=True)
     end = time.time()
     print("Time Elapsed:" + str(end - start))
-    pyplot.hist(estimations_particle_bh, bins, alpha=0.3, label='PARTICLE BH', density=True)
-
+    mean = np.mean(estimations_particle_bh)
+    std_hat = np.std(estimations_particle_bh, ddof=1)
+    print("Mean=" + str(mean) + "+/- " + str(2 * std_hat / np.sqrt(n)))
+    pyplot.hist(estimations_particle_bh, bins, alpha=0.5, label='PARTICLE BH', density=True, color='k')
 
     pyplot.xlabel("Return")
     pyplot.title("Return - " + str(n) + " samples with budget " + str(budget))
@@ -525,19 +533,19 @@ if __name__ == '__main__':
     pyplot.show()
 
     pyplot.xlabel("ESS")
-    pyplot.hist(ess, bins, alpha=0.5, label='simple estimator')
+    # pyplot.hist(ess, bins, alpha=0.5, label='simple estimator')
     pyplot.hist(ess_bh, bins, alpha=0.3, label='bh estimator')
     pyplot.legend(loc='upper right')
     pyplot.show()
 
     pyplot.xlabel("Resampling Depths")
-    pyplot.plot(np.arange(action_length) + 1, depths, alpha=0.5, label='simple estimator')
+    # pyplot.plot(np.arange(action_length) + 1, depths, alpha=0.5, label='simple estimator')
     pyplot.plot(np.arange(action_length) + 1, depths_bh, alpha=0.5, label='bh estimator')
     pyplot.legend(loc='upper right')
     pyplot.show()
 
     pyplot.xlabel("Number of Samples")
-    pyplot.hist(counts, bins, alpha=0.5, label='simple estimator')
+    # pyplot.hist(counts, bins, alpha=0.5, label='simple estimator')
     pyplot.hist(counts_bh, bins, alpha=0.2, label='bh estimator')
     pyplot.legend(loc='upper right')
     pyplot.show()
@@ -556,10 +564,6 @@ if __name__ == '__main__':
     samples_p_bh = []
     ess_p_bh = []
 
-    ys_particle_bh_fast = []
-    samples_p_bh_fast = []
-    ess_p_bh_fast = []
-
     true_mean_samples = 20000
     estimations_mc = estimator.run_monte_carlo_estimation(true_mean_samples, 10)
     mean = np.mean(estimations_mc)
@@ -577,17 +581,11 @@ if __name__ == '__main__':
         samples_p_simple.append(np.mean(counts))
         ess_p_simple.append(np.mean(ess))
 
-        estimations_particle, ess, _, counts = estimator.run_particle_estimation(n, b, bh=True, fast=False)
+        estimations_particle, ess, _, counts = estimator.run_particle_estimation(n, b, bh=True)
         error = ((np.array(estimations_particle) - mean) ** 2).mean()
         ys_particle_bh.append(error)
         samples_p_bh.append(np.mean(counts))
         ess_p_bh.append(np.mean(ess))
-
-        estimations_particle, ess, _, counts = estimator.run_particle_estimation(n, b, bh=True)
-        error = ((np.array(estimations_particle) - mean) ** 2).mean()
-        ys_particle_bh_fast.append(error)
-        samples_p_bh_fast.append(np.mean(counts))
-        ess_p_bh_fast.append(np.mean(ess))
         print("Finished budget " + str(b))
 
     xs = np.array(budgets) / action_length
@@ -595,7 +593,6 @@ if __name__ == '__main__':
 
     pyplot.plot(samples_p_simple, ys_particle_simple, alpha=0.5, label='particle_simple_error(N)', marker='o')
     pyplot.plot(samples_p_bh, ys_particle_bh, alpha=0.5, label='particle_bh_error(N)', marker='o')
-    pyplot.plot(samples_p_bh_fast, ys_particle_bh_fast, alpha=0.5, label='particle_bh_fast_error(N)', marker='o')
     # pyplot.plot(ess_p_simple, ys_particle_simple, alpha=0.5, label='particle_simple_error(ess)', marker='o')
     # pyplot.plot(xs, ys_particle_simple, alpha=0.5, label='particle_simple_error(Budget)', marker='o')
 
@@ -624,4 +621,5 @@ if __name__ == '__main__':
     # pyplot.xlabel("Samples")
     # pyplot.savefig("samples.pdf")
     # pyplot.show()
+
 
