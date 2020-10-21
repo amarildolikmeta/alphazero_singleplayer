@@ -47,6 +47,7 @@ if __name__ == '__main__':
         new_P = (1 - alpha) * P + alpha * P2
         new_P = new_P / new_P.sum(axis=-1)[:, :, np.newaxis]
         mdp.P = new_P
+        mdp.reset()
         mdp.set_signature(signature)
         estimator = Estimator(mdp, action_sequence, gamma=gamma)
 
@@ -78,11 +79,11 @@ if __name__ == '__main__':
         alpha += delta_alpha
 
     xs = np.array(alphas)
-    pyplot.plot(xs, ys_mc, alpha=0.8, label='MC error', marker='x')
+    pyplot.plot(xs, ys_mc, alpha=0.5, label='MC error', marker='x')
     pyplot.plot(xs, ys_particle_simple, alpha=0.5, label='particle_simple ', marker='o')
     pyplot.plot(xs, ys_particle_bh, alpha=0.5, label='particle_bh', marker='o')
     pyplot.legend(loc='upper right')
-    pyplot.xlabel("Samples")
+    pyplot.xlabel("alpha (larger -> more deterministic)")
     pyplot.ylabel("Error")
     pyplot.savefig("Error_alpha.pdf")
     pyplot.show()
