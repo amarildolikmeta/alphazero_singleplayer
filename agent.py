@@ -121,7 +121,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     # Setup the parameters for generating the search environments
 
     if game == "RaceStrategy-v1" or game == "RaceStrategy-v2" and multiagent:
-        config_file = 'envs/configs/race_strategy_full.json'
+        # TODO add parameter for config file or streamline the loading
+        config_file = 'envs/configs/race_strategy_full_ol.json'
         print("\nUsing race_components MCTS")
         print("Config file: {}\n".format(config_file))
         mcts_maker, mcts_params, c_dpw = load_race_agents_config(config_file, gamma)
