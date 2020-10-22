@@ -2,12 +2,22 @@ import numpy as np
 from mdp import random_mdp
 from matplotlib import pyplot
 import time
+import seaborn as sns
+
+# sns.set_style('darkgrid')
 
 
-def check_sub_trajectory(nu, distribution, depth):
+def check_sub_trajectory(nu, distribution, depth):# , other_depth=None
     for particle in distribution:
         t = depth
+        # try:
         p = nu[t]
+        # except:
+        #     # special case
+        #     t = other_depth
+        #     p = nu[other_depth]
+        #     if particle.prob != p.prob:
+        #         continue
         sampled_p = particle
         while particle.state == p.state and particle.parent_particle is not None:  # and particle.reward == p.reward
             particle = particle.parent_particle
@@ -110,12 +120,12 @@ class Estimator:
         for j in range(T):
             # compute q_j(\nu_T)
             num_particles_j = distributions[j][1]
-            if depths[j] > last_depth:
+            if depths[j] > last_depth: # and particles[j].prob != last_p_nu
                 qs_new.append(0)
             else:
                 valid, valid_particle = check_sub_trajectory(nu=last_nu,
                                                              distribution=distributions[j][0][:num_particles_j],
-                                                             depth=depths[j])
+                                                             depth=depths[j]) #, other_depth=last_depth
                 # if i == j:
                 #     assert valid, "Error in checking validity of behavioral distribution"
                 if valid:
@@ -130,12 +140,12 @@ class Estimator:
             # compute q_T(\nu_j)
             if j == T - 1:
                 break
-            if last_depth > depths[j]:
+            if last_depth > depths[j]: #and last_p_nu != particles[j].prob:
                 partial_q_sums[j] += 0
             else:
                 valid, valid_particle = check_sub_trajectory(nu=trajectories[j],
                                                              distribution=last_distribution[0][:last_num_particles],
-                                                             depth=last_depth)
+                                                             depth=last_depth)#, other_depth=depths[j]
                 # if i == j:
                 #     assert valid, "Error in checking validity of behavioral distribution"
                 if valid:
@@ -143,20 +153,17 @@ class Estimator:
                         p_nu_j = 1
                     else:
                         p_nu_j = last_particle.prob / valid_particle.prob
-                    partial_q_sums[j] + p_nu_j / last_num_particles
+                    partial_q_sums[j] += p_nu_j / last_num_particles
                 else:
                     partial_q_sums[j] += 0
 
         partial_q_sums.append(partial_q_sum_new)
         ps.append(last_p_nu)
         new_weights = np.array(ps) / np.array(partial_q_sums)
+        new_weights = np.array(new_weights) / np.sum(new_weights)
         return new_weights, ps, partial_q_sums
 
-    def compute_bh_weights(self, trajectories, particles, depths, distributions, T, fast=False):
-        assert len(trajectories) == len(particles) and len(particles) == len(depths) and \
-               len(depths) == len(distributions) and len(distributions) == T, "Error in computing bh weights"
-        if fast:
-            return self.compute_bh_weights_fast(trajectories, particles, depths, distributions, T)
+    def compute_bh_weights_slow(self, trajectories, particles, depths, distributions, T):
         weights = []
         partial_sums = []
         ps = []
@@ -171,7 +178,8 @@ class Estimator:
                 if depths[j] > sample_depth:
                     qs.append(0)
                 else:
-                    valid, valid_particle = check_sub_trajectory(nu=nu, distribution=distributions[j][0][:num_particles_j],
+                    valid, valid_particle = check_sub_trajectory(nu=nu,
+                                                                 distribution=distributions[j][0][:num_particles_j],
                                                                  depth=depths[j])
                     # if i == j:
                     #     assert valid, "Error in checking validity of behavioral distribution"
@@ -188,6 +196,16 @@ class Estimator:
             partial_sums.append(partial_sum)
         weights = np.array(weights) / np.sum(weights)
         return weights, ps, partial_sums
+
+    def compute_bh_weights(self, trajectories, particles, depths, distributions, T, fast=False):
+        assert len(trajectories) == len(particles) and len(particles) == len(depths) and \
+               len(depths) == len(distributions) and len(distributions) == T, "Error in computing bh weights"
+        if fast:
+            weights, ps, partial_sums = self.compute_bh_weights_fast(trajectories, particles, depths, distributions, T)
+            return weights, ps, partial_sums
+        else:
+            return self.compute_bh_weights_slow(trajectories, particles, depths, distributions, T)
+
 
     def get_weights_balance_heuristic(self, fast=False):
         trajectories = self.trajectories
@@ -276,7 +294,6 @@ class Estimator:
         signature = self.starting_signature
         m = int(np.ceil(budget / self.full_cost))
         for i in range(n):
-            self.env.set_signature(signature)
             self.env.seed()
             sum_returns = 0
             for j in range(m):
@@ -395,6 +412,7 @@ class Estimator:
                     starting_node = self.root
                     starting_particle = self.root_particle
                     sample_weight = 1
+
                     if bh:
                         full_resampling_weights = self.get_new_weights_balance_heuristic(trajectory=[self.root_particle],
                                                                                          depth=0,
@@ -488,14 +506,37 @@ if __name__ == '__main__':
     num_actions = 3
     num_states = 10
     gamma = 1.
-
+    alpha = 0.9
+    num_deterministic = 7
     action_sequence = np.random.choice(num_actions, size=action_length)
     mdp = random_mdp(n_states=num_states, n_actions=num_actions)
+
+    mdp.P0 = np.zeros(num_states)
+    mdp.P0[0] = 1.
+    deterministic_P = np.random.rand(num_states, num_actions, num_states)
+    deterministic_P = deterministic_P / deterministic_P.sum(axis=-1)[:, :, np.newaxis]
+
+    for s in range(num_deterministic):
+        next_state = s + 1
+        deterministic_P[s, action_sequence[s], :] = 0
+        deterministic_P[s, action_sequence[s], next_state] = 1
+
+    s = mdp.reset()
+
+    new_P = (1 - alpha) * mdp.P + alpha * deterministic_P
+    new_P = new_P / new_P.sum(axis=-1)[:, :, np.newaxis]
+    mdp.P = new_P
+    mdp.reset()
+
     estimator = Estimator(mdp, action_sequence, gamma=gamma)
     n = 400
-    budget = 800
+    budget = 100
     bins = 50
     samples = n
+
+    fig, ax = pyplot.subplots()
+
+    ax.set_xlim([0, 100])
     print("Doing " + str(n) + " MC estimations with " + str(budget) + " budget")
     start = time.time()
     estimations_mc = estimator.run_monte_carlo_estimation(n, budget)
@@ -503,9 +544,9 @@ if __name__ == '__main__':
     print("Time Elapsed:" + str(end - start))
     mean = np.mean(estimations_mc)
     std_hat = np.std(estimations_mc, ddof=1)
-    print("Mean=" + str(mean) + "+/- " + str(2 * std_hat / np.sqrt(n)))
-    pyplot.hist(estimations_mc, bins, alpha=0.5, label='MC', density=True, color='c')
-
+    print("Mean=" + str(mean) + " Std= " + str(std_hat))
+    #pyplot.hist(estimations_mc, bins,  label='MC', density=True, color='c')
+    sns.distplot(estimations_mc, ax=ax, kde=True, label='MC', color='c')
     # print("Doing " + str(n) + " Particle Simple estimations with " + str(budget) + " budget")
     # start = time.time()
     # estimations_particle, ess, depths, counts = estimator.run_particle_estimation(n, budget, bh=False)
@@ -513,8 +554,8 @@ if __name__ == '__main__':
     # print("Time Elapsed:" + str(end - start))
     # mean = np.mean(estimations_particle)
     # std_hat = np.std(estimations_particle, ddof=1)
-    # print("Mean=" + str(mean) + "+/- " + str(2 * std_hat / np.sqrt(n)))
-    # pyplot.hist(estimations_particle, bins, alpha=0.5, label='PARTICLE SIMPLE', density=True)
+    # print("Mean=" + str(mean) + " Std= " + str(std_hat))
+    # pyplot.hist(estimations_particle, bins, alpha=0.5, label='PARTICLE SIMPLE', density=True, color='purple')
 
     print("Doing " + str(n) + " Particle BH estimations with " + str(budget) + " budget")
     start = time.time()
@@ -523,9 +564,10 @@ if __name__ == '__main__':
     print("Time Elapsed:" + str(end - start))
     mean = np.mean(estimations_particle_bh)
     std_hat = np.std(estimations_particle_bh, ddof=1)
-    print("Mean=" + str(mean) + "+/- " + str(2 * std_hat / np.sqrt(n)))
-    pyplot.hist(estimations_particle_bh, bins, alpha=0.5, label='PARTICLE BH', density=True, color='k')
-
+    print("Mean=" + str(mean) + " Std= " + str(std_hat))
+    # pyplot.hist(estimations_particle_bh, bins, label='PARTICLE BH', density=True, color='purple')
+    sns.distplot(estimations_particle_bh, ax=ax, kde=True, label='PARTICLE BH', color='purple')
+    pyplot.xlim(mean - 8 * std_hat, mean + 8 * std_hat)
     pyplot.xlabel("Return")
     pyplot.title("Return - " + str(n) + " samples with budget " + str(budget))
     pyplot.legend(loc='upper right')
@@ -534,33 +576,35 @@ if __name__ == '__main__':
 
     pyplot.xlabel("ESS")
     # pyplot.hist(ess, bins, alpha=0.5, label='simple estimator')
-    pyplot.hist(ess_bh, bins, alpha=0.5, label='bh estimator')
+    pyplot.hist(ess_bh, bins,  label='bh estimator')
     pyplot.legend(loc='upper right')
     pyplot.show()
 
     pyplot.xlabel("Resampling Depths")
     # pyplot.plot(np.arange(action_length) + 1, depths, alpha=0.5, label='simple estimator')
-    pyplot.plot(np.arange(action_length) + 1, depths_bh, alpha=0.5, label='bh estimator')
+    pyplot.plot(np.arange(action_length) + 1, depths_bh, label='bh estimator')
     pyplot.legend(loc='upper right')
     pyplot.show()
 
     pyplot.xlabel("Number of Samples")
     # pyplot.hist(counts, bins, alpha=0.5, label='simple estimator')
-    pyplot.hist(counts_bh, bins, alpha=0.5, label='bh estimator')
+    pyplot.hist(counts_bh, bins, label='bh estimator')
     pyplot.legend(loc='upper right')
     pyplot.show()
 
     ## Check Error rates
-    budgets = [10, 20, 30, 40, 50, 70, 80, 100, 200, 300, 400, 500, 1000] #,
+    budgets = [10, 20, 30, 40, 50, 70, 80, 100, ] #200,, 300, 400, 500, 1000
     budgets = budgets[:]
     n = 300
     ys_mc = []
+    stds_mc = []
 
     ys_particle_simple = []
     samples_p_simple = []
     ess_p_simple = []
 
     ys_particle_bh = []
+    stds_bh = []
     samples_p_bh = []
     ess_p_bh = []
 
@@ -573,32 +617,42 @@ if __name__ == '__main__':
     for b in budgets:
         estimations_mc = estimator.run_monte_carlo_estimation(n, b)
         error = ((np.array(estimations_mc) - mean) ** 2).mean()
+        error_std = ((np.array(estimations_mc) - mean) ** 2).std()
         ys_mc.append(error)
+        stds_mc.append(error_std)
 
-        estimations_particle, ess, _, counts = estimator.run_particle_estimation(n, b, bh=False)
-        error = ((np.array(estimations_particle) - mean) ** 2).mean()
-        ys_particle_simple.append(error)
-        samples_p_simple.append(np.mean(counts))
-        ess_p_simple.append(np.mean(ess))
+        # estimations_particle, ess, _, counts = estimator.run_particle_estimation(n, b, bh=False)
+        # error = ((np.array(estimations_particle) - mean) ** 2).mean()
+        # ys_particle_simple.append(error)
+        # samples_p_simple.append(np.mean(counts))
+        # ess_p_simple.append(np.mean(ess))
 
         estimations_particle, ess, _, counts = estimator.run_particle_estimation(n, b, bh=True)
         error = ((np.array(estimations_particle) - mean) ** 2).mean()
+        error_std = ((np.array(estimations_particle) - mean) ** 2).std()
         ys_particle_bh.append(error)
+        stds_bh.append(error_std)
         samples_p_bh.append(np.mean(counts))
         ess_p_bh.append(np.mean(ess))
         print("Finished budget " + str(b))
 
-    xs = np.array(budgets) / action_length
-    pyplot.plot(xs, ys_mc, alpha=0.8, label='MC error', marker='x')
+    xs = np.array(budgets)
+    lower_mc = np.array(ys_mc) - 2 * np.array(stds_mc) / np.sqrt(n)
+    upper_mc = np.array(ys_mc) + 2 * np.array(stds_mc) / np.sqrt(n)
+    lower_bh = np.array(ys_particle_bh) - 2 * np.array(stds_bh) / np.sqrt(n)
+    upper_bh = np.array(ys_particle_bh) + 2 * np.array(stds_bh) / np.sqrt(n)
 
-    pyplot.plot(samples_p_simple, ys_particle_simple, alpha=0.5, label='particle_simple_error(N)', marker='o')
-    pyplot.plot(samples_p_bh, ys_particle_bh, alpha=0.5, label='particle_bh_error(N)', marker='o')
+    pyplot.plot(xs, ys_mc, label='MC', marker='x', color='c')
+    pyplot.fill_between(xs, lower_mc, upper_mc, alpha=0.2, color='c')
+    # pyplot.plot(xs, ys_particle_simple, alpha=0.5, label='particle_simple_error(N)', marker='o')
+    pyplot.plot(xs, ys_particle_bh,  label='PARTICLE BH', marker='o', color='purple')
+    pyplot.fill_between(xs, lower_bh, upper_bh, alpha=0.2, color='purple')
     # pyplot.plot(ess_p_simple, ys_particle_simple, alpha=0.5, label='particle_simple_error(ess)', marker='o')
     # pyplot.plot(xs, ys_particle_simple, alpha=0.5, label='particle_simple_error(Budget)', marker='o')
 
-    pyplot.plot(xs,  std_hat**2 / np.array(xs), alpha=0.5, label='1/x')
+    # pyplot.plot(xs,  std_hat**2 / np.array(xs), alpha=0.5, label='1/x')
     pyplot.legend(loc='upper right')
-    pyplot.xlabel("Samples")
+    pyplot.xlabel("Budget")
     pyplot.ylabel("Error")
     pyplot.savefig("Error_simple.pdf")
     pyplot.show()
