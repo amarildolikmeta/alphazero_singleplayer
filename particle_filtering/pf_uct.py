@@ -9,6 +9,7 @@ class Particle(object):
 
     def __init__(self, state, seed, reward, terminal, parent_particle=None):
         self.state = state
+        self.state["state"] = None
         self.seed = seed
         self.reward = reward
         self.terminal = terminal
@@ -106,6 +107,11 @@ class PFState(State):
         self.n_particles += 1
         self.reward = particle.reward  # to be used in the backup
         self.last_particle = particle
+
+    def remove_particle(self):
+        index = np.random.randint(self.get_n_particles())
+        self.n_particles -= 1
+        self.particles.pop(index)
 
     def sample_reward(self):
         p = np.random.choice(self.particles)

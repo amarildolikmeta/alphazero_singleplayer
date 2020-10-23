@@ -74,7 +74,7 @@ class RacePFAction(PFAction):
         env.set_signature(particle.state)
         owner = env.get_next_agent()
         env.seed(np.random.randint(1e7))
-        pre_terminal = copy.deepcopy(env._terminal)
+        # pre_terminal = copy.deepcopy(env._terminal)
         s, r, done, _ = env.partial_step(self.index, owner)
         # if done:
         #     print("#######################################", r, pre_terminal)
@@ -123,7 +123,7 @@ class RacePFMCTS(PFMCTS):
         else:
             raise (NotImplementedError("Need to reset the tree"))
 
-    def search(self, n_mcts, c, env, mcts_env, budget, max_depth=200, fixed_depth=True):
+    def search(self, n_mcts, c, env, mcts_env, budget, max_depth=200, fixed_depth=True, max_particles=50):
         """ Perform the MCTS search from the root """
 
         root_env = copy.deepcopy(env)
@@ -137,7 +137,14 @@ class RacePFMCTS(PFMCTS):
         is_atari = is_atari_game(env)
         if is_atari:
             raise NotImplementedError
+
+        particle_counter = 0
         while budget > 0:
+            if particle_counter > 0:
+                print("Particles:", particle_counter)
+                print("Budget:", budget)
+                print()
+
             # assert len(self.root.child_actions) == len(default_actions)
             state = self.root  # reset to root for new trace
             if not is_atari:
@@ -162,11 +169,19 @@ class RacePFMCTS(PFMCTS):
                         flag = True
                         source_particle, budget = action.sample_from_parent_state(mcts_env, budget)
                         state.add_particle(source_particle)
+                        particle_counter += 1
+                        if state.get_n_particles() > max_particles:
+                            state.remove_particle()
+                            particle_counter -= 1
                         if source_particle.terminal:
                             break
                     elif flag:
                         source_particle, budget = action.sample_from_particle(source_particle, mcts_env, budget)
                         state.add_particle(source_particle)
+                        particle_counter += 1
+                        if state.get_n_particles() > max_particles:
+                            state.remove_particle()
+                            particle_counter -= 1
                         if source_particle.terminal:
                             break
                     elif state.terminal:
