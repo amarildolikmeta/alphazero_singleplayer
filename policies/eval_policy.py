@@ -39,7 +39,8 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
             action_counts.append(r[2])
             if out_dir is not None:
                 res.append(np.sum(r[0], axis=0))
-                np.save(out_dir + '/results.npy', res)
+        if out_dir is not None:
+            np.save(out_dir + '/results.npy', res)
         # p.join()
         p.close()
     if remainder > 0:
@@ -56,7 +57,8 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
             action_counts.append(r[2])
             if out_dir is not None:
                 res.append(np.sum(r[0], axis=0))
-                np.save(out_dir + '/results.npy', res)
+        if out_dir is not None:
+            np.save(out_dir + '/results.npy', res)
         # p.join()
         p.close()
 
@@ -87,7 +89,6 @@ def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, inter
         rewards_per_timestep.append(np.array(rew))
         if out_dir is not None:
             res.append(np.sum(rew, axis=0))
-            np.save(out_dir + '/results.npy', res)
         ep_lengths.append(t)
         action_counts.append(count)
 
