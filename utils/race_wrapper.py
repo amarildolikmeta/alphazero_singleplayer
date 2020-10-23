@@ -16,7 +16,7 @@ class RaceWrapper(Wrapper):
     def __init__(self, root_index, mcts_maker, model_save_file, model_wrapper_params,
                  mcts_params, is_atari, n_mcts, budget, mcts_env, c_dpw,
                  temp, game_maker=None, env=None, mcts_only=True, scheduler_params=None,
-                 enable_logging=False, log_path="./logs/", log_timestamp=None, verbose=False):
+                 enable_logging=False, log_path="./logs/", log_timestamp=None, verbose=True):
 
         super(RaceWrapper, self).__init__(root_index, mcts_maker, model_save_file, model_wrapper_params,
                                           mcts_params, is_atari, n_mcts, budget, mcts_env, c_dpw,
