@@ -6,7 +6,7 @@
         "variance":  false,
         "depth_based_bias": false
       },
-      "c_dpw": 10
+      "c_dpw": 1.2
     }
   ]
 }

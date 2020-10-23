@@ -5,10 +5,10 @@
       "parameters": {
         "variance":  false,
         "depth_based_bias": false,
-        "alpha": 0.8,
+        "alpha": 0.96,
         "beta": 1
       },
-      "c_dpw": 10
+      "c_dpw": 4
     }
   ]
 }
