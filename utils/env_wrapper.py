@@ -63,26 +63,47 @@ class Wrapper(object):
         self.timestamp = self.timestamp + "_" + str(budget) + "b"
 
     @staticmethod
-    def schedule(x, k=1, width=1, min_depth=1):
-        # if x == 0:
-        #     return 0
-        # elif x == width:
-        #     return 1
+    def schedule(x, k=1, width=1, min_depth=1) -> float:
+        """The method computes a reduction factor for the budget tu use during search.
+        The intuition is that it requires less budget to build the full tree when next to the final states,
+        so the search would take lots of time.
 
-        # width = float(width)
-        # norm_x = x / width
-        # parenth = norm_x / (1 - norm_x)
-        # denom = 1 + parenth ** -k
-        # return 1/denom
-        max_depth = float(width)
-        return (1 - 5 / max_depth) ** (x)
+        """
+
+        if x <= min_depth:
+            return 1
+        elif x == width:
+            return 0
+
+        x -= min_depth
+
+        width = float(width)
+        norm_x = x / width
+        parenth = norm_x / (1 - norm_x)
+        denom = 1 + parenth ** k
+        return 1 / denom
+
+    # @staticmethod
+    # def schedule(x, k=1, width=1, min_depth=1):
+    #     # if x == 0:
+    #     #     return 0
+    #     # elif x == width:
+    #     #     return 1
+    #
+    #     # width = float(width)
+    #     # norm_x = x / width
+    #     # parenth = norm_x / (1 - norm_x)
+    #     # denom = 1 + parenth ** -k
+    #     # return 1/denom
+    #     max_depth = float(width)
+    #     return (1 - 5 / max_depth) ** (x)
 
     def pi_wrapper(self, s, current_depth, max_depth):
         # Compute the reduced budget as function of the search root depth
         if self.scheduler_params:
             l = self.schedule(current_depth,
                               k=self.scheduler_params["slope"],
-                              mid=self.scheduler_params["mid"],
+                              min_depth=self.scheduler_params["min_depth"],
                               width=current_depth + max_depth)
             # self.scheduler_budget = max(int(self.budget * (1 - l)), self.scheduler_params["min_budget"])
             self.scheduler_budget = max(int(self.budget * l), self.scheduler_params["min_budget"])
