@@ -174,29 +174,30 @@ class RaceEnv(gym.Env):
         return self._race_sim.get_race_length()
 
     def get_state(self, controlled_only=False):
+        """Get a state representation suitable for a RL agent"""
+
         if self.agents_number > 1:
             return None
-        rl_state = []
         state = self._race_sim.get_simulation_state()
         assert self.race_length > 0, "Problem with race length"
 
-        lap = state["lap"]
-        current_lap_times = (state["lap_times"][lap] / self.max_lap_time).tolist()
-        drivers_count = len(current_lap_times)
+        lap = state[0]
+        current_lap_times = (state[1][lap] / self.max_lap_time).tolist()
 
-        cumulative_times = (state["race_time"][lap] / 7200).tolist()  # A F1 race lasts at most 2h = 7200s
+        cumulative_times = (state[2][lap] / 7200).tolist()  # A F1 race lasts at most 2h = 7200s
         # still_racing = state['still_racing'][lap].tolist()
-        flags = self._flags_encoder.transform(np.array([state['flag_state'][lap]]).reshape(-1, 1)).squeeze()
-        overtake_ok = state['overtake_allowed'][lap].tolist()
+        flags = self._flags_encoder.transform(np.array([state[4][lap]]).reshape(-1, 1)).squeeze()
+        overtake_ok = state[5][lap].tolist()
         # drs = state['drs']
         tires = []
         tire_age = []
         lap /= self.race_length
 
-        for d in state['drivers']:
-            if d.carno in self._active_drivers:
-                sim_index = self._race_sim.drivers_mapping[d.carno]
-                env_index = self._active_drivers_mapping[d.carno]
+        for d in state[10]:
+            carno = d[2]
+            if carno in self._active_drivers:
+                sim_index = self._race_sim.drivers_mapping[carno]
+                env_index = self._active_drivers_mapping[carno]
                 available_tires = self._available_compounds[env_index]
                 available_compounds = np.zeros(len(COMPOUNDS)).T
                 for compound in available_tires:
@@ -204,9 +205,12 @@ class RaceEnv(gym.Env):
                         available_compounds += self._compound_encoder.transform(np.array([compound]).reshape(-1, 1)).squeeze()
 
                 overtake_available = overtake_ok[sim_index]
-                tires = d.car.tireset.compound
+                car = d[1]
+                tireset = car[1]
+                tires = tireset[0]
+                age_tot = tireset[1]
                 tires = self._compound_encoder.transform(np.array([tires]).reshape(-1, 1)).squeeze()
-                tire_age = d.car.tireset.age_tot / self.race_length
+                tire_age = age_tot / self.race_length
                 lap_time = current_lap_times[sim_index]
                 cumulative = cumulative_times[sim_index]
                 pit_count = self._pit_counts[env_index] / 5
@@ -235,7 +239,7 @@ class RaceEnv(gym.Env):
                'action_queue': deepcopy(self._actions_queue),
                'agents_queue': deepcopy(self._agents_queue),
                'last_pits': deepcopy(self._agents_last_pit),
-               'simulator': deepcopy(self._race_sim),
+               'simulator_state': self._race_sim.get_simulation_state(),
                't': deepcopy(self._t),
                'terminal': deepcopy(self._terminal),
                'available_compounds': deepcopy(self._available_compounds),
@@ -246,7 +250,7 @@ class RaceEnv(gym.Env):
 
     def set_signature(self, sig: dict) -> None:
         self.__set_state(sig["state"])
-        self._race_sim = deepcopy(sig['simulator'])
+        self._race_sim.set_simulation_state(sig['simulator_state'])
         self._actions_queue = deepcopy(sig['action_queue'])
         self._agents_queue = deepcopy(sig['agents_queue'])
         self._agents_last_pit = deepcopy(sig['last_pits'])
@@ -454,7 +458,7 @@ class RaceEnv(gym.Env):
         state = self._race_sim.get_simulation_state()
 
         # Initialize the driver number / array indices mapping
-        self._drivers = [driver.carno for driver in state["drivers"]]
+        self._drivers = [driver[2] for driver in state[10]]
         self._drivers_number = len(self._drivers)
         for i in range(self._drivers_number):
             self._drivers_mapping[self._drivers[i]] = i
