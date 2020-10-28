@@ -229,7 +229,7 @@ class OL_MCTS(object):
         else:
             raise (NotImplementedError("Need to reset the tree"))
 
-    def search(self, n_mcts, c, Env, mcts_env, budget, max_depth=200, fixed_depth=True):
+    def search(self, n_mcts, c, Env, mcts_env, budget, max_depth=200, fixed_depth=True, csi=1.):
         """ Perform the MCTS search from the root """
         env = copy.deepcopy(Env)
         self.create_root(env, budget)
@@ -250,7 +250,7 @@ class OL_MCTS(object):
             terminal = False
             while not state.terminal:
                 bias = c * self.gamma ** st / (1 - self.gamma) if self.depth_based_bias else c
-                action = state.select(c=bias, variance=self.variance)
+                action = state.select(c=bias, variance=self.variance, csi=csi)
                 st += 1
                 if action.child_state is not None:
                     state = action.child_state  # select
@@ -281,8 +281,8 @@ class OL_MCTS(object):
         """ Process the output at the root node """
         counts = np.array([child_action.n for child_action in self.root.child_actions])
         Q = np.array([child_action.Q for child_action in self.root.child_actions])
-        # print(Q)
-        # print(counts)
+        print(Q)
+        print(counts)
         if on_visits:
             pi_target = stable_normalizer(counts, temp)
         else:

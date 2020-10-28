@@ -73,7 +73,7 @@ def select_races(year: int, ini_path="./race_simulation/racesim/input/parameters
 
 class RaceEnv(gym.Env):
 
-    def __init__(self, gamma=0.95, horizon=20, scale_reward=True, positive_reward=True, start_lap=8,
+    def __init__(self, gamma=0.95, horizon=20, scale_reward=True, positive_reward=True, start_lap=60,
                  verbose=False, config_path='./envs/race_strategy_model/active_drivers.csv', skip_steps=False, n_cores=-1):
         # print("////////////////////////////////////////", horizon)
         self.verbose = verbose
@@ -173,16 +173,62 @@ class RaceEnv(gym.Env):
         assert self._race_sim is not None, "Race simulator not initialized yet"
         return self._race_sim.get_race_length()
 
-    def get_state(self, controlled_only=False):
-        if self.agents_number > 1:
-            return None
-        rl_state = []
+    def get_state(self):
+        if self._skip_steps:
+            return self.__get_state_rl()
+        else:
+            return self.__get_complete_state()
+
+    def __get_complete_state(self):
+        state = self._race_sim.get_simulation_state()
+        lap = state["lap"]
+        current_lap_times = (state["lap_times"][lap] / self.max_lap_time).tolist()
+        cumulative_times = (state["race_time"][lap] / 7200).tolist()  # A F1 race lasts at most 2h = 7200s
+        flags = self._flags_encoder.transform(np.array([state['flag_state'][lap]]).reshape(-1, 1)).squeeze()
+        overtake_ok = state['overtake_allowed'][lap].tolist()
+
+        # lap /= self.race_length
+
+        complete_state = []
+
+        for d in state['drivers']:
+            sim_index = self._race_sim.drivers_mapping[d.carno]
+            available_compounds = np.zeros(len(COMPOUNDS)).T
+            pit_count = 0
+            if d.carno in self._active_drivers:
+                env_index = self._active_drivers_mapping[d.carno]
+                available_tires = self._available_compounds[env_index]
+                for compound in available_tires:
+                    if available_tires[compound] > 0:
+                        available_compounds += self._compound_encoder.transform(
+                            np.array([compound]).reshape(-1, 1)).squeeze()
+
+                pit_count = self._pit_counts[env_index] / 5
+
+            overtake_available = overtake_ok[sim_index]
+            current_tires = d.car.tireset.compound
+            # current_tires = self._compound_encoder.transform(np.array([tires]).reshape(-1, 1)).squeeze()
+            tire_age = d.car.tireset.age_tot / self.race_length
+            lap_time = current_lap_times[sim_index]
+            cumulative = cumulative_times[sim_index]
+
+            changed_compound = len(self.used_compounds) > 1
+            # flag = flags[sim_index] # TODO if flags are generated at runtime they must be included in the state
+
+            driver_state = [lap_time, cumulative, pit_count, changed_compound, current_tires, tire_age, overtake_available]
+            driver_state.extend(available_compounds)
+            complete_state.append(driver_state)
+
+        return complete_state
+
+    def __get_state_rl(self):
+
+        assert self.agents_number == 1, "This state getter is not correct for multi-agent settings"
         state = self._race_sim.get_simulation_state()
         assert self.race_length > 0, "Problem with race length"
 
         lap = state["lap"]
         current_lap_times = (state["lap_times"][lap] / self.max_lap_time).tolist()
-        drivers_count = len(current_lap_times)
 
         cumulative_times = (state["race_time"][lap] / 7200).tolist()  # A F1 race lasts at most 2h = 7200s
         # still_racing = state['still_racing'][lap].tolist()
@@ -309,7 +355,12 @@ class RaceEnv(gym.Env):
             while not len(self._actions_queue) == 0:
                 action, owner_index = self._actions_queue.popleft()
                 actions[owner_index] = action
-            return self.__step(actions)
+
+            s, r, done, sig = self.__step(actions)
+            # if action == 0:
+            #
+            #     print(r)
+            return s,r,done, sig
 
         else:  # No transition, we don't have actions for all the agents
             print("AAA")
@@ -380,9 +431,11 @@ class RaceEnv(gym.Env):
             index = self._drivers_mapping[driver]
             reward[active_index] = -np.clip(lap_times[index], 0, self.max_lap_time)
 
-        if self._terminal:  # Penalize if no pit stop has been done or if no two different compounds have been used
-            for i in range(self.agents_number):
-                reward[i] = -10000 if self._pit_counts == 0 or len(self.used_compounds) == 1 else reward[i]
+        #TODO re-enable
+
+        # if self._terminal:  # Penalize if no pit stop has been done or if no two different compounds have been used
+        #     for i in range(self.agents_number):
+        #         reward[i] = -10000 if self._pit_counts == 0 or len(self.used_compounds) == 1 else reward[i]
 
         if self.scale_reward:
             reward /= self.max_lap_time
