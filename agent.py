@@ -122,7 +122,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
     if game == "RaceStrategy-v1" or game == "RaceStrategy-v2" and multiagent:
         # TODO add parameter for config file or streamline the loading
-        config_file = 'envs/configs/race_strategy_full_ol.json'
+        config_file = 'envs/configs/race_strategy_full_dpw.json'
         print("\nUsing race_components MCTS")
         print("Config file: {}\n".format(config_file))
         mcts_maker, mcts_params, c_dpw = load_race_agents_config(config_file, gamma)
@@ -204,15 +204,15 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             if not mcts_only:
                 model_wrapper.save(model_file)
             if game == "RaceStrategy-v1" or game == "RaceStrategy-v2" and multiagent:
-                # Create the log folder
+                # Set the timestamp to be used across processes
                 today = datetime.now()
                 timestamp = today.strftime('%Y-%m-%d_%H-%M')
                 env_wrapper = RaceWrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, budget,
-                                  mcts_env, c_dpw, temp, env=penv, game_maker=pgame, mcts_only=mcts_only,
+                                  mcts_env, c, temp, env=penv, game_maker=pgame, mcts_only=mcts_only,
                                   scheduler_params=scheduler_params, log_timestamp=timestamp)
             else:
                 env_wrapper = Wrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, budget,
-                                      mcts_env, c_dpw, temp, env=penv, game_maker=pgame, mcts_only=mcts_only,
+                                      mcts_env, c, temp, env=penv, game_maker=pgame, mcts_only=mcts_only,
                                       scheduler_params=scheduler_params)
 
             # Run the evaluation
