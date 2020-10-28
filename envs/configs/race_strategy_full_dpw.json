@@ -7,7 +7,7 @@
         "beta": 0.6,
         "depth_based_bias": false
       },
-      "c_dpw": 10
+      "c_dpw": 0.25
     }
   ]
 }
