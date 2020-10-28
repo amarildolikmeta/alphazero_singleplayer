@@ -501,16 +501,8 @@ class Estimator:
     #     return evaluations
 
 
-if __name__ == '__main__':
-    action_length = 10
-    num_actions = 3
-    num_states = 10
-    gamma = 1.
-    alpha = 0.9
-    num_deterministic = 7
-    action_sequence = np.random.choice(num_actions, size=action_length)
+def generate_mdp(num_states, num_actions, num_deterministic, alpha):
     mdp = random_mdp(n_states=num_states, n_actions=num_actions)
-
     mdp.P0 = np.zeros(num_states)
     mdp.P0[0] = 1.
     deterministic_P = np.random.rand(num_states, num_actions, num_states)
@@ -520,13 +512,23 @@ if __name__ == '__main__':
         next_state = s + 1
         deterministic_P[s, action_sequence[s], :] = 0
         deterministic_P[s, action_sequence[s], next_state] = 1
-
-    s = mdp.reset()
-
     new_P = (1 - alpha) * mdp.P + alpha * deterministic_P
     new_P = new_P / new_P.sum(axis=-1)[:, :, np.newaxis]
     mdp.P = new_P
     mdp.reset()
+    return mdp
+
+if __name__ == '__main__':
+    action_length = 10
+    num_actions = 3
+    num_states = 10
+    gamma = 1.
+    alpha = 0.9
+    num_deterministic = 7
+    num_experiments = 100
+    action_sequence = np.random.choice(num_actions, size=action_length)
+    mdp = generate_mdp(num_states, num_actions, num_deterministic, alpha)
+    s = mdp.reset()
 
     estimator = Estimator(mdp, action_sequence, gamma=gamma)
     n = 400
@@ -594,7 +596,6 @@ if __name__ == '__main__':
 
     ## Check Error rates
     budgets = [10, 20, 30, 40, 50, 70, 80, 100, ] #200,, 300, 400, 500, 1000
-    budgets = budgets[:]
     n = 300
     ys_mc = []
     stds_mc = []
@@ -608,44 +609,58 @@ if __name__ == '__main__':
     samples_p_bh = []
     ess_p_bh = []
 
-    true_mean_samples = 20000
-    estimations_mc = estimator.run_monte_carlo_estimation(true_mean_samples, 10)
-    mean = np.mean(estimations_mc)
-    std_hat = np.std(estimations_mc, ddof=1)
-    print("Mean=" + str(mean) + "+/- " + str(2 * std_hat / np.sqrt(true_mean_samples)))
+    mc = []
+    particle = []
+    for i in range(num_experiments):
+        mdp = generate_mdp(num_states, num_actions, num_deterministic, alpha)
+        s = mdp.reset()
+        estimator = Estimator(mdp, action_sequence, gamma=gamma)
 
-    for b in budgets:
-        estimations_mc = estimator.run_monte_carlo_estimation(n, b)
-        error = ((np.array(estimations_mc) - mean) ** 2).mean()
-        error_std = ((np.array(estimations_mc) - mean) ** 2).std()
-        ys_mc.append(error)
-        stds_mc.append(error_std)
+        ys_mc = []
+        ys_particle_bh = []
+        true_mean_samples = 20000
+        estimations_mc = estimator.run_monte_carlo_estimation(true_mean_samples, 10)
+        mean = np.mean(estimations_mc)
+        std_hat = np.std(estimations_mc, ddof=1)
+        print("Mean=" + str(mean) + "+/- " + str(2 * std_hat / np.sqrt(true_mean_samples)))
 
-        # estimations_particle, ess, _, counts = estimator.run_particle_estimation(n, b, bh=False)
-        # error = ((np.array(estimations_particle) - mean) ** 2).mean()
-        # ys_particle_simple.append(error)
-        # samples_p_simple.append(np.mean(counts))
-        # ess_p_simple.append(np.mean(ess))
+        for b in budgets:
+            estimations_mc = estimator.run_monte_carlo_estimation(n, b)
+            error = ((np.array(estimations_mc) - mean) ** 2).mean()
+            error_std = ((np.array(estimations_mc) - mean) ** 2).std()
+            ys_mc.append(error)
+            stds_mc.append(error_std)
 
-        estimations_particle, ess, _, counts = estimator.run_particle_estimation(n, b, bh=True)
-        error = ((np.array(estimations_particle) - mean) ** 2).mean()
-        error_std = ((np.array(estimations_particle) - mean) ** 2).std()
-        ys_particle_bh.append(error)
-        stds_bh.append(error_std)
-        samples_p_bh.append(np.mean(counts))
-        ess_p_bh.append(np.mean(ess))
-        print("Finished budget " + str(b))
+            # estimations_particle, ess, _, counts = estimator.run_particle_estimation(n, b, bh=False)
+            # error = ((np.array(estimations_particle) - mean) ** 2).mean()
+            # ys_particle_simple.append(error)
+            # samples_p_simple.append(np.mean(counts))
+            # ess_p_simple.append(np.mean(ess))
 
+            estimations_particle, ess, _, counts = estimator.run_particle_estimation(n, b, bh=True)
+            error = ((np.array(estimations_particle) - mean) ** 2).mean()
+            error_std = ((np.array(estimations_particle) - mean) ** 2).std()
+            ys_particle_bh.append(error)
+            stds_bh.append(error_std)
+            samples_p_bh.append(np.mean(counts))
+            ess_p_bh.append(np.mean(ess))
+            print("Finished budget " + str(b))
+        mc.append(ys_mc)
+        particle.append(ys_particle_bh)
     xs = np.array(budgets)
-    lower_mc = np.array(ys_mc) - 2 * np.array(stds_mc) / np.sqrt(n)
-    upper_mc = np.array(ys_mc) + 2 * np.array(stds_mc) / np.sqrt(n)
-    lower_bh = np.array(ys_particle_bh) - 2 * np.array(stds_bh) / np.sqrt(n)
-    upper_bh = np.array(ys_particle_bh) + 2 * np.array(stds_bh) / np.sqrt(n)
+    mc_means = np.mean(mc, axis=0)
+    mc_stds = np.std(mc, axis=0)
+    particle_means = np.mean(particle, axis=0)
+    particle_stds = np.std(particle, axis=0)
+    lower_mc = np.array(mc_means) - 2 * np.array(mc_stds) / np.sqrt(num_experiments)
+    upper_mc = np.array(mc_means) + 2 * np.array(mc_stds) / np.sqrt(num_experiments)
+    lower_bh = np.array(particle_means) - 2 * np.array(particle_stds) / np.sqrt(num_experiments)
+    upper_bh = np.array(particle_means) + 2 * np.array(particle_stds) / np.sqrt(num_experiments)
 
-    pyplot.plot(xs, ys_mc, label='MC', marker='x', color='c')
+    pyplot.plot(xs, mc_means, label='MC', marker='x', color='c')
     pyplot.fill_between(xs, lower_mc, upper_mc, alpha=0.2, color='c')
     # pyplot.plot(xs, ys_particle_simple, alpha=0.5, label='particle_simple_error(N)', marker='o')
-    pyplot.plot(xs, ys_particle_bh,  label='PARTICLE BH', marker='o', color='purple')
+    pyplot.plot(xs, particle_means,  label='PARTICLE BH', marker='o', color='purple')
     pyplot.fill_between(xs, lower_bh, upper_bh, alpha=0.2, color='purple')
     # pyplot.plot(ess_p_simple, ys_particle_simple, alpha=0.5, label='particle_simple_error(ess)', marker='o')
     # pyplot.plot(xs, ys_particle_simple, alpha=0.5, label='particle_simple_error(Budget)', marker='o')

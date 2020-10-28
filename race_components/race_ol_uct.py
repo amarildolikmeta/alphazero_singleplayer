@@ -34,7 +34,7 @@ def strategic_rollout(env, budget, max_depth=200, terminal=False, root_owner=Non
             prob = DEFAULT_STRATEGY
         else: # Pit-stop is not available
             prob = MAX_P
-        action = np.random.choice(actions, p = prob)
+        action = np.random.choice(actions, p=prob)
         s, r, done, _ = env.partial_step(action, agent)
 
         ret += r
