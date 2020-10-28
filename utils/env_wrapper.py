@@ -129,7 +129,7 @@ class Wrapper(object):
                     pi[0] = 1.
                 self.curr_probs.append(pi)
                 a_w = argmax(pi)
-                print(pi, a_w)
+                # print(pi, a_w)
                 # max_p = np.max(pi)
                 # a_w = np.random.choice(np.argwhere(pi == max_p)[0])
             else:

@@ -81,7 +81,6 @@ def setup_parser():
     parser.add_argument('--variance', action='store_true', help='use variance based selection policy')
     parser.add_argument('--max_workers', type=int, default=100, help='Maximum number of parallel workers')
     parser.add_argument('--budget', type=int, default=1000, help='Computational budget')
-    parser.add_argument('--depth_based_bias', action='store_true', help='use depth based bias')
 
     # Budget scheduler args
     parser.add_argument('--budget_scheduler', action='store_true', help='Enable budget scheduler')
@@ -90,6 +89,10 @@ def setup_parser():
     parser.add_argument('--min_depth', type=int, default=1, help='Minimum depth to apply the scheduler')
     parser.add_argument('--min_budget', type=int, default=1, help='Minimum budget value to be returned by the '
                                                                   'scheduler')
+
+    # OL args
+    parser.add_argument('--depth_based_bias', action='store_true', help='use depth based bias')
+    parser.add_argument('--csi', type=float, default=1., help='Constant regulating the variance-based bias')
 
     # Hyperparameter optimization args
     parser.add_argument('--opt_iters', type=int, default=20, help='Number of hyperparameter tries,'

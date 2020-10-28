@@ -73,7 +73,7 @@ def select_races(year: int, ini_path="./race_simulation/racesim/input/parameters
 
 class RaceEnv(gym.Env):
 
-    def __init__(self, gamma=0.95, horizon=20, scale_reward=True, positive_reward=True, start_lap=60,
+    def __init__(self, gamma=0.95, horizon=20, scale_reward=True, positive_reward=True, start_lap=8,
                  verbose=False, config_path='./envs/race_strategy_model/active_drivers.csv', skip_steps=False, n_cores=-1):
         # print("////////////////////////////////////////", horizon)
         self.verbose = verbose
@@ -431,11 +431,9 @@ class RaceEnv(gym.Env):
             index = self._drivers_mapping[driver]
             reward[active_index] = -np.clip(lap_times[index], 0, self.max_lap_time)
 
-        #TODO re-enable
-
-        # if self._terminal:  # Penalize if no pit stop has been done or if no two different compounds have been used
-        #     for i in range(self.agents_number):
-        #         reward[i] = -10000 if self._pit_counts == 0 or len(self.used_compounds) == 1 else reward[i]
+        if self._terminal:  # Penalize if no pit stop has been done or if no two different compounds have been used
+            for i in range(self.agents_number):
+                reward[i] = -10000 if self._pit_counts == 0 or len(self.used_compounds) == 1 else reward[i]
 
         if self.scale_reward:
             reward /= self.max_lap_time

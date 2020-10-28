@@ -182,10 +182,22 @@ class State(object):
         else:
             logp = -np.inf
 
-        bound = np.array([child_action.Q + np.sqrt(
-            csi * child_action.sigma * logp / child_action.n) + 3 * c * b * csi * logp / child_action.n
+        bound = np.array([child_action.Q +
+                          np.sqrt(csi * child_action.sigma * logp / child_action.n) +
+                          3 * c * b * csi * logp / child_action.n
                           if child_action.n > 0 and not np.isinf(child_action.sigma).any() else np.inf
                           for child_action in self.child_actions])
+
+        # variance = np.array([child_action.sigma for child_action in self.child_actions])
+        #
+        # sq = np.array([np.sqrt(csi * child_action.sigma * logp / child_action.n)
+        #                   if child_action.n > 0 and not np.isinf(child_action.sigma).any() else np.inf
+        #                   for child_action in self.child_actions])
+        #
+        # extra = np.array([np.sqrt(csi * child_action.sigma * logp / child_action.n) +
+        #                   3 * c * b * csi * logp / child_action.n
+        #                   if child_action.n > 0 and not np.isinf(child_action.sigma).any() else np.inf
+        #                   for child_action in self.child_actions])
 
         winner = argmax(bound)
         return self.child_actions[winner]
@@ -213,13 +225,14 @@ class State(object):
 class OL_MCTS(object):
     ''' MCTS object '''
 
-    def __init__(self, root, root_index, na, gamma, model=None, variance=False, depth_based_bias=False):
+    def __init__(self, root, root_index, na, gamma, model=None, variance=False, depth_based_bias=False, csi=1.):
         self.root = root
         self.root_index = root_index
         self.na = na
         self.gamma = gamma
         self.depth_based_bias = depth_based_bias
         self.variance = variance
+        self.csi = csi
 
     def create_root(self, env, budget):
         if self.root is None:
@@ -229,7 +242,7 @@ class OL_MCTS(object):
         else:
             raise (NotImplementedError("Need to reset the tree"))
 
-    def search(self, n_mcts, c, Env, mcts_env, budget, max_depth=200, fixed_depth=True, csi=1.):
+    def search(self, n_mcts, c, Env, mcts_env, budget, max_depth=200, fixed_depth=True):
         """ Perform the MCTS search from the root """
         env = copy.deepcopy(Env)
         self.create_root(env, budget)
@@ -250,7 +263,7 @@ class OL_MCTS(object):
             terminal = False
             while not state.terminal:
                 bias = c * self.gamma ** st / (1 - self.gamma) if self.depth_based_bias else c
-                action = state.select(c=bias, variance=self.variance, csi=csi)
+                action = state.select(c=bias, variance=self.variance, csi=self.csi)
                 st += 1
                 if action.child_state is not None:
                     state = action.child_state  # select
@@ -277,12 +290,14 @@ class OL_MCTS(object):
                 state = action.parent_state
                 state.update()
 
+        # self.visualize()
+
     def return_results(self, temp, on_visits=False):
         """ Process the output at the root node """
         counts = np.array([child_action.n for child_action in self.root.child_actions])
         Q = np.array([child_action.Q for child_action in self.root.child_actions])
-        print(Q)
-        print(counts)
+        # print(Q)
+        # print(counts)
         if on_visits:
             pi_target = stable_normalizer(counts, temp)
         else:

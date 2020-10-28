@@ -25,7 +25,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
           pre_process=None, visualize=False, game_params={}, parallelize_evaluation=False, mcts_only=False,
           particles=0, show_plots=False, n_workers=1, use_sampler=False, budget=np.inf, unbiased=False, biased=False,
           max_workers=100, variance=False, depth_based_bias=False, scheduler_params=None, out_dir=None,
-          render=False, second_version=False, third_version=False, multiagent=False):
+          render=False, second_version=False, third_version=False, multiagent=False, csi=1.):
     visualizer = None
 
     # if particles:
@@ -142,6 +142,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             if unbiased:
                 print("\nUsing OLMCTS\n")
                 mcts_params['variance'] = variance
+                mcts_params['csi'] = csi
                 mcts_maker = OL_MCTS
 
         elif stochastic:
