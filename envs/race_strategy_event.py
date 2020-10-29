@@ -146,7 +146,6 @@ class RaceEnv(gym.Env):
         # Take the base time, the predictions will be deltas from this time
         self.max_lap_time = 300
         self._drivers = []
-        self._race_length = 0
 
         self._lap_time = None
         self._cumulative_time = None
@@ -159,6 +158,7 @@ class RaceEnv(gym.Env):
         self.used_compounds = [set() for _ in range(self.agents_number)]
         self._compound_initials = []
         self._available_compounds = []
+        self._compound_indices = {}
 
         self._flags_encoder = OneHotEncoder(sparse=False)
         self._compound_encoder = OneHotEncoder(sparse=False)
@@ -317,6 +317,17 @@ class RaceEnv(gym.Env):
             for i in range(1, len(self._compound_initials) + 1):
                 if self._available_compounds[agent][self.map_action_to_compound(i)] > 0:
                     actions.append(i)
+
+        # Force pit-stop in penultimate lap if no two different compounds have been used or no pit stop has been done
+        if self._lap == self.race_length - 1:
+            if self._pit_counts[agent] == 0 or len(self.used_compounds[agent]) == 1:
+                actions.remove(0)
+
+            if len(self.used_compounds[agent]) == 1:
+                used_compound = next(iter(self.used_compounds[agent])) # Avoid popping and adding back the item to set
+                if self._available_compounds[agent][used_compound] > 0:
+                    actions.remove(self._compound_indices[used_compound])
+
         return actions
 
     def map_action_to_compound(self, action_index: int) -> str:
@@ -326,6 +337,12 @@ class RaceEnv(gym.Env):
             return ""
         else:
             return self._compound_initials[action_index - 1]
+
+    def map_compound_to_action(self, compound_name: str) -> int:
+        """Returns the action index corresponding to the input compound"""
+        assert len(self._compound_initials) > 0, "[ERROR] Env has not been reset yet"
+        assert compound_name in self._compound_initials, "The desired compound is not enabled in this race"
+        return self._compound_indices[compound_name]
 
     def partial_step(self, action, owner):
         """Accept an action for an agent, but perform the model transition only when an action for each agent has
@@ -433,7 +450,7 @@ class RaceEnv(gym.Env):
 
         if self._terminal:  # Penalize if no pit stop has been done or if no two different compounds have been used
             for i in range(self.agents_number):
-                reward[i] = -10000 if self._pit_counts == 0 or len(self.used_compounds) == 1 else reward[i]
+                reward[i] = -10000 if self._pit_counts[i] == 0 or len(self.used_compounds[i]) == 1 else reward[i]
 
         if self.scale_reward:
             reward /= self.max_lap_time
@@ -468,6 +485,7 @@ class RaceEnv(gym.Env):
         # use_print:            set if prints to console should be used or not (does not suppress hints/warnings)
         # use_print_result:     set if result should be printed to console or not
         # use_plot:             set if plotting should be used or not
+
         self._terminal = False
         race_pars_file = self._races_config_files.pop(0)
         # print(race_pars_file)
@@ -503,6 +521,8 @@ class RaceEnv(gym.Env):
 
         self._compound_initials = pars_in["vse_pars"]["param_dry_compounds"]
         state = self._race_sim.get_simulation_state()
+        for i, compound in enumerate(self._compound_initials):
+            self._compound_indices[compound] = i+1
 
         # Initialize the driver number / array indices mapping
         self._drivers = [driver.carno for driver in state["drivers"]]
