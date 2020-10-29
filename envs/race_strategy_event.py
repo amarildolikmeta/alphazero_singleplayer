@@ -312,14 +312,16 @@ class RaceEnv(gym.Env):
 
         actions = [0]
         # Check if the agent can do a pit stop
-        if self._agents_last_pit[agent] > 5:
+        if self._agents_last_pit[agent] > 5 or self._lap == self.race_length - 1:
             # Check if the agent has left any of the tyres
-            for i in range(1, len(self._compound_initials) + 1):
-                if self._available_compounds[agent][self.map_action_to_compound(i)] > 0:
-                    actions.append(i)
+            for i, compound in enumerate(self._compound_initials):
+                if self._available_compounds[agent][compound] > 0:
+                    actions.append(i+1)
+
 
         # Force pit-stop in penultimate lap if no two different compounds have been used or no pit stop has been done
         if self._lap == self.race_length - 1:
+            old_actions = deepcopy(actions)
             if self._pit_counts[agent] == 0 or len(self.used_compounds[agent]) == 1:
                 actions.remove(0)
 
