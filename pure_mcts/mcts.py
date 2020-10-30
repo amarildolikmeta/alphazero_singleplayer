@@ -244,8 +244,6 @@ class MCTS(object):
         fig.show()
         print("A")
 
-
-
     def inorderTraversal(self, root, g, vertex_index, parent_index, v_label, a_label):
         if root:
             g.add_vertex(vertex_index)

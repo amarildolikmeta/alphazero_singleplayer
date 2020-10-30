@@ -6,6 +6,7 @@ from igraph import Graph
 import plotly.graph_objects as go
 import json
 
+
 def sample(env, action, budget):
     env.seed(np.random.randint(1e7))
     _, r, done, _ = env.step(action)
@@ -15,14 +16,14 @@ def sample(env, action, budget):
 
 def random_rollout(actions, env, budget, max_depth=200, terminal=False):
     """Rollout from the current state following a random policy up to hitting a terminal state"""
-    if terminal or budget <= 0:
-        return 0, budget
+    # if terminal or budget <= 0:
+    #     return 0, -1
 
     done = False
     env.seed(np.random.randint(1e7))
     ret = 0
     t = 0
-    while budget > 0 and t < max_depth and not done:
+    while t < max_depth and not done:
         action = np.random.choice(actions)
         s, r, done, _ = env.step(action)
         ret += r
@@ -43,14 +44,14 @@ def strategic_rollout(env, budget, max_depth=200, terminal=False, root_owner=Non
     """Rollout from the current state following a default policy up to hitting a terminal state"""
     done = False
     ret = np.zeros(env.agents_number)
-    if terminal or budget <= 0:
-        return ret, budget
+    # if terminal or budget <= 0:
+    #     return ret, -1
     env.seed(np.random.randint(1e7))
     t = 0
 
     agent = root_owner
 
-    while budget > 0 and t / env.agents_number < max_depth and not done:
+    while t / env.agents_number < max_depth and not done:
         actions = env.get_available_actions(agent)
         prob = PROBS[len(actions)]
         action = np.random.choice(actions, p=prob)
@@ -276,7 +277,8 @@ class OL_MCTS(object):
                     break
 
             # Back-up
-
+            # if budget < 0: #finished budget before rollout
+            #     break
             R = state.V
             state.update()
             while state.parent_action is not None:  # loop back-up until root is reached
