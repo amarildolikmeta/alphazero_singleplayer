@@ -1,4 +1,6 @@
 import copy
+
+from envs.planning_env import PlanningEnv
 from helpers import stable_normalizer, argmax, max_Q
 from rl.make_game import is_atari_game
 import numpy as np
@@ -189,7 +191,9 @@ class State(object):
                           if child_action.n > 0 and not np.isinf(child_action.sigma).any() else np.inf
                           for child_action in self.child_actions])
 
-        # variance = np.array([child_action.sigma for child_action in self.child_actions])
+        # var = np.array([child_action.sigma for child_action in self.child_actions])
+        #
+        # qs = np.array([child_action.Q for child_action in self.child_actions])
         #
         # sq = np.array([np.sqrt(csi * child_action.sigma * logp / child_action.n)
         #                   if child_action.n > 0 and not np.isinf(child_action.sigma).any() else np.inf
@@ -243,9 +247,13 @@ class OL_MCTS(object):
         else:
             raise (NotImplementedError("Need to reset the tree"))
 
-    def search(self, n_mcts, c, Env, mcts_env, budget, max_depth=200, fixed_depth=True):
+    def search(self, n_mcts, c, Env: PlanningEnv, mcts_env, budget, max_depth=200, fixed_depth=True):
         """ Perform the MCTS search from the root """
+
         env = copy.deepcopy(Env)
+
+        env.enable_search_mode()
+
         self.create_root(env, budget)
         if self.root.terminal:
             raise (ValueError("Can't do tree search from a terminal state"))
@@ -304,6 +312,8 @@ class OL_MCTS(object):
             pi_target = stable_normalizer(counts, temp)
         else:
             pi_target = max_Q(Q)
+            # if np.argmax(pi_target) > 0:
+            #     print(Q)
         V_target = np.sum((counts / np.sum(counts)) * Q)[None]
         return self.root_signature, pi_target, V_target
 
