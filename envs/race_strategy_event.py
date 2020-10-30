@@ -16,12 +16,20 @@ from gym import register
 # Since the module race_simulation was forked it is not configured to work with the repository's folder structure
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 
+from envs.planning_env import PlanningEnv
+
 ROOT_PATH = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(os.path.join(ROOT_PATH, 'race_simulation'))
 
 from race_simulation.racesim.src.race import Race
 from race_simulation.racesim.src.import_pars import import_pars
 from race_simulation.racesim.src.check_pars import check_pars
+
+MAX_P = [1]
+PROB_1 = [0.95, 0.05]
+PROB_2 = [0.95, 0.025, 0.025]
+PROB_3 = [0.91, 0.03, 0.03, 0.03]
+PROBS = {1: MAX_P, 2: PROB_1, 3: PROB_2, 4:PROB_3}
 
 MCS_PARS_FILE = 'pars_mcs.ini'
 
@@ -71,17 +79,22 @@ def select_races(year: int, ini_path="./race_simulation/racesim/input/parameters
     return final
 
 
-class RaceEnv(gym.Env):
+class RaceEnv(PlanningEnv):
 
     def __init__(self, gamma=0.95, horizon=20, scale_reward=True, positive_reward=True, start_lap=8,
                  verbose=False, config_path='./envs/race_strategy_model/active_drivers.csv', skip_steps=False, n_cores=-1):
         # print("////////////////////////////////////////", horizon)
+
+        super(RaceEnv, self).__init__()
+
         self.verbose = verbose
         self._actions_queue = deque()
         self._agents_queue = deque()
-        self._agents_last_pit = defaultdict(int)
+        self._last_pit = defaultdict(int)
         self.horizon = horizon
         self.gamma = gamma
+        self.search_mode = False
+
         # TODO regulate dynamically the number of actions and drivers
         self.obs_dim = 30
         self.n_actions = 3
@@ -121,7 +134,6 @@ class RaceEnv(gym.Env):
             self._active_drivers_mapping[self._active_drivers[i]] = i
             self._index_to_active[i] = self._active_drivers[i]
 
-        self._active_drivers = set(self._active_drivers)
         self.agents_number = len(self._active_drivers)
 
         self.start_lap = start_lap
@@ -154,10 +166,10 @@ class RaceEnv(gym.Env):
         self._index_to_driver = {}
 
         self._terminal = False
-        self._pit_counts = [0] * self.agents_number
+        self._pit_counts = defaultdict(int)
         self.used_compounds = [set() for _ in range(self.agents_number)]
         self._compound_initials = []
-        self._available_compounds = []
+        self._available_compounds = {}
         self._compound_indices = {}
 
         self._flags_encoder = OneHotEncoder(sparse=False)
@@ -195,15 +207,14 @@ class RaceEnv(gym.Env):
             sim_index = self._race_sim.drivers_mapping[d.carno]
             available_compounds = np.zeros(len(COMPOUNDS)).T
             pit_count = 0
-            if d.carno in self._active_drivers:
-                env_index = self._active_drivers_mapping[d.carno]
-                available_tires = self._available_compounds[env_index]
+            if d.carno in self._active_drivers_mapping:
+                available_tires = self._available_compounds[d.carno]
                 for compound in available_tires:
                     if available_tires[compound] > 0:
                         available_compounds += self._compound_encoder.transform(
                             np.array([compound]).reshape(-1, 1)).squeeze()
 
-                pit_count = self._pit_counts[env_index] / 5
+                pit_count = self._pit_counts[d.carno] / 5
 
             overtake_available = overtake_ok[sim_index]
             current_tires = d.car.tireset.compound
@@ -240,7 +251,7 @@ class RaceEnv(gym.Env):
         lap /= self.race_length
 
         for d in state['drivers']:
-            if d.carno in self._active_drivers:
+            if d.carno in self._active_drivers_mapping:
                 sim_index = self._race_sim.drivers_mapping[d.carno]
                 env_index = self._active_drivers_mapping[d.carno]
                 available_tires = self._available_compounds[env_index]
@@ -280,7 +291,7 @@ class RaceEnv(gym.Env):
         sig = {'state': deepcopy(self.get_state()),
                'action_queue': deepcopy(self._actions_queue),
                'agents_queue': deepcopy(self._agents_queue),
-               'last_pits': deepcopy(self._agents_last_pit),
+               'last_pits': deepcopy(self._last_pit),
                'simulator': deepcopy(self._race_sim),
                't': deepcopy(self._t),
                'terminal': deepcopy(self._terminal),
@@ -295,44 +306,59 @@ class RaceEnv(gym.Env):
         self._race_sim = deepcopy(sig['simulator'])
         self._actions_queue = deepcopy(sig['action_queue'])
         self._agents_queue = deepcopy(sig['agents_queue'])
-        self._agents_last_pit = deepcopy(sig['last_pits'])
+        self._last_pit = deepcopy(sig['last_pits'])
         self._t = deepcopy(sig['t'])
         self._terminal = deepcopy(sig['terminal'])
         self._available_compounds = deepcopy(sig['available_compounds'])
         self._pit_counts = deepcopy(sig['pit_count'])
         self.used_compounds = deepcopy(sig['used_compounds'])
 
-    def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
 
-    def get_available_actions(self, agent: int) -> list:
+    def get_available_actions(self, driver: int) -> list:
         """Allow another pit stop, signified by actions 1-3, only if the last pit
         for the same agents was at least 5 laps earlier"""
 
         actions = [0]
         # Check if the agent can do a pit stop
-        if self._agents_last_pit[agent] > 5 or self._lap == self.race_length - 1:
+        if self._last_pit[driver] > 5 or self._lap == self.race_length - 1:
             # Check if the agent has left any of the tyres
             for i, compound in enumerate(self._compound_initials):
-                if self._available_compounds[agent][compound] > 0:
+                if self._available_compounds[driver][compound] > 0:
                     actions.append(i+1)
-
 
         # Force pit-stop in penultimate lap if no two different compounds have been used or no pit stop has been done
         if self._lap == self.race_length - 1:
-            old_actions = deepcopy(actions)
-            if self._pit_counts[agent] == 0 or len(self.used_compounds[agent]) == 1:
+            if self._pit_counts[driver] == 0 or len(self.used_compounds[driver]) == 1:
                 actions.remove(0)
 
-            if len(self.used_compounds[agent]) == 1:
-                used_compound = next(iter(self.used_compounds[agent])) # Avoid popping and adding back the item to set
-                if self._available_compounds[agent][used_compound] > 0:
+            if len(self.used_compounds[driver]) == 1:
+                used_compound = next(iter(self.used_compounds[driver])) # Avoid popping and adding back the item to set
+                if self._available_compounds[driver][used_compound] > 0:
                     actions.remove(self._compound_indices[used_compound])
 
         return actions
 
+    def enable_search_mode(self) -> None:
+        """Activates default policy control for all non-controlled drivers"""
+
+        self.search_mode = True
+        previous_strategies = self._race_sim.set_controlled_drivers(self._drivers)
+
+        # Count previous pit-stops and remove already used tyres from available tyres
+        # to limit choice for non-controlled drivers
+        for driver in previous_strategies:
+            if driver not in self._active_drivers:
+                for strategy in previous_strategies[driver]:
+                    compound = strategy[1]
+                    self._available_compounds[driver][compound] -= 1
+                    self._pit_counts[driver] += 1
+                # Remove one pit-stop because also the starting tyre is included in the previous list
+                self._pit_counts[driver] -= 1
+                self._last_pit[driver] = self._race_sim.get_cur_lap() - previous_strategies[driver][-1][0]
+
+
     def map_action_to_compound(self, action_index: int) -> str:
+        """Returns the compound name string for the desired input action"""
         assert len(self._compound_initials) > 0, "[ERROR] Env has not been reset yet"
         assert action_index <= len(self._compound_initials), "The desired compound is not enabled in this race"
         if action_index == 0:
@@ -354,11 +380,11 @@ class RaceEnv(gym.Env):
         self._agents_queue.popleft()
         assert owner == agent, "Actions are de-synchronized with agents queue {} {}".format(owner, agent)
 
-        self._actions_queue.append((action, owner))
+        self._actions_queue.append((action, self._active_drivers_mapping[owner]))
         if action == 0:  # No pit, increment the time from last pit
-            self._agents_last_pit[owner] += 1
+            self._last_pit[owner] += 1
         else:  # Pit, reset time and remove a compound unit
-            self._agents_last_pit[owner] = 0
+            self._last_pit[owner] = 0
             # print("################")
             # print(self._pit_counts)
             # print(self._available_compounds)
@@ -432,6 +458,21 @@ class RaceEnv(gym.Env):
             if action > 0:
                 compound = self.map_action_to_compound(action)
                 pit_info.append((self._index_to_active[idx], [compound, 0, 0.]))
+
+        # Use default strategies for all non-controlled drivers during search in planners
+        if self.search_mode:
+            for d in self._drivers:
+                if d not in self._active_drivers_mapping:
+                    actions = self.get_available_actions(d)
+                    prob = PROBS[len(actions)]
+                    a = np.random.choice(actions, p=prob)
+                    if a > 0:
+                        compound = self.map_action_to_compound(a)
+                        self._available_compounds[d][compound] -= 1
+                        self.used_compounds[d].add(compound)
+                        self._pit_counts[d] += 1
+                        pit_info.append((d, [compound, 0, 0.]))
+
         predicted_times, driver_info = self._race_sim.step(pit_info)
 
         lap_times = np.ones(self._drivers_number) * self.max_lap_time
@@ -549,19 +590,18 @@ class RaceEnv(gym.Env):
                                       self._compound_initials[2]: 1}
         else:
             raise ValueError("Unexpected compound availabilities number, {}", self._compound_initials)
-        self._available_compounds = [deepcopy(default_availabilities)] * len(self._active_drivers)
+        self._available_compounds = {driver : deepcopy(default_availabilities) for driver in self._drivers}
 
-        self.used_compounds = [set() for _ in range(self.agents_number)]
+        self.used_compounds = {driver: set() for driver in self._drivers}
         # Enable pit stops for the drivers and remove one unit the starting tire from the available compounds
-        for i in range(self.agents_number):
-            self._agents_last_pit[i] = 6
-            driver = self._index_to_active[i]
-            start_compound = start_strategies[driver]
-            self.used_compounds[i].add(start_compound)
-            self._available_compounds[i][start_compound] -= 1
+        for d in self._active_drivers:
+            self._last_pit[d] = 6
+            start_compound = start_strategies[d][0][1]
+            self.used_compounds[d].add(start_compound)
+            self._available_compounds[d][start_compound] -= 1
 
         # Reset the pit counter
-        self._pit_counts = [0] * self.agents_number
+        self._pit_counts = defaultdict(int)
 
         return self.get_state()
 
@@ -570,14 +610,14 @@ class RaceEnv(gym.Env):
         ranks = deque()
         for index in temp:
             driver = self._index_to_driver[index]
-            if driver in self._active_drivers:
+            if driver in self._active_drivers_mapping:
                 ranks.append(self._active_drivers_mapping[driver])
         return ranks
 
     def get_next_agent(self):
         if len(self._agents_queue) == 0:
-            for i in range(self.agents_number):
-                self._agents_queue.append(i)
+            for car_number in self._active_drivers:
+                self._agents_queue.append(car_number)
             # self._agents_queue = self.get_agents_standings()
         return self._agents_queue[0]
 
