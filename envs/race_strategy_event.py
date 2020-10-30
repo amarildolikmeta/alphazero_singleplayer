@@ -491,10 +491,6 @@ class RaceEnv(PlanningEnv):
             index = self._drivers_mapping[driver]
             reward[active_index] = -np.clip(lap_times[index], 0, self.max_lap_time)
 
-        if self._terminal:  # Penalize if no pit stop has been done or if no two different compounds have been used
-            for i in range(self.agents_number):
-                reward[i] = -10000 if self._pit_counts[i] == 0 or len(self.used_compounds[i]) == 1 else reward[i]
-
         if self.scale_reward:
             reward /= self.max_lap_time
             if self.positive_reward:
