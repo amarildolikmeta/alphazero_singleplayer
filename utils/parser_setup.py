@@ -22,12 +22,14 @@ def parse_game_params(args):
 
 def parse_alg_name(args):
     alg = "dpw/"
-    if not args.stochastic:
+    if args.multiagent:
+        alg ="multiagent"
+    elif not args.stochastic:
         if args.unbiased:
             if args.variance:
-                alg = 'p_uct_var/'
+                alg = 'ol_uct_var/'
             else:
-                alg = 'p_uct/'
+                alg = 'ol_uct/'
         else:
             alg = 'pf_uct'
             if args.second_version:

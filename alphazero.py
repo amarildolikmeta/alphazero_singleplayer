@@ -93,10 +93,7 @@ if __name__ == '__main__':
 
             out_dir_i = out_dir + str(i) + '/'
 
-            if args.game == 'RaceStrategy-v2':
-                alg = "multiagent/"
-            else:
-                alg = parse_alg_name(args)
+            alg = parse_alg_name(args)
 
             out_dir = "logs/" + args.game
 
