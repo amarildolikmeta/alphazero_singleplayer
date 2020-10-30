@@ -111,34 +111,32 @@ class Wrapper(object):
 
         if self.mcts_only:
             # TODO remove, only for raceStrategy debugging
-            if hasattr(self.get_env(), "get_available_actions") and hasattr(self.get_env(), "get_next_agent"):
-                owner = self.get_env().get_next_agent()
-                if len(self.get_env().get_available_actions(owner)) > 1:
-                    self.search(self.n_mcts, self.c_dpw, self.mcts_env, max_depth)
-                    state, pi, V = self.return_results(self.temp)  # TODO put 0 if the network is enabled
+            owner = self.get_env().get_next_agent()
+            actions = self.get_env().get_available_actions(owner)
 
-                    # This is just the policy over the compacted action list, need to remap to full action space
+            if len(actions) > 1:
+                self.search(self.n_mcts, self.c_dpw, self.mcts_env, max_depth)
+                state, pi, V = self.return_results(self.temp)  # TODO put 0 if the network is enabled
+
+                if not len(actions) == self.get_env().action_space.n:
+                    # in this case pi is just the policy over the compacted action list,
+                    # need to remap to full action space
                     fixed_pi = np.zeros(self.get_mcts().na)
                     actions = self.get_env().get_available_actions(owner)
                     for i in range(len(pi)):
                         action_index = actions[i]
                         fixed_pi[action_index] = pi[i]  # Set the probability mass only for those actions that are available
                     pi = fixed_pi
-                else:  # Pit-stop cannot be performed, skip the search and default to stay on track action
-                    pi = np.zeros(self.get_mcts().na)
-                    pi[0] = 1.
-                self.curr_probs.append(pi)
-                a_w = argmax(pi)
-                # print(pi, a_w)
-                # max_p = np.max(pi)
-                # a_w = np.random.choice(np.argwhere(pi == max_p)[0])
-            else:
-                self.search(self.n_mcts, self.c_dpw, self.mcts_env, max_depth)
-                state, pi, V = self.return_results(self.temp)  # TODO put 0 if the network is enabled
-                self.curr_probs.append(pi)
-                a_w = argmax(pi)
-                # max_p = np.max(pi)
-                # a_w = np.random.choice(np.argwhere(pi == max_p)[0])
+
+            else:  # Only one action can be performed, skip search
+                pi = np.zeros(self.get_mcts().na)
+                pi[0] = 1.
+            self.curr_probs.append(pi)
+            a_w = argmax(pi)
+            # print(pi, a_w)
+            # max_p = np.max(pi)
+            # a_w = np.random.choice(np.argwhere(pi == max_p)[0])
+
         else:
             pi_w = self.get_model().predict_pi(s).flatten()
             self.curr_probs.append(pi_w)
@@ -206,8 +204,9 @@ class Wrapper(object):
             self.get_mcts().forward(a, s, r)
 
     def step(self, a):
+        # print("Action:", a)
         s, r, done, _ = self.get_env().step(a)
-        if done and hasattr(self.get_env(), "save_results"):
+        if done:
             self.get_env().save_results(self.timestamp)
         return s, r, done, _
 
