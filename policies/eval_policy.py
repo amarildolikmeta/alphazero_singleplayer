@@ -7,6 +7,14 @@ from utils import plotter
 import os
 USE_TQDM = True
 
+def finalize(rewards_per_timestep, verbose):
+    total_rewards = [np.sum(rew, axis=0) for rew in rewards_per_timestep]
+    avg = np.mean(total_rewards, axis=0)
+    std = np.std(total_rewards, axis=0)
+    if verbose or True:
+        print("Average Return = {0} +- {1}".format(avg, std))
+    return total_rewards
+
 
 def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, interactive=False,
                             max_len=200, max_workers=12, out_dir=None):
@@ -25,50 +33,39 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
     iterations = max(n_episodes // n_workers, 1)
     remainder = n_episodes % n_workers if n_workers < n_episodes else 0
 
+    #TODO transform in queue style, batch might be delayed even if most of the workers already finished
+
     for it in range(iterations):
-        start = time.time()
-        p = multiprocessing.Pool(n_workers)
-        results = p.starmap(evaluate, [(add_terminal, copy.deepcopy(wrapper), i, interactive, max_len, verbose) for i in
-                                   range(n_workers)])
-        print("Time to perform evaluation episodes:", time.time() - start, "s")
-
-        # Unpack results
-        for r in results:
-            rewards_per_timestep.append(np.array(r[0]))
-            ep_lengths.append(np.array(r[1]))
-            action_counts.append(r[2])
-            if out_dir is not None:
-                res.append(np.sum(r[0], axis=0))
-        if out_dir is not None:
-            np.save(out_dir + '/results.npy', res)
-        # p.join()
-        p.close()
+        execute_batch(action_counts, add_terminal, ep_lengths, interactive, max_len, n_workers, out_dir, res,
+                      rewards_per_timestep, verbose, wrapper)
     if remainder > 0:
-        start = time.time()
-        p = multiprocessing.Pool(remainder)
-        results = p.starmap(evaluate, [(add_terminal, copy.deepcopy(wrapper), i, interactive, max_len, verbose) for i in
-                                       range(remainder)])
-        print("Time to perform evaluation episodes:", time.time() - start, "s")
+        execute_batch(action_counts, add_terminal, ep_lengths, interactive, max_len, remainder, out_dir, res,
+                      rewards_per_timestep, verbose, wrapper)
 
-        # Unpack results
-        for r in results:
-            rewards_per_timestep.append(np.array(r[0]))
-            ep_lengths.append(np.array(r[1]))
-            action_counts.append(r[2])
-            if out_dir is not None:
-                res.append(np.sum(r[0], axis=0))
-        if out_dir is not None:
-            np.save(out_dir + '/results.npy', res)
-        # p.join()
-        p.close()
+    total_rewards = finalize(rewards_per_timestep, verbose)
 
-    total_rewards = [np.sum(rew, axis=0) for rew in rewards_per_timestep]
-    avg = np.mean(total_rewards, axis=0)
-    std = np.std(total_rewards, axis=0)
-    if verbose or True:
-        print("Average Return = {0} +- {1}".format(avg, std))
     wrapper.reset()
     return total_rewards, rewards_per_timestep, ep_lengths, action_counts
+
+
+def execute_batch(action_counts, add_terminal, ep_lengths, interactive, max_len, n_workers, out_dir, res,
+                  rewards_per_timestep, verbose, wrapper):
+    start = time.time()
+    p = multiprocessing.Pool(n_workers)
+    results = p.starmap(evaluate, [(add_terminal, copy.deepcopy(wrapper), i, interactive, max_len, verbose) for i in
+                                   range(n_workers)])
+    print("Time to perform evaluation episodes:", time.time() - start, "s")
+    # Unpack results
+    for r in results:
+        rewards_per_timestep.append(np.array(r[0]))
+        ep_lengths.append(np.array(r[1]))
+        action_counts.append(r[2])
+        if out_dir is not None:
+            res.append(np.sum(r[0], axis=0))
+    if out_dir is not None:
+        np.save(out_dir + '/results.npy', res)
+    # p.join()
+    p.close()
 
 
 def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, interactive=False, max_len=200,
@@ -92,11 +89,7 @@ def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, inter
         ep_lengths.append(t)
         action_counts.append(count)
 
-    total_rewards = [np.sum(rew, axis=0) for rew in rewards_per_timestep]
-    avg = np.mean(total_rewards, axis=0)
-    std = np.std(total_rewards, axis=0)
-    if verbose or True:
-        print("Average Return = {0} +- {1}".format(avg, std))
+    total_rewards = finalize(rewards_per_timestep, verbose)
     wrapper.reset()
     return total_rewards, rewards_per_timestep, ep_lengths, action_counts
 
