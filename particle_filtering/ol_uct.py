@@ -268,6 +268,7 @@ class OL_MCTS(object):
             else:
                 raise NotImplementedError
             mcts_env.seed(np.random.randint(1e7))
+            mcts_env.reset_stochasticity()  # Regenerate precomputed random events, if any
             st = 0
             terminal = False
             while not state.terminal:

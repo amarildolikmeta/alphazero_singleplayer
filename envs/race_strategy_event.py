@@ -33,15 +33,6 @@ PROBS = {1: MAX_P, 2: PROB_1, 3: PROB_2, 4:PROB_3}
 
 MCS_PARS_FILE = 'pars_mcs.ini'
 
-SIM_OPTS = {"use_prob_infl": True,
-            "create_rand_events": False,
-            "use_vse": False,
-            "no_sim_runs": 1,
-            "no_workers": 1,
-            "use_print": False,
-            "use_print_result": False,
-            "use_plot": False}
-
 COMPOUND_MAPPING = {"A1": 1,
                     "A2": 2,
                     "A3": 3,
@@ -82,7 +73,8 @@ def select_races(year: int, ini_path="./race_simulation/racesim/input/parameters
 class RaceEnv(PlanningEnv):
 
     def __init__(self, gamma=0.95, horizon=20, scale_reward=True, positive_reward=True, start_lap=8,
-                 verbose=False, config_path='./envs/race_strategy_model/active_drivers.csv', skip_steps=False, n_cores=-1):
+                 verbose=False, config_path='./envs/race_strategy_model/active_drivers.csv', skip_steps=False, 
+                 n_cores=-1, randomize_events=False):
         # print("////////////////////////////////////////", horizon)
 
         super(RaceEnv, self).__init__()
@@ -106,6 +98,16 @@ class RaceEnv(PlanningEnv):
         self.viewer = None
 
         self._skip_steps = skip_steps
+
+        self.sim_opts = {"use_prob_infl": True,
+                    "create_rand_events": randomize_events,
+                    "use_vse": False,
+                    "no_sim_runs": 1,
+                    "no_workers": 1,
+                    "use_print": False,
+                    "use_print_result": False,
+                    "use_plot": False}
+        
         # get repo path
         repo_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -356,6 +358,10 @@ class RaceEnv(PlanningEnv):
                 self._pit_counts[driver] -= 1
                 self._last_pit[driver] = self._race_sim.get_cur_lap() - previous_strategies[driver][-1][0]
 
+    def reset_stochasticity(self) -> None:
+        """Regenerate random events in the simulator from this state onwards, as they need to be precomputed"""
+        if self.sim_opts["create_rand_events"]:
+            self._race_sim.handle_random_events_generation()
 
     def map_action_to_compound(self, action_index: int) -> str:
         """Returns the compound name string for the desired input action"""
@@ -526,20 +532,21 @@ class RaceEnv(PlanningEnv):
         # use_plot:             set if plotting should be used or not
 
         self._terminal = False
+        self.search_mode = False
         race_pars_file = self._races_config_files.pop(0)
         # print(race_pars_file)
         self._races_config_files.append(race_pars_file)
 
-        race_pars_file = "pars_Catalunya_2017.ini"
+        race_pars_file = "pars_Melbourne_2017.ini"
 
         # load parameters
-        pars_in, vse_paths = import_pars(use_print=SIM_OPTS["use_print"],
-                                         use_vse=SIM_OPTS["use_vse"],
+        pars_in, vse_paths = import_pars(use_print=self.sim_opts["use_print"],
+                                         use_vse=self.sim_opts["use_vse"],
                                          race_pars_file=race_pars_file,
                                          mcs_pars_file=MCS_PARS_FILE)
 
         # check parameters
-        check_pars(sim_opts=SIM_OPTS, pars_in=pars_in)
+        check_pars(sim_opts=self.sim_opts, pars_in=pars_in)
 
         self._race_sim = Race(race_pars=pars_in["race_pars"],
                               driver_pars=pars_in["driver_pars"],
@@ -548,8 +555,8 @@ class RaceEnv(PlanningEnv):
                               track_pars=pars_in["track_pars"],
                               vse_pars=pars_in["vse_pars"],
                               vse_paths=vse_paths,
-                              use_prob_infl=SIM_OPTS['use_prob_infl'],
-                              create_rand_events=SIM_OPTS['create_rand_events'],
+                              use_prob_infl=self.sim_opts['use_prob_infl'],
+                              create_rand_events=self.sim_opts['create_rand_events'],
                               monte_carlo_pars=pars_in["monte_carlo_pars"],
                               event_pars=pars_in["event_pars"],
                               disable_retirements=True)

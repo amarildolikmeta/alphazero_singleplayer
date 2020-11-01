@@ -35,3 +35,6 @@ class PlanningEnv(Env):
 
     def save_results(self, timestamp):
         print("[WARNING] No save method is implemented for this environment")
+
+    def reset_stochasticity(self):
+        pass
