@@ -17,7 +17,7 @@ from agent import agent
 
 def compute_time_string():
     today = datetime.now()
-    timestamp = today.strftime('%Y-%m-%d_%H-%M')
+    timestamp = today.strftime('%Y-%m-%d_%H-%M-%S')
     return timestamp
 
 #### Command line call, parsing and plotting ##
