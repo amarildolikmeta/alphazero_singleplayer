@@ -207,7 +207,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             if game == "RaceStrategy-v1" or game == "RaceStrategy-v2" and multiagent:
                 # Set the timestamp to be used across processes
                 today = datetime.now()
-                timestamp = today.strftime('%Y-%m-%d_%H-%M')
+                timestamp = today.strftime('%Y-%m-%d_%H-%M-%S')
                 env_wrapper = RaceWrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, budget,
                                   mcts_env, c, temp, env=penv, game_maker=pgame, mcts_only=mcts_only,
                                   scheduler_params=scheduler_params, log_timestamp=timestamp)
