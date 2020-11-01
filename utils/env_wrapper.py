@@ -104,7 +104,7 @@ class Wrapper(object):
             l = self.schedule(current_depth,
                               k=self.scheduler_params["slope"],
                               min_depth=self.scheduler_params["min_depth"],
-                              width=current_depth + max_depth)
+                              width=current_depth)
             # self.scheduler_budget = max(int(self.budget * (1 - l)), self.scheduler_params["min_budget"])
             self.scheduler_budget = max(int(self.budget * l), self.scheduler_params["min_budget"])
             # print("\nDepth: {}\nBudget: {}".format(current_depth, self.scheduler_budget))
