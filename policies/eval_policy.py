@@ -18,6 +18,7 @@ def finalize(rewards_per_timestep, verbose):
     return total_rewards
 
 def save_result(r, rewards_per_timestep, ep_lengths, action_counts, out_dir, results):
+    r = r[0] # The result passed to the callback is a single element list
     rewards_per_timestep.append(np.array(r[0]))
     ep_lengths.append(np.array(r[1]))
     action_counts.append(r[2])
