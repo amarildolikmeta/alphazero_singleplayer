@@ -1,3 +1,5 @@
+from functools import partial
+
 import numpy as np
 import time
 import multiprocessing
@@ -15,6 +17,15 @@ def finalize(rewards_per_timestep, verbose):
         print("Average Return = {0} +- {1}".format(avg, std))
     return total_rewards
 
+def save_result(r, rewards_per_timestep, ep_lengths, action_counts, out_dir, results):
+    rewards_per_timestep.append(np.array(r[0]))
+    ep_lengths.append(np.array(r[1]))
+    action_counts.append(r[2])
+    if out_dir is not None:
+        results.append(np.sum(r[0], axis=0))
+    if out_dir is not None:
+        np.save(out_dir + '/results.npy', results)
+
 
 def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, interactive=False,
                             max_len=200, max_workers=12, out_dir=None):
@@ -29,18 +40,48 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
     if out_dir is not None:
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
-        res = []
+    res = []
     iterations = max(n_episodes // n_workers, 1)
     remainder = n_episodes % n_workers if n_workers < n_episodes else 0
 
     #TODO transform in queue style, batch might be delayed even if most of the workers already finished
 
-    for it in range(iterations):
-        execute_batch(action_counts, add_terminal, ep_lengths, interactive, max_len, n_workers, out_dir, res,
-                      rewards_per_timestep, verbose, wrapper)
-    if remainder > 0:
-        execute_batch(action_counts, add_terminal, ep_lengths, interactive, max_len, remainder, out_dir, res,
-                      rewards_per_timestep, verbose, wrapper)
+    # for it in range(iterations):
+    #     execute_batch(action_counts, add_terminal, ep_lengths, interactive, max_len, n_workers, out_dir, res,
+    #                   rewards_per_timestep, verbose, wrapper)
+    # if remainder > 0:
+    #     execute_batch(action_counts, add_terminal, ep_lengths, interactive, max_len, remainder, out_dir, res,
+    #                   rewards_per_timestep, verbose, wrapper)
+
+    start = time.time()
+    p = multiprocessing.Pool(n_workers)
+
+    callback_func = partial(save_result,
+                            rewards_per_timestep=rewards_per_timestep,
+                            ep_lengths=ep_lengths,
+                            action_counts=action_counts,
+                            out_dir=out_dir,
+                            results=res)
+
+    results = p.starmap_async(evaluate,
+                              [(add_terminal, copy.deepcopy(wrapper), i, interactive, max_len, verbose) for i in
+                               range(iterations)], callback=callback_func).get()
+    print("Time to perform evaluation episodes:", time.time() - start, "s")
+
+    # Unpack results, just for double check
+    rewards_per_timestep = []
+    ep_lengths = []
+    action_counts = []
+    for r in results:
+        rewards_per_timestep.append(np.array(r[0]))
+        ep_lengths.append(np.array(r[1]))
+        action_counts.append(r[2])
+        if out_dir is not None:
+            res.append(np.sum(r[0], axis=0))
+    if out_dir is not None:
+        np.save(out_dir + '/results_async.npy', res)
+    # p.join()
+    p.close()
 
     total_rewards = finalize(rewards_per_timestep, verbose)
 
@@ -52,8 +93,9 @@ def execute_batch(action_counts, add_terminal, ep_lengths, interactive, max_len,
                   rewards_per_timestep, verbose, wrapper):
     start = time.time()
     p = multiprocessing.Pool(n_workers)
-    results = p.starmap(evaluate, [(add_terminal, copy.deepcopy(wrapper), i, interactive, max_len, verbose) for i in
-                                   range(n_workers)])
+    results = p.starmap_async(evaluate,
+                              [(add_terminal, copy.deepcopy(wrapper), i, interactive, max_len, verbose) for i in
+                               range(n_workers)]).get()
     print("Time to perform evaluation episodes:", time.time() - start, "s")
     # Unpack results
     for r in results:
