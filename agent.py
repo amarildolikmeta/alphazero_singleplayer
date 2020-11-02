@@ -25,7 +25,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
           pre_process=None, visualize=False, game_params={}, parallelize_evaluation=False, mcts_only=False,
           particles=0, show_plots=False, n_workers=1, use_sampler=False, budget=np.inf, unbiased=False, biased=False,
           max_workers=100, variance=False, depth_based_bias=False, scheduler_params=None, out_dir=None,
-          render=False, second_version=False, third_version=False, multiagent=False, csi=1.):
+          render=False, second_version=False, third_version=False, multiagent=False, csi=1., log_timestamp=None):
     visualizer = None
 
     # if particles:
@@ -204,17 +204,23 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             model_file = os.path.join(out_dir, "model.h5")
             if not mcts_only:
                 model_wrapper.save(model_file)
-            if game == "RaceStrategy-v1" or game == "RaceStrategy-v2" and multiagent:
-                # Set the timestamp to be used across processes
+
+            # Set the timestamp to be used across processes
+            if not log_timestamp:
                 today = datetime.now()
                 timestamp = today.strftime('%Y-%m-%d_%H-%M-%S')
+            else:
+                timestamp = log_timestamp
+            
+            if game == "RaceStrategy-v1" or game == "RaceStrategy-v2" and multiagent:
+
                 env_wrapper = RaceWrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, budget,
                                   mcts_env, c, temp, env=penv, game_maker=pgame, mcts_only=mcts_only,
                                   scheduler_params=scheduler_params, log_timestamp=timestamp)
             else:
                 env_wrapper = Wrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, budget,
                                       mcts_env, c, temp, env=penv, game_maker=pgame, mcts_only=mcts_only,
-                                      scheduler_params=scheduler_params)
+                                      scheduler_params=scheduler_params, log_timestamp=timestamp)
 
             # Run the evaluation
             if parallelize_evaluation:
