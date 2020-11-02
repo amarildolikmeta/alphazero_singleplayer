@@ -55,7 +55,7 @@ class Wrapper(object):
         # Set the timestamp
         if not log_timestamp:
             today = datetime.now()
-            self.timestamp = today.strftime('%Y-%m-%d_%H-%M')
+            self.timestamp = today.strftime('%Y-%m-%d_%H-%M-%S')
         else:
             assert type(log_timestamp) == str, "Timestamp must be provided as string"
             self.timestamp = log_timestamp
