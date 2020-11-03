@@ -211,7 +211,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 timestamp = today.strftime('%Y-%m-%d_%H-%M-%S')
             else:
                 timestamp = log_timestamp
-            
+
             if game == "RaceStrategy-v1" or game == "RaceStrategy-v2" and multiagent:
 
                 env_wrapper = RaceWrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, budget,

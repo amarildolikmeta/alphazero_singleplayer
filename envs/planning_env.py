@@ -38,3 +38,6 @@ class PlanningEnv(Env):
 
     def reset_stochasticity(self):
         pass
+
+    def get_max_ep_length(self):
+        return np.inf

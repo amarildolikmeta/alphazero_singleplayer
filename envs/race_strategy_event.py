@@ -183,6 +183,9 @@ class RaceEnv(PlanningEnv):
         if self.scale_reward and verbose:
             print("Reward is being normalized")
 
+    def get_max_ep_length(self):
+        return min(self.get_race_length(), self.horizon)
+
     def get_race_length(self):
         assert self._race_sim is not None, "Race simulator not initialized yet"
         return self._race_sim.get_race_length()

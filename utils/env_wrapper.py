@@ -5,6 +5,7 @@ from datetime import datetime
 
 import numpy as np
 
+from envs.planning_env import PlanningEnv
 from helpers import argmax
 
 
@@ -23,6 +24,9 @@ class Wrapper(object):
                  log_path="./logs/", log_timestamp=None):
 
         assert game_maker is not None or env is not None, "No environment or maker provided to the wrapper"
+
+        self._schedules=[]
+        self._depths=[]
 
         self.agents_count = 1
         self.root_index = root_index
@@ -99,14 +103,18 @@ class Wrapper(object):
     #     return (1 - 5 / max_depth) ** (x)
 
     def pi_wrapper(self, s, current_depth, max_depth):
+
+        width = min(self.get_env().get_max_ep_length(), max_depth+current_depth)
+
         # Compute the reduced budget as function of the search root depth
         if self.scheduler_params:
             l = self.schedule(current_depth,
                               k=self.scheduler_params["slope"],
                               min_depth=self.scheduler_params["min_depth"],
-                              width=current_depth)
+                              width=width)
             # self.scheduler_budget = max(int(self.budget * (1 - l)), self.scheduler_params["min_budget"])
             self.scheduler_budget = max(int(self.budget * l), self.scheduler_params["min_budget"])
+
             # print("\nDepth: {}\nBudget: {}".format(current_depth, self.scheduler_budget))
 
         if self.mcts_only:
@@ -144,7 +152,7 @@ class Wrapper(object):
             a_w = np.random.choice(np.argwhere(pi_w == max_p)[0])
         return a_w
 
-    def get_env(self):
+    def get_env(self) -> PlanningEnv:
         if self.env is None:
             self.make_env()
         return self.env
