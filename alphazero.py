@@ -122,6 +122,7 @@ if __name__ == '__main__':
                                                       n_hidden_units=args.n_hidden_units,
                                                       stochastic=args.stochastic,
                                                       alpha=args.alpha,
+                                                      c_dpw=args.cdpw,
                                                       numpy_dump_dir=out_dir_i,
                                                       visualize=args.visualize,
                                                       eval_freq=args.eval_freq,

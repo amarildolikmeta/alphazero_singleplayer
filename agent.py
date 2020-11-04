@@ -148,6 +148,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         elif stochastic:
             mcts_params['alpha'] = alpha
             mcts_params['depth_based_bias'] = depth_based_bias
+            mcts_params['c_dpw'] = c_dpw
             mcts_maker = MCTSStochastic
         else:
             mcts_maker = MCTS

@@ -60,10 +60,10 @@ class StochasticState(State):
 class MCTSStochastic(MCTS):
     """ MCTS object """
 
-    def __init__(self, root, root_index, na, gamma, alpha=0.6, model=None, depth_based_bias=False, beta=1):
+    def __init__(self, root, root_index, na, gamma, alpha=0.6, model=None, depth_based_bias=False, c_dpw=1):
         super(MCTSStochastic, self).__init__(root, root_index, na, gamma, depth_based_bias=depth_based_bias)
         self.alpha = alpha
-        self.beta = beta
+        self.beta = c_dpw
 
     def search(self, n_mcts, c, Env, mcts_env, budget, max_depth=200):
         ''' Perform the MCTS search from the root '''

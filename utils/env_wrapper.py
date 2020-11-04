@@ -19,7 +19,7 @@ def signal_handler(signum, frame):
 
 class Wrapper(object):
     def __init__(self, root_index, mcts_maker, model_save_file, model_wrapper_params,
-                 mcts_params, is_atari, n_mcts, budget, mcts_env, c_dpw,
+                 mcts_params, is_atari, n_mcts, budget, mcts_env, c,
                  temp, game_maker=None, env=None, mcts_only=True, scheduler_params=None,
                  log_path="./logs/", log_timestamp=None):
 
@@ -48,7 +48,7 @@ class Wrapper(object):
         self.budget = budget
         self.mcts_env = mcts_env
         self.mcts_only = mcts_only
-        self.c_dpw = c_dpw
+        self.c = c
         self.temp = temp
         self.scheduler_params = scheduler_params
         self.scheduler_budget = np.inf
@@ -123,7 +123,7 @@ class Wrapper(object):
             actions = self.get_env().get_available_actions(owner)
 
             if len(actions) > 1:
-                self.search(self.n_mcts, self.c_dpw, self.mcts_env, max_depth)
+                self.search(self.n_mcts, self.c, self.mcts_env, max_depth)
                 state, pi, V = self.return_results(self.temp)  # TODO put 0 if the network is enabled
 
                 if not len(actions) == self.get_env().action_space.n:
