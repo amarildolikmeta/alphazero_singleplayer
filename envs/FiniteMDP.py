@@ -46,6 +46,7 @@ class MDPInfo:
         """
         return self.observation_space.shape + self.action_space.shape
 
+
 class FiniteMDP(gym.Env):
     """
     Finite Markov Decision Process.
@@ -119,7 +120,6 @@ class FiniteMDP(gym.Env):
         # Increment timestep
         if self._t >= self.horizon:
             return self._state, 0, True, {}
-
 
         if np.isscalar(action):
             action = [action]

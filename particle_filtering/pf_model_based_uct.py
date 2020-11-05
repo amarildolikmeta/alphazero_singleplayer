@@ -132,9 +132,18 @@ class PFModelBasedMCTS(OL_MCTS):
         else:
             raise (NotImplementedError("Need to reset the tree"))
 
+    def get_new_weights_balance_heuristic(self, trajectory, particle, depth, distribution):
+        return 0
+
+    def get_new_weights_simple(self, new_weight):
+        return 0
+
+    def should_resample(self, node, bh=False, full_resampling_weights=None):
+        return 0, 0, 0, 0
+
     def search(self, n_mcts, c, Env, mcts_env, budget, max_depth=200, fixed_depth=True, bh=True):
         """ Perform the MCTS search from the root """
-        assert hasattr(Env, 'P'), "Need the transition matrix P"
+        assert hasattr(Env, 'p'), "Need the transition matrix P"
         env = copy.deepcopy(Env)
         self.create_root(env, budget)
         if self.root.terminal:
@@ -143,59 +152,76 @@ class PFModelBasedMCTS(OL_MCTS):
         is_atari = is_atari_game(env)
         if is_atari:
             raise NotImplementedError
+
         while budget > 0:
+
             state = self.root  # reset to root for new trace
             if not is_atari:
                 mcts_env = copy.deepcopy(Env)  # copy original Env to rollout from
             else:
                 raise NotImplementedError
-            mcts_env.seed(np.random.randint(1e7))
+            mcts_env.seed()
             st = 0
-            flag = False
-            source_particle = None
+            terminal = False
+            path = []
             while not state.terminal:
+                path.append(state)
                 bias = c * self.gamma ** st / (1 - self.gamma) if self.depth_based_bias else c
                 action = state.select(c=bias, variance=self.variance)
                 st += 1
-                k = np.ceil(self.beta * action.n ** self.alpha)
                 if action.child_state is not None:
                     state = action.child_state  # select
-                    add_particle = k >= state.get_n_particles()
-                    if add_particle and not flag:
-                        flag = True
-                        source_particle, budget = action.sample_from_parent_state(mcts_env, budget)
-                        state.add_particle(source_particle)
-                        if source_particle.terminal:
-                            break
-                    elif flag:
-                        source_particle, budget = action.sample_from_particle(source_particle, mcts_env, budget)
-                        state.add_particle(source_particle)
-                        if source_particle.terminal:
-                            break
-                    elif state.terminal:
-                        source_particle = np.random.choice(state.particles)
-                        budget -= 1  # sample from the terminal states particles
-
+                    # terminal, budget = state.sample(mcts_env, action.index, budget)
+                    if terminal:
+                        break
                 else:
                     rollout_depth = max_depth if fixed_depth else max_depth - st
-                    state, budget, source_particle = action.add_child_state(mcts_env, budget, max_depth=rollout_depth,
-                                                                            source_particle=source_particle,
-                                                                            depth=st)  # expand
+                    # state, budget = action.add_child_state(mcts_env, budget, rollout_depth, depth=st)  # expand
+                    # if not state.terminal(path.append(state))
                     break
 
-
             # Back-up
+
+            max_margin = -np.inf
+            starting_node = self.root
+            root_particle = self.root.particles[0]
+            starting_particle = root_particle
+            sample_weight = 1
+            i = len(path) - 1
+            node = path[i]
+            if bh:
+                full_resampling_weights = self.get_new_weights_balance_heuristic(trajectory=[root_particle],
+                                                                                 depth=0,
+                                                                                 particle=root_particle,
+                                                                                 distribution=(
+                                                                                     [root_particle], 1))
+            else:
+                full_resampling_weights = self.get_new_weights_simple(1)
+
+            while i >= 0:
+                should_resample, particle, weight, margin = \
+                    self.should_resample(node, bh=bh, full_resampling_weights=full_resampling_weights)
+                if should_resample:
+                    if margin > max_margin:
+                        max_margin = margin
+                        starting_particle = particle
+                        sample_weight = weight
+                        starting_node = node
+                node = node.parent_node
+            generated_particle = self.resample_from_particle(node=starting_node, particle=starting_particle)
+            budget -= (self.full_cost - starting_node.depth)
+            self.backup(self.last_node, generated_particle, bh=bh, sampled_node=starting_node,
+                        sampled_particle=starting_particle, weight=sample_weight, fast=fast)
+
             R = state.V
             state.update()
-            particle = source_particle
             while state.parent_action is not None:  # loop back-up until root is reached
-                r = particle.reward
-                if not particle.terminal:
-                    R = r + self.gamma * R
+                if not terminal:
+                    R = state.reward + self.gamma * R
                 else:
-                    R = r
+                    R = state.reward
+                    terminal = False
                 action = state.parent_action
                 action.update(R)
                 state = action.parent_state
                 state.update()
-                particle = particle.parent_particle
