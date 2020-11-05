@@ -172,6 +172,7 @@ class State(object):
          :param c: UCB exploration constant
          :param csi: exploration constant
          :param b: parameter such that the rewards belong to [0, b]
+         :param variance: controls if the UCT-V selection should be applied
          """
         if not variance:
             uct_upper_bound = np.array(
@@ -228,7 +229,7 @@ class State(object):
 
 
 class OL_MCTS(object):
-    ''' MCTS object '''
+    """ MCTS object """
 
     def __init__(self, root, root_index, na, gamma, model=None, variance=False, depth_based_bias=False, csi=1.):
         self.root = root
