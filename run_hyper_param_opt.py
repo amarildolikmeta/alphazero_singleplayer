@@ -59,7 +59,7 @@ if __name__ == '__main__':
     alg = parse_alg_name(args)
     start_time = time.time()
     time_str = str(start_time)
-    out_dir = "logs/hyperopt/" + args.game + '/' + alg + str(args.budget) + "/" + time_str + '/'
+    out_dir = "logs/hyperopt/" + args.game + '/' + alg + str(args.budget) + "/" + time_str
     base_dir = out_dir
     keys = {"game": args.game,
             "n_ep": args.n_ep,
@@ -109,6 +109,10 @@ if __name__ == '__main__':
         parameter_space = {
             "c": hp.hp.quniform('c', 0.1, 3, 0.1),
             "alpha": hp.hp.quniform('alpha', 0, 0.99, 0.01)}
+    elif args.variance:
+        parameter_space = {
+            "c": hp.hp.quniform('c', 0.1, 4, 0.1),
+            "csi": hp.hp.quniform('csi', 0.25, 10, 0.25)}
     else:
         parameter_space = {
             "c": hp.hp.quniform('c', 0.1, 3, 0.1)}
