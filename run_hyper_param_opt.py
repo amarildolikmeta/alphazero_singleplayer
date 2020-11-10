@@ -8,9 +8,8 @@ from hyperopt.mongoexp import MongoTrials
 from agent import agent
 from utils.parser_setup import setup_parser, parse_game_params, parse_alg_name
 import time
-results = []
-base_dir = ''
 
+results=[]
 
 def objective(params, keywords):
     # keywords["eval_freq"] = 1
@@ -55,7 +54,7 @@ if __name__ == '__main__':
         assert args.slope >= 1.0, "Slope lesser than 1 causes weird schedule function shapes"
         scheduler_params = {"slope": args.slope,
                             "min_budget": args.min_budget,
-                            "mid": args.mid}
+                            "min_depth": args.min_depth}
     alg = parse_alg_name(args)
     start_time = time.time()
     time_str = str(start_time)
