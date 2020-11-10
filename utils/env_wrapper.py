@@ -21,7 +21,7 @@ class Wrapper(object):
     def __init__(self, root_index, mcts_maker, model_save_file, model_wrapper_params,
                  mcts_params, is_atari, n_mcts, budget, mcts_env, c,
                  temp, game_maker=None, env=None, mcts_only=True, scheduler_params=None,
-                 log_path="./logs/", log_timestamp=None, enable_logging=False):
+                 log_path="./logs/", log_timestamp=None, enable_logging=False, verbose=False):
 
         assert game_maker is not None or env is not None, "No environment or maker provided to the wrapper"
 

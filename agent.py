@@ -3,7 +3,7 @@ from datetime import datetime
 from statistics import mean
 import numpy as np
 import time
-from helpers import is_atari_game,  Database
+from helpers import is_atari_game, Database
 from race_components.helpers import load_race_agents_config
 from rl.make_game import make_game
 from policies.eval_policy import eval_policy, parallelize_eval_policy
@@ -25,7 +25,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
           pre_process=None, visualize=False, game_params={}, parallelize_evaluation=False, mcts_only=False,
           particles=0, show_plots=False, n_workers=1, use_sampler=False, budget=np.inf, unbiased=False, biased=False,
           max_workers=100, variance=False, depth_based_bias=False, scheduler_params=None, out_dir=None,
-          render=False, second_version=False, third_version=False, multiagent=False, csi=1., log_timestamp=None):
+          render=False, second_version=False, third_version=False, multiagent=False, csi=1., log_timestamp=None,
+          verbose=False):
     visualizer = None
 
     # if particles:
@@ -50,7 +51,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         from pure_mcts.mcts import MCTS
         from pure_mcts.mcts_dpw import MCTSStochastic
 
-    if parallelize_evaluation:
+    if parallelize_evaluation and verbose:
         print("The evaluation will be parallel")
 
     parameter_list = {"game": game, "n_ep": n_ep, "n_mcts": n_mcts, "max_ep_len": max_ep_len, "lr": lr, "c": c,
@@ -60,7 +61,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                       "out_dir": numpy_dump_dir, "pre_process": pre_process, "visualize": visualize,
                       "game_params": game_params, "n_workers": n_workers, "use_sampler": use_sampler,
                       "variance": variance, "depth_based_bias": depth_based_bias, "unbiased": unbiased,
-                      "second_version": second_version, 'third_version': third_version}
+                      "second_version": second_version, 'third_version': third_version, "multiagent": multiagent,
+                      "csi": csi, "budget": budget, "scheduler_params": scheduler_params}
     if out_dir is not None:
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
@@ -134,13 +136,15 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 mcts_params['particles'] = particles
                 mcts_params['sampler'] = sampler
             elif biased:
-                print("\nUsing PFMCTS\n")
+                if verbose:
+                    print("\nUsing PFMCTS\n")
                 mcts_params['alpha'] = alpha
                 mcts_maker = PFMCTS
 
             mcts_params['depth_based_bias'] = depth_based_bias
             if unbiased:
-                print("\nUsing OLMCTS\n")
+                if verbose:
+                    print("\nUsing OLMCTS\n")
                 mcts_params['variance'] = variance
                 mcts_params['csi'] = csi
                 mcts_maker = OL_MCTS
@@ -217,20 +221,20 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
                 env_wrapper = RaceWrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, budget,
                                   mcts_env, c, temp, env=penv, game_maker=pgame, mcts_only=mcts_only,
-                                  scheduler_params=scheduler_params, log_timestamp=timestamp)
+                                  scheduler_params=scheduler_params, log_timestamp=timestamp, verbose=verbose)
             else:
                 env_wrapper = Wrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, budget,
                                       mcts_env, c, temp, env=penv, game_maker=pgame, mcts_only=mcts_only,
-                                      scheduler_params=scheduler_params, log_timestamp=timestamp)
+                                      scheduler_params=scheduler_params, log_timestamp=timestamp, verbose=verbose)
 
             # Run the evaluation
             if parallelize_evaluation:
                 total_reward, reward_per_timestep, lens, action_counts = \
-                    parallelize_eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False, max_len=max_ep_len,
+                    parallelize_eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=verbose, max_len=max_ep_len,
                                             max_workers=max_workers, out_dir=out_dir)
             else:
                 total_reward, reward_per_timestep, lens, action_counts = \
-                    eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=False, max_len=max_ep_len,
+                    eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=verbose, max_len=max_ep_len,
                                 visualize=visualize, out_dir=out_dir, render=render)
 
             # offline_scores.append([np.min(rews), np.max(rews), np.mean(rews), np.std(rews),
@@ -260,12 +264,13 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 mcts_env.reset()
                 mcts_env.seed(seed)
 
-            if eval_freq > 0 and ep % eval_freq == 0:
+            if eval_freq > 0 and ep % eval_freq == 0 and verbose:
                 print("\nCollecting %d episodes" % eval_freq)
             mcts = mcts_maker(root_index=s, root=None, model=model_wrapper, na=model_wrapper.action_dim,
                               **mcts_params)  # the object responsible for MCTS searches
 
-            print("\nPerforming MCTS steps\n")
+            if verbose:
+                print("\nPerforming MCTS steps\n")
 
             ep_steps = 0
             start_targets = []
@@ -273,7 +278,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             for st in range(max_ep_len):
 
                 print_step = max_ep_len // 10
-                if st % print_step == 0:
+                if st % print_step == 0 and verbose:
                     print('Step ' + str(st + 1) + ' of ' + str(max_ep_len))
 
                 # MCTS step
@@ -324,7 +329,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             #store_safely(numpy_dump_dir, '/result', {'R': episode_returns, 't': timepoints})
             #np.save(numpy_dump_dir + '/online_scores.npy', online_scores)
 
-            if DEBUG or True:
+            if DEBUG or verbose:
                 print('Finished episode {} in {} steps, total return: {}, total time: {} sec'.format(ep, ep_steps,
                                                                                                      np.round(R, 2),
                                                                                                      np.round((
@@ -345,7 +350,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             if not mcts_only:
                 # Train
                 try:
-                    print("\nTraining network")
+                    if verbose:
+                        print("\nTraining network")
                     ep_V_loss = []
                     ep_pi_loss = []
 
@@ -386,9 +392,9 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
                 pi_start = model_wrapper.predict_pi(start_s)
                 V_start = model_wrapper.predict_V(start_s)
-
-                print("\nStart policy: ", pi_start)
-                print("Start value:", V_start)
+                if verbose:
+                    print("\nStart policy: ", pi_start)
+                    print("Start value:", V_start)
 
                 #logger.log_start(ep, pi_start, V_start, start_targets)
 

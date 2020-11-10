@@ -147,7 +147,8 @@ if __name__ == '__main__':
                                                       third_version=args.third_version,
                                                       multiagent=args.multiagent,
                                                       csi=args.csi,
-                                                      log_timestamp=time_str)
+                                                      log_timestamp=time_str,
+                                                      verbose=args.verbose)
 
             total_rewards = offline_scores[0][0]
             undiscounted_returns = offline_scores[0][1]

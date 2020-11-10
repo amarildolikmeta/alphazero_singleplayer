@@ -41,6 +41,7 @@ def parse_alg_name(args):
 
 def setup_parser():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--verbose', action='store_true')
     parser.add_argument('--game', default='Blackjack_pi-v0', help='Training environment')
     parser.add_argument('--grid', type=str, default="grid.txt", help='TXT file specfying the game grid')
     parser.add_argument('--n_ep', type=int, default=1, help='Number of episodes')
