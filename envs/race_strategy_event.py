@@ -73,13 +73,13 @@ def select_races(year: int, ini_path="./race_simulation/racesim/input/parameters
 class RaceEnv(PlanningEnv):
 
     def __init__(self, gamma=0.95, horizon=20, scale_reward=True, positive_reward=True, start_lap=8,
-                 verbose=False, config_path='./envs/race_strategy_model/active_drivers.csv', skip_steps=False, 
-                 n_cores=-1, randomize_events=False):
-        # print("////////////////////////////////////////", horizon)
+                 verbose=False, config_path='./envs/race_strategy_model/active_drivers.csv', skip_steps=False,
+                 n_cores=-1, randomize_events=False, rl_mode=False):
 
         super(RaceEnv, self).__init__()
 
         self.verbose = verbose
+        self.rl_mode = rl_mode
         self._actions_queue = deque()
         self._agents_queue = deque()
         self._last_pit = defaultdict(int)
@@ -92,7 +92,7 @@ class RaceEnv(PlanningEnv):
         self.n_actions = 3
         self.action_space = spaces.Discrete(n=self.n_actions)
         self.observation_space = spaces.Box(low=0., high=self.horizon,
-                                            shape=(self.obs_dim,), dtype=np.float32)
+                                            shape=(self.obs_dim,), dtype=np.float64)
         self.scale_reward = scale_reward
         self.positive_reward = positive_reward
         self.viewer = None
@@ -151,10 +151,6 @@ class RaceEnv(PlanningEnv):
         self._race_sim = None
         # TODO discard wet races
 
-        # df = pd.DataFrame(columns=self._model.dummy_columns)
-        # df['step'] = None
-        # df.to_csv('./logs/pred_log.csv')
-
         self._drivers_number = 0
 
         # Take the base time, the predictions will be deltas from this time
@@ -191,7 +187,7 @@ class RaceEnv(PlanningEnv):
         return self._race_sim.get_race_length()
 
     def get_state(self):
-        if self._skip_steps:
+        if self.rl_mode:
             return self.__get_state_rl()
         else:
             return self.__get_complete_state()
