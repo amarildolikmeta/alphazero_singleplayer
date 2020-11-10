@@ -86,7 +86,7 @@ class Action(object):
         self.rewards = []
         self.child_state = None
 
-    def add_child_state(self, env, budget, max_depth=200, depth=0):
+    def add_child_state(self, env, budget, max_depth=200, depth=0, deepen=True):
         reward, terminal, budget = sample(env, self.index, budget)
         self.child_state = State(parent_action=self,
                                  na=self.parent_state.na,
@@ -96,7 +96,8 @@ class Action(object):
                                  budget=budget,
                                  reward=reward,
                                  terminal=terminal,
-                                 depth=depth)
+                                 depth=depth,
+                                 deepen=deepen)
 
         return self.child_state, self.child_state.remaining_budget
 
@@ -121,7 +122,7 @@ class Action(object):
 class State(object):
     """ State object """
 
-    def __init__(self, parent_action, na, env, budget, root=False, max_depth=200, reward=0, terminal=False, depth=0):
+    def __init__(self, parent_action, na, env, budget, root=False, max_depth=200, reward=0, terminal=False, depth=0, deepen=True):
 
         """ Initialize a new state """
         self.parent_action = parent_action
@@ -129,24 +130,23 @@ class State(object):
         self.na = na
         self.remaining_budget = budget
         self.depth = depth
-        self.terminal = self.is_terminal(max_depth, env)
+        self.terminal = self.is_terminal(max_depth, env) or terminal
         self.reward = reward
         self.root = root
         self.n = 0
 
-        # TODO remove, only for debugging raceStrategy
         if hasattr(env, "get_available_actions") and hasattr(env, "get_next_agent"):
             owner = env.get_next_agent()
             action_list = env.get_available_actions(owner)
             self.child_actions = [Action(a, parent_state=self) for a in action_list]
         else:
-            self.child_actions = [Action(a, parent_state=self, ) for a in range(na)]
+            self.child_actions = [Action(a, parent_state=self) for a in range(na)]
 
-        if self.terminal or root or terminal:
-            self.V = 0.
-        elif env is None:
+        if env is None:
             print("[WARNING] No environment was provided, initializing to 0 the value of the state!")
             self.V = 0
+        elif self.terminal or root or (deepen and len(self.child_actions) == 1):
+            self.V = 0.
         else:
             self.V, self.remaining_budget = self.evaluate(env, budget, max_depth, terminal)
 
@@ -248,7 +248,7 @@ class OL_MCTS(object):
         else:
             raise (NotImplementedError("Need to reset the tree"))
 
-    def search(self, n_mcts, c, Env: PlanningEnv, mcts_env, budget, max_depth=200, fixed_depth=True):
+    def search(self, n_mcts, c, Env: PlanningEnv, mcts_env, budget, max_depth=200, fixed_depth=True, deepen=True):
         """ Perform the MCTS search from the root """
 
         env = copy.deepcopy(Env)
@@ -273,17 +273,29 @@ class OL_MCTS(object):
             st = 0
             terminal = False
             while not state.terminal:
+                # Select the node
                 bias = c * self.gamma ** st / (1 - self.gamma) if self.depth_based_bias else c
                 action = state.select(c=bias, variance=self.variance, csi=self.csi)
                 st += 1
                 if action.child_state is not None:
-                    state = action.child_state  # select
+                    # Resample from the existing tree if the node already exists
+                    state = action.child_state
                     terminal, budget = state.sample(mcts_env, action.index, budget)
                     if terminal:
                         break
                 else:
+                    # Expand state
                     rollout_depth = max_depth if fixed_depth else max_depth - st
-                    state, budget = action.add_child_state(mcts_env, budget, rollout_depth, depth=st)  # expand
+                    state, budget = action.add_child_state(mcts_env, budget, rollout_depth, depth=st,
+                                                           deepen=deepen)
+                    # If the state has only one possible action, immediately add its successor to the tree
+                    while deepen and len(state.child_actions) == 1 and not state.terminal:
+                        action = state.child_actions[0]
+                        rollout_depth = max_depth if fixed_depth else max_depth - st
+                        state, budget = action.add_child_state(mcts_env, budget, rollout_depth, depth=st,
+                                                               deepen=deepen)
+                        st += 1
+
                     break
 
             # Back-up
