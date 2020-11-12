@@ -1,0 +1,2 @@
+cd ..
+python3 run_mango_param_opt.py --game=RaceStrategy-v2 --budget=10000 --gamma=1 --max_ep_len=70 --eval_freq=1 --temp=0 --alpha=0.6 --n_ep=1 --eval_episodes=10 --mcts_only --particles=1 --n_experiments=1 --unbiased --max_workers=6 --parallel --min_depth=15 --slope=4.8 --min_budget=50000 --variance --opt_iters=20
