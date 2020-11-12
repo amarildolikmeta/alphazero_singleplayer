@@ -166,7 +166,7 @@ class State(object):
         self.reward = r
         return done, budget
 
-    def select(self, c=1.5, csi=1., b=1., variance=False):
+    def select(self, c=1.5, csi=1., b=1., variance=False, lower_bound=True):
         """
          Select one of the child actions based on UCT rule
          :param c: UCB exploration constant
@@ -174,6 +174,7 @@ class State(object):
          :param b: parameter such that the rewards belong to [0, b]
          :param variance: controls if the UCT-V selection should be applied
          """
+
         if not variance:
             uct_upper_bound = np.array(
                 [child_action.Q + c * np.sqrt(np.log(self.n) / (child_action.n)) if child_action.n > 0 else np.inf
@@ -239,6 +240,7 @@ class OL_MCTS(object):
         self.depth_based_bias = depth_based_bias
         self.variance = variance
         self.csi = csi
+        self.c = 1
 
     def create_root(self, env, budget):
         if self.root is None:
@@ -250,6 +252,8 @@ class OL_MCTS(object):
 
     def search(self, n_mcts, c, Env: PlanningEnv, mcts_env, budget, max_depth=200, fixed_depth=True, deepen=True):
         """ Perform the MCTS search from the root """
+
+        self.c = c
 
         env = copy.deepcopy(Env)
 
@@ -289,7 +293,7 @@ class OL_MCTS(object):
                     state, budget = action.add_child_state(mcts_env, budget, rollout_depth, depth=st,
                                                            deepen=deepen)
                     # If the state has only one possible action, immediately add its successor to the tree
-                    while deepen and len(state.child_actions) == 1 and not state.terminal:
+                    while deepen and len(state.child_actions) == 1 and not state.terminal and budget > 0:
                         action = state.child_actions[0]
                         rollout_depth = max_depth if fixed_depth else max_depth - st
                         state, budget = action.add_child_state(mcts_env, budget, rollout_depth, depth=st,
@@ -316,13 +320,18 @@ class OL_MCTS(object):
 
         # self.visualize()
 
-    def return_results(self, temp, on_visits=False):
+    def return_results(self, temp, on_visits=False, on_lower=True):
         """ Process the output at the root node """
         counts = np.array([child_action.n for child_action in self.root.child_actions])
         Q = np.array([child_action.Q for child_action in self.root.child_actions])
         # print(Q)
         # print(counts)
-        if on_visits:
+        if on_lower:
+            uct_upper_bound = np.array(
+                [child_action.Q + self.c * np.sqrt(np.log(self.root.n) / child_action.n) if child_action.n > 0 else np.inf
+                 for child_action in self.root.child_actions])
+            pi_target = max_Q(uct_upper_bound) # max_Q doesn't really take the maximum Q in this case
+        elif on_visits:
             pi_target = stable_normalizer(counts, temp)
         else:
             pi_target = max_Q(Q)
