@@ -21,7 +21,7 @@ class Wrapper(object):
     def __init__(self, root_index, mcts_maker, model_save_file, model_wrapper_params,
                  mcts_params, is_atari, n_mcts, budget, mcts_env, c,
                  temp, game_maker=None, env=None, mcts_only=True, scheduler_params=None,
-                 log_path="./logs/", log_timestamp=None, enable_logging=False, verbose=False):
+                 log_path="./logs/", log_timestamp=None, enable_logging=True, verbose=True, visualize=False):
 
         assert game_maker is not None or env is not None, "No environment or maker provided to the wrapper"
 
@@ -66,6 +66,8 @@ class Wrapper(object):
 
         self.timestamp = self.timestamp + "_" + str(budget) + "b"
         self.enable_logging=enable_logging
+        self.verbose = verbose
+        self.visualize_search_tree = visualize
 
     @staticmethod
     def schedule(x, k=1, width=1, min_depth=1) -> float:
@@ -142,9 +144,11 @@ class Wrapper(object):
                 pi[0] = 1.
             self.curr_probs.append(pi)
             a_w = argmax(pi)
-            # print(pi, a_w)
-            # max_p = np.max(pi)
-            # a_w = np.random.choice(np.argwhere(pi == max_p)[0])
+            if self.verbose:
+                print("Search result:")
+                print("Policy: {},\nWinning action: {}".format(pi, a_w))
+                # max_p = np.max(pi)
+                # a_w = np.random.choice(np.argwhere(pi == max_p)[0])
 
         else:
             pi_w = self.get_model().predict_pi(s).flatten()
@@ -213,7 +217,9 @@ class Wrapper(object):
             self.get_mcts().forward(a, s, r)
 
     def step(self, a):
-        # print("Action:", a)
+        if self.verbose:
+            print("Action:", a)
+            print()
         s, r, done, _ = self.get_env().step(a)
         if done and self.enable_logging:
             self.get_env().save_results(self.timestamp)
@@ -226,7 +232,8 @@ class Wrapper(object):
                                mcts_env=mcts_env,
                                max_depth=max_depth,
                                budget=min(self.budget, self.scheduler_budget))
-        # self.get_mcts().visualize()
+        if self.visualize_search_tree:
+            self.get_mcts().visualize()
 
     def return_results(self, temp):
         return self.get_mcts().return_results(temp=temp)

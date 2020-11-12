@@ -9,12 +9,11 @@ from utils import plotter
 import os
 USE_TQDM = True
 
-def finalize(rewards_per_timestep, verbose):
+def finalize(rewards_per_timestep):
     total_rewards = [np.sum(rew, axis=0) for rew in rewards_per_timestep]
     avg = np.mean(total_rewards, axis=0)
     std = np.std(total_rewards, axis=0)
-    if verbose or True:
-        print("Average Return = {0} +- {1}".format(avg, std))
+    print("Average Return = {0} +- {1}".format(avg, std))
     return total_rewards
 
 def save_result(r, rewards_per_timestep, ep_lengths, action_counts, out_dir, results_list) -> None:
@@ -29,6 +28,10 @@ def save_result(r, rewards_per_timestep, ep_lengths, action_counts, out_dir, res
 
 def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, interactive=False,
                             max_len=200, max_workers=12, out_dir=None):
+
+    if verbose:
+        print("\n[WARNING] Verbose argument may cause inconsistent logging when performing parallel evaluation\n")
+
     rewards_per_timestep = []
     ep_lengths = []
     action_counts = []
@@ -62,7 +65,7 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose
 
     print("Time to perform evaluation episodes:", time.time() - start, "s")
 
-    total_rewards = finalize(rewards_per_timestep, verbose)
+    total_rewards = finalize(rewards_per_timestep)
 
     wrapper.reset()
     return total_rewards, rewards_per_timestep, ep_lengths, action_counts
@@ -86,7 +89,7 @@ def eval_policy(wrapper, n_episodes=100, add_terminal=False, verbose=True, inter
 
         save_result(result, rewards_per_timestep, ep_lengths, action_counts, out_dir, res)
 
-    total_rewards = finalize(rewards_per_timestep, verbose)
+    total_rewards = finalize(rewards_per_timestep)
     wrapper.reset()
     return total_rewards, rewards_per_timestep, ep_lengths, action_counts
 
