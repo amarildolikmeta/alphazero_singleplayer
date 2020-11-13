@@ -250,7 +250,7 @@ class OL_MCTS(object):
         else:
             raise (NotImplementedError("Need to reset the tree"))
 
-    def search(self, n_mcts, c, Env: PlanningEnv, mcts_env, budget, max_depth=200, fixed_depth=True, deepen=True):
+    def search(self, n_mcts, c, Env: PlanningEnv, mcts_env, budget, max_depth=200, fixed_depth=True, deepen=False):
         """ Perform the MCTS search from the root """
 
         self.c = c
@@ -320,7 +320,7 @@ class OL_MCTS(object):
 
         # self.visualize()
 
-    def return_results(self, temp, on_visits=False, on_lower=True):
+    def return_results(self, temp, on_visits=False, on_lower=False):
         """ Process the output at the root node """
         counts = np.array([child_action.n for child_action in self.root.child_actions])
         Q = np.array([child_action.Q for child_action in self.root.child_actions])
