@@ -6,12 +6,92 @@ from statistics import mean
 
 from matplotlib import pyplot as plt
 
-class Logger(object):
-    def __init__(self, params, game, show=False):
-        self.save_dir, self.numpy_dumps_dir, self.pickled_dir = self.save_parameters(params, game)
+import numpy as np
+
+VERBOSITY_LEVELS = [0,1]
+
+class Singleton(type):
+    _instances = {}
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls._instances[cls]
+
+class Logger(metaclass=Singleton):
+    def __init__(self, show=False, verbosity_level=1):
+        self.timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        self.verbosity_level = verbosity_level
+        self.save_dir, self.numpy_dumps_dir, self.pickled_dir = None, None, None
         self.is_remote = not show
         self.training_V_loss = []
         self.training_pi_loss = []
+
+    def set_verbosity_level(self, level: int) -> None:
+        if level not in VERBOSITY_LEVELS:
+            print("[WARNING]The specified verbosity level is not available, admissible values are {}".format(VERBOSITY_LEVELS))
+            print("Defaulting to level", self.verbosity_level)
+        else:
+            self.verbosity_level = level
+
+    def create_directories(self, game: str, out_dir:str) -> None:
+        if out_dir is not None:
+            mydir = os.path.join(out_dir, self.timestamp)
+        else:
+            mydir = os.path.join(os.getcwd(), "logs", game, self.timestamp)
+        try:
+            os.makedirs(mydir)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                print("Something wrong with the creation of the log folder")
+                raise OSError # This was not a "directory exist" error..
+
+        try:
+            os.makedirs(os.path.join(mydir, "plots"))
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                print("Something wrong with the creation of the plots folder")
+                raise  # This was not a "directory exist" error..
+
+        try:
+            os.makedirs(os.path.join(mydir, "numpy_dumps"))
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                print("Something wrong with the creation of the numpy_dumps folder")
+                raise  # This was not a "directory exist" error..
+
+        try:
+            os.makedirs(os.path.join(mydir, "pickled"))
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                print("Something wrong with the creation of the pickled folder")
+                raise  # This was not a "directory exist" error..
+        self.save_dir, self.numpy_dumps_dir, self.pickled_dir = \
+            mydir, os.path.join(mydir, "numpy_dumps"), os.path.join(mydir, "pickled")
+
+        print("Logs directory:", self.save_dir)
+
+    def save_parameters(self, params: dict):
+        """Save parameters in JSON format over a txt file"""
+        assert params is not None, "[ERROR] None parameter dictionary is not valid to be saved"
+        assert self.save_dir is not None, \
+            "[ERROR] create_directories must be called after initializing the logger and before starting to log"
+
+        with open(os.path.join(self.save_dir, "parameters.txt"), 'w') as d:
+            d.write(json.dumps(params))
+
+    def save_numpy(self, x, name=""):
+        assert self.numpy_dumps_dir is not None, \
+            "[ERROR] create_directories must be called after initializing the logger and before starting to log"
+        np.save(self.numpy_dumps_dir + '/results.npy', x)
+
+    def save_prices(self, info_dict: dict, new_state, action: int, reward):
+        save_path = info_dict['save_path']
+        if bool(save_path):
+            with open(save_path, 'a') as text_file:
+                prices = ','.join(str(e) for e in new_state[:-1])
+                # toprint = prices+','+str(a-1)+',real \n'
+                toprint = prices + ',' + str(action - 1) + ',' + str(reward) + '\n'
+                text_file.write(toprint)
 
     def plot_online_return(self, online_scores):
         plt.figure()
@@ -35,7 +115,7 @@ class Logger(object):
         plt.ylabel("Loss")
         plt.yscale("log")
         plt.legend()
-        plt.savefig(self.save_dir + "/plots//train_" + str(episode) + ".png")
+        plt.savefig(self.save_dir + "/plots/train_" + str(episode) + ".png")
         if not self.is_remote:
             plt.show()
         plt.close()
@@ -106,36 +186,3 @@ class Logger(object):
 
             dump.close()
 
-    @staticmethod
-    def save_parameters(params, game):
-        mydir = os.path.join(
-            os.getcwd(), "logs", game,
-            datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
-        try:
-            os.makedirs(mydir)
-        except OSError as e:
-            if e.errno != errno.EEXIST:
-                raise  # This was not a "directory exist" error..
-
-        try:
-            os.makedirs(os.path.join(mydir, "plots"))
-        except OSError as e:
-            if e.errno != errno.EEXIST:
-                raise  # This was not a "directory exist" error..
-
-        try:
-            os.makedirs(os.path.join(mydir, "numpy_dumps"))
-        except OSError as e:
-            if e.errno != errno.EEXIST:
-                raise  # This was not a "directory exist" error..
-
-        try:
-            os.makedirs(os.path.join(mydir, "pickled"))
-        except OSError as e:
-            if e.errno != errno.EEXIST:
-                raise  # This was not a "directory exist" error..
-
-        with open(os.path.join(mydir, "parameters.txt"), 'w') as d:
-            d.write(json.dumps(params))
-
-        return mydir, os.path.join(mydir, "numpy_dumps"), os.path.join(mydir, "pickled")

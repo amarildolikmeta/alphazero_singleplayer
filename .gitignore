@@ -37,3 +37,5 @@ envs/race_strategy_model/pickled_models/
 .vscode/
 
 debug.log
+
+figures/

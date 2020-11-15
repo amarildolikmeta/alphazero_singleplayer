@@ -9,6 +9,7 @@ from rl.make_game import make_game
 from policies.eval_policy import eval_policy, parallelize_eval_policy
 import json
 from utils.env_wrapper import Wrapper
+from utils.logging import Logger
 from particle_filtering.parallel_sampler import ParallelSampler
 import os
 
@@ -27,6 +28,12 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
           max_workers=100, variance=False, depth_based_bias=False, scheduler_params=None, out_dir=None,
           render=False, second_version=False, third_version=False, multiagent=False, csi=1., log_timestamp=None,
           verbose=False):
+    parameter_dict = locals()  # Save the state of all variables for logging
+    logger = Logger()
+    logger.set_verbosity_level(int(verbose))
+    logger.create_directories(game, out_dir)
+    logger.save_parameters(parameter_dict)
+
     visualizer = None
 
     # if particles:
@@ -54,21 +61,21 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     if parallelize_evaluation and verbose:
         print("The evaluation will be parallel")
 
-    parameter_list = {"game": game, "n_ep": n_ep, "n_mcts": n_mcts, "max_ep_len": max_ep_len, "lr": lr, "c": c,
-                      "gamma": gamma, "data_size": data_size, "batch_size": batch_size, "temp": temp,
-                      "n_hidden_layers": n_hidden_layers, "n_hidden_units": n_hidden_units, "stochastic": stochastic,
-                      "eval_freq": eval_freq, "eval_episodes": eval_episodes, "alpha": alpha, "n_epochs": n_epochs,
-                      "out_dir": numpy_dump_dir, "pre_process": pre_process, "visualize": visualize,
-                      "game_params": game_params, "n_workers": n_workers, "use_sampler": use_sampler,
-                      "variance": variance, "depth_based_bias": depth_based_bias, "unbiased": unbiased,
-                      "second_version": second_version, 'third_version': third_version, "multiagent": multiagent,
-                      "csi": csi, "budget": budget, "scheduler_params": scheduler_params}
-    if out_dir is not None:
-        if not os.path.exists(out_dir):
-            os.makedirs(out_dir)
-        with open(os.path.join(out_dir, "parameters.txt"), 'w') as d:
-            d.write(json.dumps(parameter_list))
-    #logger = Logger(parameter_list, game, show=show_plots)
+    # parameter_list = {"game": game, "n_ep": n_ep, "n_mcts": n_mcts, "max_ep_len": max_ep_len, "lr": lr, "c": c,
+    #                   "gamma": gamma, "data_size": data_size, "batch_size": batch_size, "temp": temp,
+    #                   "n_hidden_layers": n_hidden_layers, "n_hidden_units": n_hidden_units, "stochastic": stochastic,
+    #                   "eval_freq": eval_freq, "eval_episodes": eval_episodes, "alpha": alpha, "n_epochs": n_epochs,
+    #                   "out_dir": numpy_dump_dir, "pre_process": pre_process, "visualize": visualize,
+    #                   "game_params": game_params, "n_workers": n_workers, "use_sampler": use_sampler,
+    #                   "variance": variance, "depth_based_bias": depth_based_bias, "unbiased": unbiased,
+    #                   "second_version": second_version, 'third_version': third_version, "multiagent": multiagent,
+    #                   "csi": csi, "budget": budget, "scheduler_params": scheduler_params}
+
+    # if out_dir is not None:
+    #     if not os.path.exists(out_dir):
+    #         os.makedirs(out_dir)
+    #     with open(os.path.join(out_dir, "parameters.txt"), 'w') as d:
+    #         d.write(json.dumps(parameter_list))
 
     if DEBUG_TAXI:
         from utils.visualization.taxi import TaxiVisualizer
@@ -88,17 +95,15 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     if pre_process is not None:
         pre_process()
 
-    # numpy_dump_dir = logger.numpy_dumps_dir
-    #
-    # if not os.path.exists(numpy_dump_dir):
-    #     os.makedirs(numpy_dump_dir)
-
     episode_returns = []  # storage
     timepoints = []
 
     # Environments
     if game == 'Trading-v0':
         game_params['save_dir'] = out_dir #logger.save_dir
+    if game == 'RaceStrategy-v2':
+        game_params['log_path'] = Logger().save_dir
+
     Env = make_game(game, game_params)
     num_actions = Env.action_space.n
     sampler = None
@@ -210,31 +215,31 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             if not mcts_only:
                 model_wrapper.save(model_file)
 
-            # Set the timestamp to be used across processes
-            if not log_timestamp:
-                today = datetime.now()
-                timestamp = today.strftime('%Y-%m-%d_%H-%M-%S')
-            else:
-                timestamp = log_timestamp
+            # # Set the timestamp to be used across processes
+            # if not log_timestamp:
+            #     today = datetime.now()
+            #     timestamp = today.strftime('%Y-%m-%d_%H-%M-%S')
+            # else:
+            #     timestamp = log_timestamp
 
             if game == "RaceStrategy-v1" or game == "RaceStrategy-v2" and multiagent:
 
                 env_wrapper = RaceWrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, budget,
                                   mcts_env, c, temp, env=penv, game_maker=pgame, mcts_only=mcts_only,
-                                  scheduler_params=scheduler_params, log_timestamp=timestamp, verbose=verbose)
+                                  scheduler_params=scheduler_params, verbose=verbose)
             else:
                 env_wrapper = Wrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, budget,
                                       mcts_env, c, temp, env=penv, game_maker=pgame, mcts_only=mcts_only,
-                                      scheduler_params=scheduler_params, log_timestamp=timestamp, verbose=verbose)
+                                      scheduler_params=scheduler_params, verbose=verbose)
 
             # Run the evaluation
             if parallelize_evaluation:
                 total_reward, reward_per_timestep, lens, action_counts = \
-                    parallelize_eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=verbose, max_len=max_ep_len,
+                    parallelize_eval_policy(env_wrapper, n_episodes=eval_episodes, max_len=max_ep_len,
                                             max_workers=max_workers, out_dir=out_dir)
             else:
                 total_reward, reward_per_timestep, lens, action_counts = \
-                    eval_policy(env_wrapper, n_episodes=eval_episodes, verbose=verbose, max_len=max_ep_len,
+                    eval_policy(env_wrapper, n_episodes=eval_episodes, max_len=max_ep_len,
                                 visualize=visualize, out_dir=out_dir, render=render)
 
             # offline_scores.append([np.min(rews), np.max(rews), np.mean(rews), np.std(rews),

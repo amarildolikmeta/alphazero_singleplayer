@@ -99,11 +99,10 @@ if __name__ == '__main__':
 
             if args.game == 'RiverSwim-continuous':
                 out_dir += "/" + "fail_" + str(args.fail_prob)
-            out_dir += "/" + alg + time_str + '/'
+            out_dir += "/" + alg
 
             if not os.path.exists(out_dir):
                 os.makedirs(out_dir)
-            print(out_dir)
 
             # Run the algorithm
             episode_returns, timepoints, a_best, \

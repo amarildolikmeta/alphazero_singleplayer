@@ -7,6 +7,7 @@ import numpy as np
 
 from envs.planning_env import PlanningEnv
 from helpers import argmax
+from utils.logging import Logger
 
 
 class TimedOutExc(Exception):
@@ -21,7 +22,7 @@ class Wrapper(object):
     def __init__(self, root_index, mcts_maker, model_save_file, model_wrapper_params,
                  mcts_params, is_atari, n_mcts, budget, mcts_env, c,
                  temp, game_maker=None, env=None, mcts_only=True, scheduler_params=None,
-                 log_path="./logs/", log_timestamp=None, enable_logging=True, verbose=True, visualize=False):
+                 enable_logging=True, verbose=True, visualize=False):
 
         assert game_maker is not None or env is not None, "No environment or maker provided to the wrapper"
 
@@ -56,15 +57,6 @@ class Wrapper(object):
         if not self.is_atari:
             self.mcts_env = None
 
-        # Set the timestamp
-        if not log_timestamp:
-            today = datetime.now()
-            self.timestamp = today.strftime('%Y-%m-%d_%H-%M-%S')
-        else:
-            assert type(log_timestamp) == str, "Timestamp must be provided as string"
-            self.timestamp = log_timestamp
-
-        self.timestamp = self.timestamp + "_" + str(budget) + "b"
         self.enable_logging=enable_logging
         self.verbose = verbose
         self.visualize_search_tree = visualize
@@ -222,7 +214,7 @@ class Wrapper(object):
             print()
         s, r, done, _ = self.get_env().step(a)
         if done and self.enable_logging:
-            self.get_env().save_results(self.timestamp)
+            self.get_env().save_results(Logger().timestamp)
         return s, r, done, _
 
     def search(self, n_mcts, c_dpw, mcts_env, max_depth=200):
