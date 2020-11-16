@@ -1,3 +1,4 @@
+from collections import defaultdict
 from functools import partial
 
 import numpy as np
@@ -12,6 +13,12 @@ from utils.logging import Logger
 
 USE_TQDM = True
 
+class EvaluationResult(object):
+    def __init__(self, ret, ep_length, action_counts):
+        self.return_per_timestep = ret
+        self.ep_length = ep_length
+        self.action_counts = action_counts
+
 def finalize(rewards_per_timestep):
     total_rewards = [np.sum(rew, axis=0) for rew in rewards_per_timestep]
     avg = np.mean(total_rewards, axis=0)
@@ -19,13 +26,14 @@ def finalize(rewards_per_timestep):
     print("Average Return = {0} +- {1}".format(avg, std))
     return total_rewards
 
-def save_result(r, rewards_per_timestep, ep_lengths, action_counts, results_list) -> None:
+def save_result(res:EvaluationResult, rewards_per_timestep:list, ep_lengths:list,
+                action_counts:list, ep_returns:list) -> None:
     # r = r[0] # The result passed to the callback is a single element list
-    rewards_per_timestep.append(np.array(r[0]))
-    ep_lengths.append(np.array(r[1]))
-    action_counts.append(r[2])
-    results_list.append(np.sum(r[0], axis=0))
-    Logger().save_numpy(results_list)
+    rewards_per_timestep.append(np.array(res.return_per_timestep))
+    ep_lengths.append(np.array(res.ep_length))
+    action_counts.append(res.action_counts)
+    ep_returns.append(np.sum(res.return_per_timestep, axis=0))
+    Logger().save_numpy(ep_returns)
 
 
 def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, interactive=False,
@@ -54,7 +62,7 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, interac
                             rewards_per_timestep=rewards_per_timestep,
                             ep_lengths=ep_lengths,
                             action_counts=action_counts,
-                            results_list=res)
+                            ep_returns=res)
 
     # Use the async style to avoid the pool waiting on possibly longer experiments,
     # each experiment is logged independently
@@ -96,7 +104,7 @@ def eval_policy(wrapper, n_episodes=100, add_terminal=False, interactive=False, 
 
 
 def evaluate(add_terminal, wrapper, i, interactive, max_len, visualize=False, render=False):
-    action_counter = 0
+    action_counter = [0] * wrapper.get_action_space()
     n_agents = wrapper.agents_count
     start = time.time()
     s = wrapper.reset()
@@ -107,9 +115,7 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, visualize=False, re
         s = np.concatenate([s, [0]]) if add_terminal else s
         a = wrapper.pi_wrapper(s, t, max_len - t)
 
-        # Check if the action is a pit_stop
-        if a == 0:
-            action_counter += 1
+        action_counter[a] += 1
 
         ns, r, done, inf = wrapper.step(a)
         if "save_path" in inf:
@@ -138,4 +144,4 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, visualize=False, re
 
     # signature = wrapper.get_env().index_to_box(wrapper.get_env().get_signature()['state'])
 
-    return rew, t, action_counter
+    return EvaluationResult(rew, t, action_counter)

@@ -82,7 +82,9 @@ class Logger(metaclass=Singleton):
     def save_numpy(self, x, name=""):
         assert self.numpy_dumps_dir is not None, \
             "[ERROR] create_directories must be called after initializing the logger and before starting to log"
-        np.save(self.numpy_dumps_dir + '/results.npy', x)
+        if name == "":
+            name = "results"
+        np.save(self.numpy_dumps_dir + "/" + name + ".npy", x)
 
     def save_prices(self, info_dict: dict, new_state, action: int, reward):
         save_path = info_dict['save_path']

@@ -86,7 +86,7 @@ class Action(object):
         self.rewards = []
         self.child_state = None
 
-    def add_child_state(self, env, budget, max_depth=200, depth=0, deepen=True):
+    def add_child_state(self, env, budget, max_depth=200, depth=0, deepen=False):
         reward, terminal, budget = sample(env, self.index, budget)
         self.child_state = State(parent_action=self,
                                  na=self.parent_state.na,
@@ -122,7 +122,7 @@ class Action(object):
 class State(object):
     """ State object """
 
-    def __init__(self, parent_action, na, env, budget, root=False, max_depth=200, reward=0, terminal=False, depth=0, deepen=True):
+    def __init__(self, parent_action, na, env, budget, root=False, max_depth=200, reward=0, terminal=False, depth=0, deepen=False):
 
         """ Initialize a new state """
         self.parent_action = parent_action

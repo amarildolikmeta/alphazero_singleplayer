@@ -74,7 +74,7 @@ class RaceEnv(PlanningEnv):
 
     def __init__(self, gamma=0.95, horizon=20, scale_reward=True, positive_reward=True, start_lap=8,
                  verbose=False, config_path='./envs/race_strategy_model/active_drivers.csv', skip_steps=False,
-                 n_cores=-1, randomize_events=False, rl_mode=False):
+                 n_cores=-1, randomize_events=False, rl_mode=False, log_path=None):
 
         super(RaceEnv, self).__init__()
 
@@ -108,11 +108,12 @@ class RaceEnv(PlanningEnv):
                     "use_print_result": False,
                     "use_plot": False}
         
-        # get repo path
-        repo_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if not log_path:
+            # get repo path
+            log_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
         # create output folders (if not existing)
-        self.output_path = os.path.join(repo_path, "logs", "RaceStrategy-v2")
+        self.output_path = os.path.join(log_path, "sim_logs")
 
         self.results_path = os.path.join(self.output_path, "results")
         os.makedirs(self.results_path, exist_ok=True)
@@ -509,7 +510,8 @@ class RaceEnv(PlanningEnv):
         return self.get_state(), reward, self._terminal, {}
 
     def save_results(self, timestamp):
-        save_path = os.path.join(self.results_path, timestamp)
+        save_path = self.results_path
+        # save_path = os.path.join(self.results_path, timestamp)
         os.makedirs(save_path, exist_ok=True)
         self._race_sim.export_results_as_csv(results_path=save_path)
 

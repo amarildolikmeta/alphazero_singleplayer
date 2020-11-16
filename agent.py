@@ -3,6 +3,9 @@ from datetime import datetime
 from statistics import mean
 import numpy as np
 import time
+
+from typing import List
+
 from helpers import is_atari_game, Database
 from race_components.helpers import load_race_agents_config
 from rl.make_game import make_game
@@ -13,12 +16,12 @@ from utils.logging import Logger
 from particle_filtering.parallel_sampler import ParallelSampler
 import os
 
+from utils.offline_score import OfflineScore
 from utils.race_wrapper import RaceWrapper
 
 DEBUG = False
 DEBUG_TAXI = False
 USE_TQDM = True
-
 
 #### Agent ####
 def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, temp, n_hidden_layers, n_hidden_units,
@@ -27,7 +30,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
           particles=0, show_plots=False, n_workers=1, use_sampler=False, budget=np.inf, unbiased=False, biased=False,
           max_workers=100, variance=False, depth_based_bias=False, scheduler_params=None, out_dir=None,
           render=False, second_version=False, third_version=False, multiagent=False, csi=1., log_timestamp=None,
-          verbose=False):
+          verbose=False) -> List[OfflineScore]:
     parameter_dict = locals()  # Save the state of all variables for logging
     logger = Logger()
     logger.set_verbosity_level(int(verbose))
@@ -35,9 +38,6 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     logger.save_parameters(parameter_dict)
 
     visualizer = None
-
-    # if particles:
-    #     parallelize_evaluation = False  # Cannot run parallelized evaluation with particle filtering
 
     if not mcts_only:
         from mcts import MCTS
@@ -60,22 +60,6 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
     if parallelize_evaluation and verbose:
         print("The evaluation will be parallel")
-
-    # parameter_list = {"game": game, "n_ep": n_ep, "n_mcts": n_mcts, "max_ep_len": max_ep_len, "lr": lr, "c": c,
-    #                   "gamma": gamma, "data_size": data_size, "batch_size": batch_size, "temp": temp,
-    #                   "n_hidden_layers": n_hidden_layers, "n_hidden_units": n_hidden_units, "stochastic": stochastic,
-    #                   "eval_freq": eval_freq, "eval_episodes": eval_episodes, "alpha": alpha, "n_epochs": n_epochs,
-    #                   "out_dir": numpy_dump_dir, "pre_process": pre_process, "visualize": visualize,
-    #                   "game_params": game_params, "n_workers": n_workers, "use_sampler": use_sampler,
-    #                   "variance": variance, "depth_based_bias": depth_based_bias, "unbiased": unbiased,
-    #                   "second_version": second_version, 'third_version': third_version, "multiagent": multiagent,
-    #                   "csi": csi, "budget": budget, "scheduler_params": scheduler_params}
-
-    # if out_dir is not None:
-    #     if not os.path.exists(out_dir):
-    #         os.makedirs(out_dir)
-    #     with open(os.path.join(out_dir, "parameters.txt"), 'w') as d:
-    #         d.write(json.dumps(parameter_list))
 
     if DEBUG_TAXI:
         from utils.visualization.taxi import TaxiVisualizer
@@ -215,13 +199,6 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             if not mcts_only:
                 model_wrapper.save(model_file)
 
-            # # Set the timestamp to be used across processes
-            # if not log_timestamp:
-            #     today = datetime.now()
-            #     timestamp = today.strftime('%Y-%m-%d_%H-%M-%S')
-            # else:
-            #     timestamp = log_timestamp
-
             if game == "RaceStrategy-v1" or game == "RaceStrategy-v2" and multiagent:
 
                 env_wrapper = RaceWrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, budget,
@@ -230,7 +207,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             else:
                 env_wrapper = Wrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, budget,
                                       mcts_env, c, temp, env=penv, game_maker=pgame, mcts_only=mcts_only,
-                                      scheduler_params=scheduler_params, verbose=verbose)
+                                      scheduler_params=scheduler_params)
 
             # Run the evaluation
             if parallelize_evaluation:
@@ -245,7 +222,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             # offline_scores.append([np.min(rews), np.max(rews), np.mean(rews), np.std(rews),
             #                        len(rews), np.mean(lens)])
 
-            offline_scores.append([total_reward, reward_per_timestep, lens, action_counts])
+            offline_scores.append(OfflineScore(total_reward, reward_per_timestep, lens, action_counts))
 
             #np.save(numpy_dump_dir + '/offline_scores.npy', offline_scores)
 

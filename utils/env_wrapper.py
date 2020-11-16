@@ -22,7 +22,7 @@ class Wrapper(object):
     def __init__(self, root_index, mcts_maker, model_save_file, model_wrapper_params,
                  mcts_params, is_atari, n_mcts, budget, mcts_env, c,
                  temp, game_maker=None, env=None, mcts_only=True, scheduler_params=None,
-                 enable_logging=True, verbose=True, visualize=False):
+                 enable_logging=True, visualize=False):
 
         assert game_maker is not None or env is not None, "No environment or maker provided to the wrapper"
 
@@ -58,7 +58,7 @@ class Wrapper(object):
             self.mcts_env = None
 
         self.enable_logging=enable_logging
-        self.verbose = verbose
+        self.verbose = Logger().verbosity_level
         self.visualize_search_tree = visualize
 
     @staticmethod
@@ -148,6 +148,9 @@ class Wrapper(object):
             max_p = np.max(pi_w)
             a_w = np.random.choice(np.argwhere(pi_w == max_p)[0])
         return a_w
+
+    def get_action_space(self):
+        return self.get_env().action_space.n
 
     def get_env(self) -> PlanningEnv:
         if self.env is None:

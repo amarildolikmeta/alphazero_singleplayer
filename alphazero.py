@@ -11,6 +11,8 @@ import pandas as pd
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+
+from utils.logging import Logger
 from utils.parser_setup import setup_parser, parse_game_params, parse_alg_name
 plt.style.use('ggplot')
 from agent import agent
@@ -49,6 +51,7 @@ if __name__ == '__main__':
     fun_args = [args.game, args.n_ep, args.n_mcts, args.max_ep_len, args.lr, args.c, args.gamma,
                 args.data_size, args.batch_size, args.temp, args.n_hidden_layers, args.n_hidden_units,
                 True, args.eval_freq, args.eval_episodes, args.n_epochs]
+    
     if args.alpha_test:
         alpha = args.min_alpha
         delta_alpha = args.delta_alpha
@@ -149,50 +152,17 @@ if __name__ == '__main__':
                                                       log_timestamp=time_str,
                                                       verbose=args.verbose)
 
-            total_rewards = offline_scores[0][0]
-            undiscounted_returns = offline_scores[0][1]
-            evaluation_lenghts = offline_scores[0][2]
-            evaluation_pit_action_counts = offline_scores[0][3]
+            # TODO this works only with one experiment
 
-            indices = []
-            returns = []
-            lens = []
-            rews = []
-            counts = []
-
-            gamma = args.gamma
-
-            # Compute the discounted return
-            for r_list in undiscounted_returns:
-                discount = 1
-                disc_rew = 0
-                for r in r_list:
-                    disc_rew += discount * r
-                    discount *= gamma
-                rews.append(disc_rew)
-
-            # Fill the lists for building the dataframe
-            for ret, length, count in zip(total_rewards, evaluation_lenghts, evaluation_pit_action_counts):
-                returns.append(ret)
-                lens.append(length)
-                indices.append(agent_name)
-                counts.append(count)
-
-            # Store the result of the experiment
-            data = {"agent": indices,
-                    "total_reward": returns,
-                    "discounted_reward": rews,
-                    "length": lens,
-                    "budget": [args.budget] * len(indices)}
-
-            # Store the count of pit stops only if analyzing Race Strategy problem
-            if "RaceStrategy" in args.game:
-                data["pit_count"] = counts
+            scores = offline_scores[0]
+            data = scores.get_dictionary(gamma=args.gamma)
 
             # Write the dataframe to csv
             df = pd.DataFrame(data)
-            df.to_csv(out_dir + "{}_{}_{}_data_exp_{}.csv".format(agent_name, args.game, args.budget
-                                                                                   , i), header=True, index=False)
+            df["agent"] = agent_name
+            df["budget"] = args.budget
+            df.to_csv(Logger().save_dir + "/{}_{}_{}_data_exp_{}.csv".format(agent_name, args.game, args.budget, i)
+                      , header=True, index=False)
 
             # TODO FIX THIS
             # exps.append(offline_scores)
