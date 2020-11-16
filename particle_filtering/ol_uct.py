@@ -41,6 +41,8 @@ PROB_2 = [0.95, 0.025, 0.025]
 PROB_3 = [0.91, 0.03, 0.03, 0.03]
 PROBS = {1: MAX_P, 2: PROB_1, 3: PROB_2, 4:PROB_3}
 
+DEBUG = False
+
 
 def strategic_rollout(env, budget, max_depth=200, terminal=False, root_owner=None):
     """Rollout from the current state following a default policy up to hitting a terminal state"""
@@ -192,19 +194,19 @@ class State(object):
                           3 * c * b * csi * logp / child_action.n
                           if child_action.n > 0 and not np.isinf(child_action.sigma).any() else np.inf
                           for child_action in self.child_actions])
+        if DEBUG:
+            var = np.array([child_action.sigma for child_action in self.child_actions])
 
-        # var = np.array([child_action.sigma for child_action in self.child_actions])
-        #
-        # qs = np.array([child_action.Q for child_action in self.child_actions])
-        #
-        # sq = np.array([np.sqrt(csi * child_action.sigma * logp / child_action.n)
-        #                   if child_action.n > 0 and not np.isinf(child_action.sigma).any() else np.inf
-        #                   for child_action in self.child_actions])
-        #
-        # extra = np.array([np.sqrt(csi * child_action.sigma * logp / child_action.n) +
-        #                   3 * c * b * csi * logp / child_action.n
-        #                   if child_action.n > 0 and not np.isinf(child_action.sigma).any() else np.inf
-        #                   for child_action in self.child_actions])
+            qs = np.array([child_action.Q for child_action in self.child_actions])
+
+            sq = np.array([np.sqrt(csi * child_action.sigma * logp / child_action.n)
+                              if child_action.n > 0 and not np.isinf(child_action.sigma).any() else np.inf
+                              for child_action in self.child_actions])
+
+            extra = np.array([np.sqrt(csi * child_action.sigma * logp / child_action.n) +
+                              3 * c * b * csi * logp / child_action.n
+                              if child_action.n > 0 and not np.isinf(child_action.sigma).any() else np.inf
+                              for child_action in self.child_actions])
 
         winner = argmax(bound)
         return self.child_actions[winner]
@@ -250,7 +252,7 @@ class OL_MCTS(object):
         else:
             raise (NotImplementedError("Need to reset the tree"))
 
-    def search(self, n_mcts, c, Env: PlanningEnv, mcts_env, budget, max_depth=200, fixed_depth=True, deepen=False):
+    def search(self, n_mcts, c, Env: PlanningEnv, mcts_env, budget, max_depth=200, fixed_depth=True, deepen=True):
         """ Perform the MCTS search from the root """
 
         self.c = c
@@ -320,23 +322,25 @@ class OL_MCTS(object):
 
         # self.visualize()
 
-    def return_results(self, temp, on_visits=False, on_lower=False):
+    def return_results(self, temp, on_visits=False, on_lower=True):
         """ Process the output at the root node """
         counts = np.array([child_action.n for child_action in self.root.child_actions])
         Q = np.array([child_action.Q for child_action in self.root.child_actions])
-        # print(Q)
-        # print(counts)
+        if DEBUG:
+            print(Q)
+            print(counts)
         if on_lower:
-            uct_upper_bound = np.array(
-                [child_action.Q + self.c * np.sqrt(np.log(self.root.n) / child_action.n) if child_action.n > 0 else np.inf
+            uct_lower_bound = np.array(
+                [child_action.Q - self.c * np.sqrt(np.log(self.root.n) / child_action.n) if child_action.n > 0 else np.inf
                  for child_action in self.root.child_actions])
-            pi_target = max_Q(uct_upper_bound) # max_Q doesn't really take the maximum Q in this case
+            pi_target = max_Q(uct_lower_bound) # max_Q doesn't really take the maximum Q in this case
         elif on_visits:
             pi_target = stable_normalizer(counts, temp)
         else:
             pi_target = max_Q(Q)
-            # if np.argmax(pi_target) > 0:
-            #     print(Q)
+            if np.argmax(pi_target) > 0 and DEBUG:
+                print(Q)
+                self.select
         V_target = np.sum((counts / np.sum(counts)) * Q)[None]
         return self.root_signature, pi_target, V_target
 
