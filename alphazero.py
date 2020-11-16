@@ -51,7 +51,7 @@ if __name__ == '__main__':
     fun_args = [args.game, args.n_ep, args.n_mcts, args.max_ep_len, args.lr, args.c, args.gamma,
                 args.data_size, args.batch_size, args.temp, args.n_hidden_layers, args.n_hidden_units,
                 True, args.eval_freq, args.eval_episodes, args.n_epochs]
-    
+
     if args.alpha_test:
         alpha = args.min_alpha
         delta_alpha = args.delta_alpha

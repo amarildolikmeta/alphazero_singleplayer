@@ -22,7 +22,7 @@ class Wrapper(object):
     def __init__(self, root_index, mcts_maker, model_save_file, model_wrapper_params,
                  mcts_params, is_atari, n_mcts, budget, mcts_env, c,
                  temp, game_maker=None, env=None, mcts_only=True, scheduler_params=None,
-                 enable_logging=True, visualize=False):
+                 enable_logging=True):
 
         assert game_maker is not None or env is not None, "No environment or maker provided to the wrapper"
 
@@ -59,7 +59,6 @@ class Wrapper(object):
 
         self.enable_logging=enable_logging
         self.verbose = Logger().verbosity_level
-        self.visualize_search_tree = visualize
 
     @staticmethod
     def schedule(x, k=1, width=1, min_depth=1) -> float:
@@ -227,8 +226,6 @@ class Wrapper(object):
                                mcts_env=mcts_env,
                                max_depth=max_depth,
                                budget=min(self.budget, self.scheduler_budget))
-        if self.visualize_search_tree:
-            self.get_mcts().visualize()
 
     def return_results(self, temp):
         return self.get_mcts().return_results(temp=temp)
