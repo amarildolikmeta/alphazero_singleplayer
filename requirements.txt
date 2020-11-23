@@ -21,7 +21,10 @@ statsmodels
 xgboost
 pytest==5.4.3
 # required in opt_strategy_basic
-cvxpy==1.0.31
+cvxpy==1.0.3
 
 # New optimizer
 git+https://github.com/ARM-software/mango
+
+# Web logging
+neptune-client

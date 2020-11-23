@@ -1,5 +1,7 @@
 import argparse
 
+from utils.logging import Logger
+
 
 def parse_game_params(args):
     game_params = {'horizon': args.max_ep_len}
@@ -114,4 +116,13 @@ def setup_parser():
                                                                         "only used for RaceStrategy environment")
     parser.add_argument('--multiagent', action='store_true', help='only for RaceStrategy-v2/v1')
 
-    return parser.parse_args()
+    #Neptune commands
+    parser.add_argument('--neptune', action='store_true', help='Enables logging on neptune.ai, requires API token'
+                                                               'environment variable to be set')
+    parser.add_argument('--exp_name', default=None, type=str, help='Additional tag to identify experiment')
+
+    parsed = parser.parse_args()
+
+    Logger(enable_neptune=parsed.neptune, verbosity_level=int(parsed.verbose), experiment_name=parsed.exp_name)
+
+    return parsed

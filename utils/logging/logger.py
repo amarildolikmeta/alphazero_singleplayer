@@ -1,12 +1,14 @@
 import errno
 import json
 import os
+import time
 from datetime import datetime
 from statistics import mean
 
 from matplotlib import pyplot as plt
 
 import numpy as np
+import neptune
 
 VERBOSITY_LEVELS = [0,1]
 
@@ -18,13 +20,46 @@ class Singleton(type):
         return cls._instances[cls]
 
 class Logger(metaclass=Singleton):
-    def __init__(self, show=False, verbosity_level=1):
+    def __init__(self, show=False, verbosity_level=1, enable_neptune=True, experiment_name=None,
+                 workspace_name="diggs/race-strategy"):
         self.timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         self.verbosity_level = verbosity_level
         self.save_dir, self.numpy_dumps_dir, self.pickled_dir = None, None, None
         self.is_remote = not show
         self.training_V_loss = []
         self.training_pi_loss = []
+        self.enable_neptune=enable_neptune
+        self.experiment_name = experiment_name
+        self.experiment_params = None
+        self.experiments = []
+        self.workspace_name = workspace_name
+
+    def set_timestamp(self):
+        self.timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+
+    def set_experiment_name(self, name:str) -> None:
+        self.experiment_name = name
+
+    def set_experiment_params(self, params:dict) -> None:
+        self.experiment_params = params
+
+    def create_experiment(self) -> int:
+        i = len(self.experiments)
+        try:
+            if self.enable_neptune:
+                neptune.init(project_qualified_name=self.workspace_name)
+                if self.experiment_name is None:
+                    exp = neptune.create_experiment(name="Exp_" + str(i),
+                                                        params=self.experiment_params,
+                                                        tags=[self.timestamp])
+                else:
+                    exp = neptune.create_experiment(name="Exp_" + str(i),
+                                                    params=self.experiment_params,
+                                                    tags=[self.experiment_name, self.timestamp])
+                self.experiments.append(exp.id)
+        except Exception as e:
+            print(e)
+        return i
 
     def set_verbosity_level(self, level: int) -> None:
         if level not in VERBOSITY_LEVELS:
@@ -79,7 +114,37 @@ class Logger(metaclass=Singleton):
         with open(os.path.join(self.save_dir, "parameters.txt"), 'w') as d:
             d.write(json.dumps(params))
 
-    def save_numpy(self, x, name=""):
+        self.experiment_params = params
+
+    def log_episode(self, res) -> None:
+        assert hasattr(res, "ep_length")
+        assert hasattr(res, "return_per_timestep")
+        assert hasattr(res, "action_counts")
+        assert hasattr(res, "return_per_timestep")
+        assert hasattr(res, "execution_time")
+
+        if self.enable_neptune:
+            workspace = neptune.init(project_qualified_name=self.workspace_name)
+            exp = workspace.get_experiments(id=res.episode_id)[0]
+            timestamp = time.time()
+            exp.log_metric('Episode length', res.ep_length, timestamp=timestamp)
+            exp.log_metric('Episode total return', np.sum(res.return_per_timestep), timestamp=timestamp)
+            exp.log_metric('Execution time', res.execution_time)
+
+            for i, count in enumerate(res.action_counts):
+                exp.log_metric('Action {} count'.format(i), count, timestamp=timestamp)
+
+    def log_action_reward(self, step, action, reward, episode_id):
+        if self.enable_neptune:
+            try:
+                workspace = neptune.init(project_qualified_name=self.workspace_name)
+                exp = workspace.get_experiments(id=episode_id)[0]
+                exp.log_text("SAR", "Step {}, action {}, reward {}".format(step, action, reward))
+                exp.log_metric("Return per timestep", reward)
+            except Exception as e:
+                print(e)
+
+    def save_numpy(self, x, name="") -> None:
         assert self.numpy_dumps_dir is not None, \
             "[ERROR] create_directories must be called after initializing the logger and before starting to log"
         if name == "":

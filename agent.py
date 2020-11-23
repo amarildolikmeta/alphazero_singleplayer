@@ -33,6 +33,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
           verbose=False) -> List[OfflineScore]:
     parameter_dict = locals()  # Save the state of all variables for logging
     logger = Logger()
+    logger.set_timestamp()
     logger.set_verbosity_level(int(verbose))
     logger.create_directories(game, out_dir)
     logger.save_parameters(parameter_dict)
