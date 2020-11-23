@@ -131,6 +131,8 @@ class RaceEnv(PlanningEnv):
             self._year = int(line[0])
             f.close()
 
+        self._median_tyre_laps = None
+
         self._active_drivers_mapping = {}
         self._index_to_active = {}
         for i in range(len(self._active_drivers)):
@@ -164,7 +166,7 @@ class RaceEnv(PlanningEnv):
         self._drivers_mapping = {}
         self._index_to_driver = {}
 
-        self._terminal = False
+        self.terminal = False
         self._pit_counts = defaultdict(int)
         self.used_compounds = [set() for _ in range(self.agents_number)]
         self._compound_initials = []
@@ -294,9 +296,10 @@ class RaceEnv(PlanningEnv):
                'action_queue': deepcopy(self._actions_queue),
                'agents_queue': deepcopy(self._agents_queue),
                'last_pits': deepcopy(self._last_pit),
+               #'simulator': deepcopy(self._race_sim.get_simulation_state()),
                'simulator': deepcopy(self._race_sim),
                't': deepcopy(self._t),
-               'terminal': deepcopy(self._terminal),
+               'terminal': deepcopy(self.terminal),
                'available_compounds': deepcopy(self._available_compounds),
                'pit_count': deepcopy(self._pit_counts),
                'used_compounds': deepcopy(self.used_compounds)
@@ -306,11 +309,12 @@ class RaceEnv(PlanningEnv):
     def set_signature(self, sig: dict) -> None:
         self.__set_state(sig["state"])
         self._race_sim = deepcopy(sig['simulator'])
+        #self._race_sim.set_simulation_state(sig['simulator'])
         self._actions_queue = deepcopy(sig['action_queue'])
         self._agents_queue = deepcopy(sig['agents_queue'])
         self._last_pit = deepcopy(sig['last_pits'])
         self._t = deepcopy(sig['t'])
-        self._terminal = deepcopy(sig['terminal'])
+        self.terminal = deepcopy(sig['terminal'])
         self._available_compounds = deepcopy(sig['available_compounds'])
         self._pit_counts = deepcopy(sig['pit_count'])
         self.used_compounds = deepcopy(sig['used_compounds'])
@@ -375,7 +379,8 @@ class RaceEnv(PlanningEnv):
     def map_compound_to_action(self, compound_name: str) -> int:
         """Returns the action index corresponding to the input compound"""
         assert len(self._compound_initials) > 0, "[ERROR] Env has not been reset yet"
-        assert compound_name in self._compound_initials, "The desired compound is not enabled in this race"
+        assert compound_name in self._compound_initials, "The desired compound {} is not " \
+                                                         "enabled in this race".format(compound_name)
         return self._compound_indices[compound_name]
 
     def partial_step(self, action, owner):
@@ -415,7 +420,7 @@ class RaceEnv(PlanningEnv):
 
         else:  # No transition, we don't have actions for all the agents
             print("AAA")
-            return self.get_state(), np.zeros(self.agents_number), self._terminal, {}
+            return self.get_state(), np.zeros(self.agents_number), self.terminal, {}
 
     def has_transitioned(self):
         return len(self._actions_queue) == 0
@@ -454,8 +459,8 @@ class RaceEnv(PlanningEnv):
         assert self._race_sim is not None, "[ERROR] Tried to perform a step in the environment before resetting it"
 
         self._lap = self._race_sim.get_cur_lap()
-        self._terminal = True if self._t >= self.horizon or self._lap >= self._race_sim.get_race_length() else False
-        if self._terminal:
+        self.terminal = True if self._t >= self.horizon or self._lap >= self._race_sim.get_race_length() else False
+        if self.terminal:
             print("BBB", self._t, self.horizon, self._lap, self._race_sim.get_race_length())
             return self.get_state(), np.zeros(self.agents_number), True, {}
 
@@ -489,7 +494,7 @@ class RaceEnv(PlanningEnv):
 
         self._t += 1
         self._lap = self._race_sim.get_cur_lap()
-        self._terminal = True if self._t >= self.horizon or self._lap >= self._race_sim.get_race_length() else False
+        self.terminal = True if self._t >= self.horizon or self._lap >= self._race_sim.get_race_length() else False
 
         reward = np.ones(self.agents_number) * self.max_lap_time
         for driver in self._active_drivers:
@@ -507,7 +512,7 @@ class RaceEnv(PlanningEnv):
         # if self._terminal:
         #     print("//////////////////////////////////", reward)
 
-        return self.get_state(), reward, self._terminal, {}
+        return self.get_state(), reward, self.terminal, {}
 
     def save_results(self, timestamp):
         save_path = self.results_path
@@ -532,7 +537,7 @@ class RaceEnv(PlanningEnv):
         # use_print_result:     set if result should be printed to console or not
         # use_plot:             set if plotting should be used or not
 
-        self._terminal = False
+        self.terminal = False
         self.search_mode = False
         race_pars_file = self._races_config_files.pop(0)
         # print(race_pars_file)
@@ -568,6 +573,20 @@ class RaceEnv(PlanningEnv):
 
         self._compound_initials = pars_in["vse_pars"]["param_dry_compounds"]
         state = self._race_sim.get_simulation_state()
+
+        self._median_tyre_laps={}
+        stints = defaultdict(list)
+        for driver in state["drivers"]:
+            strategy = driver.strategy_info
+            if len(strategy) > 1:
+                for i, stint in enumerate(strategy):
+                    if i < len(strategy) - 1 :
+                        next_stint = strategy[i+1]
+                        stint_duration = next_stint[0] - stint[0]
+                        stints[stint[1]].append(stint_duration)
+        for compound in stints:
+            self._median_tyre_laps[compound] = np.median(stints[compound])
+
         for i, compound in enumerate(self._compound_initials):
             self._compound_indices[compound] = i+1
 
@@ -626,7 +645,44 @@ class RaceEnv(PlanningEnv):
         return self._agents_queue[0]
 
     def is_terminal(self):
-        return self._terminal
+        return self.terminal
+
+    def get_remaining_compounds(self, driver) -> list:
+        remaining = []
+        for compound in self._available_compounds[driver]:
+            if self._available_compounds[driver][compound] > 0:
+                remaining.append(compound)
+        return remaining
+
+    def get_default_strategy(self, owner):
+        assert self._median_tyre_laps is not None, "You need to reset the environment before " \
+                                                   "you can get the default tyre durations"
+        compound, age = self._race_sim.get_tyre_age(owner)
+        remaining = self.get_remaining_compounds(owner)
+        if age >= self._median_tyre_laps[compound] and len(remaining) > 0:
+            missing_laps = self.race_length - self._race_sim.get_cur_lap()
+
+            # Force change of compound to avoid penalty at the end of the race
+            if len(self.used_compounds[owner]) == 1:
+                start_compound = next(iter(self.used_compounds[owner]))
+                if start_compound in remaining:
+                    remaining.remove(start_compound)
+            remaining = np.array(remaining)
+            delta = np.array([self._median_tyre_laps[compound] - missing_laps for compound in remaining])
+            positive = np.argwhere(delta > 0)
+
+            # If any compound allows to complete the race, use the one that fits better the remaining laps
+            if len(positive) > 0:
+                remaining = remaining[positive]
+                delta = delta[positive]
+            remaining = remaining.tolist()
+            delta = delta.tolist()
+            best = remaining[np.argmin(delta)]
+            if type(best) == list:
+                best = best[0]
+            return [self.map_compound_to_action(best)]
+        else:
+            return [0]
 
     def get_log_info(self):
         logs = []
