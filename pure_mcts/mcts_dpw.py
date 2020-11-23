@@ -1,6 +1,7 @@
 import numpy as np
 import copy
 from helpers import (is_atari_game, copy_atari_state, restore_atari_state, stable_normalizer, max_Q)
+from particle_filtering.ol_uct import strategic_rollout
 from pure_mcts.keyset import KeySet
 from pure_mcts.mcts import MCTS, Action, State
 
@@ -53,8 +54,23 @@ class StochasticState(State):
     def __init__(self, index, r, terminal, parent_action, na, signature, budget, env=None, max_depth=200):
         super().__init__(index, r, terminal, parent_action, na, budget, env=env, max_depth=max_depth)
         self.signature = signature
+        self.terminal = self.terminal or env.terminal
         # self.priors = model.predict_pi(index).flatten()
-        self.child_actions = [StochasticAction(a, parent_state=self, Q_init=self.V) for a in range(na)]
+
+        if hasattr(env, "get_available_actions") and hasattr(env, "get_next_agent"):
+            owner = env.get_next_agent()
+            action_list = env.get_available_actions(owner)
+            self.child_actions = [StochasticAction(a, parent_state=self, Q_init=self.V) for a in action_list]
+        else:
+            self.child_actions = [StochasticAction(a, parent_state=self, Q_init=self.V) for a in range(na)]
+
+    def evaluate(self, env, budget, max_depth=200):
+        if hasattr(env, "get_available_actions") and hasattr(env, "get_next_agent"):
+            owner = env.get_next_agent()
+            ret, budget = strategic_rollout(env, budget, max_depth, self.terminal, owner)
+            return ret[0], budget
+        else:
+            return self.random_rollout(budget, env, max_depth)
 
 
 class MCTSStochastic(MCTS):
@@ -74,21 +90,6 @@ class MCTSStochastic(MCTS):
             mcts_env = copy.deepcopy(Env)  # copy original Env to rollout from
         # else:
         #     restore_atari_state(mcts_env, snapshot)
-
-        # Check that the environment has been copied correctly
-        try:
-            sig1 = mcts_env.get_signature()
-            sig2 = Env.get_signature()
-            if sig1.keys() != sig2.keys():
-                raise AssertionError
-            if not all(np.array_equal(sig1[key], sig2[key]) for key in sig1):
-                raise AssertionError
-        except AssertionError:
-            print("Something wrong while copying the environment")
-            sig1 = mcts_env.get_signature()
-            sig2 = Env.get_signature()
-            print(sig1.keys(), sig2.keys())
-            exit()
 
         if self.root is None:
             # initialize new root
