@@ -239,10 +239,7 @@ class State(object):
                               if child_action.n > 0 and not np.isinf(child_action.sigma).any() else np.inf
                               for child_action in self.child_actions])
 
-        if bias_zero:
-            winner = np.argmax(bound)
-        else:
-            winner = argmax(bound)
+        winner = argmax(bound, bias_zero=bias_zero)
         return self.child_actions[winner]
 
     def update(self):
