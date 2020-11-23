@@ -44,32 +44,53 @@ PROBS = {1: MAX_P, 2: PROB_1, 3: PROB_2, 4:PROB_3}
 DEBUG = False
 
 
-def strategic_rollout(env, budget, max_depth=200, terminal=False, root_owner=None):
+def strategic_rollout(env, budget, max_depth=200, terminal=False, root_owner=None,
+                      no_pit=True,
+                      brain_on=False,
+                      double_rollout=False):
     """Rollout from the current state following a default policy up to hitting a terminal state"""
-    done = False
+    if double_rollout:
+        original_env = copy.deepcopy(env)
+
     ret = np.zeros(env.agents_number)
-    # if terminal or budget <= 0:
-    #     return ret, -1
-    env.seed(np.random.randint(1e7))
-    t = 0
 
-    agent = root_owner
+    for i in range(2 if double_rollout else 1):
+        done = False
+        # if terminal or budget <= 0:
+        #     return ret, -1
+        if i == 1:
+            env = copy.deepcopy(original_env)
 
-    while t / env.agents_number < max_depth and not done:
-        actions = env.get_available_actions(agent)
-        prob = PROBS[len(actions)]
-        action = np.random.choice(actions, p=prob)
-        s, r, done, _ = env.partial_step(action, agent)
+        env.seed(np.random.randint(1e7))
+        t = 0
 
-        ret += r
-        t += 1
+        agent = root_owner
 
-        # Get the agent ranking to specify the turn order
-        if env.has_transitioned():
-            budget -= 1
+        while t / env.agents_number < max_depth and not done:
+            if brain_on:
+                actions = env.get_default_strategy(root_owner)
+            else:
+                actions = env.get_available_actions(agent)
 
-        agent = env.get_next_agent()
+            if no_pit:
+                action = 0
+            else:
+                prob = PROBS[len(actions)]
+                action = np.random.choice(actions, p=prob)
 
+            s, r, done, _ = env.partial_step(action, agent)
+
+            ret += r
+            t += 1
+
+            # Get the agent ranking to specify the turn order
+            if env.has_transitioned():
+                budget -= 1
+
+            agent = env.get_next_agent()
+
+    if double_rollout:
+        ret/=2
     return ret, budget
 
 
@@ -87,6 +108,8 @@ class Action(object):
         self.sigma = np.inf
         self.rewards = []
         self.child_state = None
+        self.max_r = - np.inf
+        self.min_r = np.inf
 
     def add_child_state(self, env, budget, max_depth=200, depth=0, deepen=False):
         reward, terminal, budget = sample(env, self.index, budget)
@@ -104,6 +127,8 @@ class Action(object):
         return self.child_state, self.child_state.remaining_budget
 
     def update(self, R):
+        self.max_r = max(R, self.max_r)
+        self.min_r = min(R, self.min_r)
         self.update_aggregate(R)
         self.finalize_aggregate()
 
@@ -153,11 +178,15 @@ class State(object):
             self.V, self.remaining_budget = self.evaluate(env, budget, max_depth, terminal)
 
     def is_terminal(self, max_depth, env):
-        return self.depth == max_depth
+        return self.depth == max_depth or env.terminal
 
     def to_json(self):
         inf = {
             "V": str(self.V) + '<br>',
+            "Q": (str(self.parent_action.Q) if self.parent_action is not None else "0") + '<br>',
+            "max": (str(self.parent_action.max_r) if self.parent_action is not None else "-inf") + '<br>',
+            "min": (str(self.parent_action.min_r) if self.parent_action is not None else "inf") + '<br>',
+            "sigma": (str(self.parent_action.sigma) if self.parent_action is not None else "inf") + '<br>',
             "n": str(self.n) + '<br>',
             "d": str(self.depth) + '<br>'
         }
@@ -168,20 +197,22 @@ class State(object):
         self.reward = r
         return done, budget
 
-    def select(self, c=1.5, csi=1., b=1., variance=False, lower_bound=True):
+    def select(self, c=1.5, csi=1., b=1., variance=False, bias_zero=True):
         """
          Select one of the child actions based on UCT rule
          :param c: UCB exploration constant
          :param csi: exploration constant
          :param b: parameter such that the rewards belong to [0, b]
          :param variance: controls if the UCT-V selection should be applied
+         :param bias_zero: gives bias to the first action if ties need to be broken
          """
 
         if not variance:
             uct_upper_bound = np.array(
                 [child_action.Q + c * np.sqrt(np.log(self.n) / (child_action.n)) if child_action.n > 0 else np.inf
                  for child_action in self.child_actions])
-            winner = argmax(uct_upper_bound)
+
+            winner = argmax(uct_upper_bound, bias_zero=bias_zero)
             return self.child_actions[winner]
 
         if self.n > 0:
@@ -208,7 +239,10 @@ class State(object):
                               if child_action.n > 0 and not np.isinf(child_action.sigma).any() else np.inf
                               for child_action in self.child_actions])
 
-        winner = argmax(bound)
+        if bias_zero:
+            winner = np.argmax(bound)
+        else:
+            winner = argmax(bound)
         return self.child_actions[winner]
 
     def update(self):
@@ -295,9 +329,11 @@ class OL_MCTS(object):
                     state, budget = action.add_child_state(mcts_env, budget, rollout_depth, depth=st,
                                                            deepen=deepen)
                     # If the state has only one possible action, immediately add its successor to the tree
-                    while deepen and len(state.child_actions) == 1 and not state.terminal and budget > 0:
+                    while deepen and len(state.child_actions) == 1 and not state.terminal:
                         action = state.child_actions[0]
                         rollout_depth = max_depth if fixed_depth else max_depth - st
+                        if budget < rollout_depth:
+                            budget = rollout_depth
                         state, budget = action.add_child_state(mcts_env, budget, rollout_depth, depth=st,
                                                                deepen=deepen)
                         st += 1
@@ -310,6 +346,8 @@ class OL_MCTS(object):
             R = state.V
             state.update()
             while state.parent_action is not None:  # loop back-up until root is reached
+                if state.reward > -85:
+                    print("WTF:", state.reward)
                 if not terminal:
                     R = state.reward + self.gamma * R
                 else:
@@ -322,7 +360,7 @@ class OL_MCTS(object):
 
         # self.visualize()
 
-    def return_results(self, temp, on_visits=False, on_lower=True):
+    def return_results(self, temp, on_visits=True, on_lower=False):
         """ Process the output at the root node """
         counts = np.array([child_action.n for child_action in self.root.child_actions])
         Q = np.array([child_action.Q for child_action in self.root.child_actions])
@@ -339,8 +377,7 @@ class OL_MCTS(object):
         else:
             pi_target = max_Q(Q)
             if np.argmax(pi_target) > 0 and DEBUG:
-                print(Q)
-                self.select
+                print("PIT")
         V_target = np.sum((counts / np.sum(counts)) * Q)[None]
         return self.root_signature, pi_target, V_target
 

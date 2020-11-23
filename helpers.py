@@ -30,7 +30,7 @@ def stable_normalizer(x, temp):
     return probs
 
 
-def argmax(x):
+def argmax(x, bias_zero=False):
     """ assumes a 1D vector x """
     x = x.flatten()
     try:
@@ -38,7 +38,10 @@ def argmax(x):
             print('Warning: Cannot argmax when vector contains nans, results will be wrong')
         try:
             winners = np.argwhere(x == np.max(x)).flatten()
-            winner = np.random.choice(winners)
+            if bias_zero and 0 in winners:
+                winner = 0
+            else:
+                winner = np.random.choice(winners)
         except:
             winner = np.argmax(x)  # numerical instability ?
     except:
