@@ -253,10 +253,12 @@ class State(object):
 
     # TODO remove, only for debugging raceStrategy
     @staticmethod
-    def rollout(actions, env, budget, max_depth=200, terminal=False):
+    def rollout(actions, env, budget, max_depth=200, terminal=False, brain_on=False, double_rollout=False, no_pit=False):
+
         if hasattr(env, "get_available_actions") and hasattr(env, "get_next_agent"):
             owner = env.get_next_agent()
-            ret, budget = strategic_rollout(env, budget, max_depth, terminal, owner)
+            ret, budget = strategic_rollout(env, budget, max_depth, terminal, owner,
+                                            double_rollout=double_rollout, brain_on=brain_on, no_pit=no_pit)
             return ret[0], budget
         else:
             return random_rollout(actions, env, budget, max_depth, terminal)
@@ -283,7 +285,7 @@ class OL_MCTS(object):
         else:
             raise (NotImplementedError("Need to reset the tree"))
 
-    def search(self, n_mcts, c, Env: PlanningEnv, mcts_env, budget, max_depth=200, fixed_depth=True, deepen=True):
+    def search(self, n_mcts, c, Env: PlanningEnv, mcts_env, budget, max_depth=200, fixed_depth=True, deepen=True, visualize=False):
         """ Perform the MCTS search from the root """
 
         self.c = c
@@ -355,7 +357,8 @@ class OL_MCTS(object):
                 state = action.parent_state
                 state.update()
 
-        # self.visualize()
+        if visualize:
+            self.visualize()
 
     def return_results(self, temp, on_visits=True, on_lower=False):
         """ Process the output at the root node """

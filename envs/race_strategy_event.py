@@ -24,6 +24,7 @@ sys.path.append(os.path.join(ROOT_PATH, 'race_simulation'))
 from race_simulation.racesim.src.race import Race
 from race_simulation.racesim.src.import_pars import import_pars
 from race_simulation.racesim.src.check_pars import check_pars
+from race_simulation.racesim_basic.src.calc_racetimes_basic import calc_racetimes_basic
 
 MAX_P = [1]
 PROB_1 = [0.95, 0.05]
@@ -78,6 +79,7 @@ class RaceEnv(PlanningEnv):
 
         super(RaceEnv, self).__init__()
 
+        self.presim_data = {}
         self.verbose = verbose
         self.rl_mode = rl_mode
         self._actions_queue = deque()
@@ -181,6 +183,12 @@ class RaceEnv(PlanningEnv):
 
         if self.scale_reward and verbose:
             print("Reward is being normalized")
+
+    def get_remaining_steps(self):
+        """This is not exactly the timestep for the environment, but it is more meaningful when compared to the """
+        horizon_delta = self.horizon - self._t
+        race_delta = self.race_length - self._race_sim.get_cur_lap()
+        return min(race_delta, horizon_delta)
 
     def get_max_ep_length(self):
         return min(self.get_race_length(), self.horizon)
@@ -474,7 +482,7 @@ class RaceEnv(PlanningEnv):
         if self.search_mode:
             for d in self._drivers:
                 if d not in self._active_drivers_mapping:
-                    actions = self.get_available_actions(d)
+                    actions = self.get_default_strategy(d) # get_available_actions(d)
                     prob = PROBS[len(actions)]
                     a = np.random.choice(actions, p=prob)
                     if a > 0:
@@ -519,6 +527,47 @@ class RaceEnv(PlanningEnv):
         # save_path = os.path.join(self.results_path, timestamp)
         os.makedirs(save_path, exist_ok=True)
         self._race_sim.export_results_as_csv(results_path=save_path)
+
+    def simulate_strategy(self, pars_in: dict, initials: str):
+        team = pars_in['driver_pars'][initials]['team']
+        car_pars = pars_in['car_pars'][team]
+        driver_pars = pars_in['driver_pars'][initials]
+        track_pars = pars_in['track_pars']
+
+        t_quali = pars_in['track_pars']['t_q']
+        race_gap = pars_in['track_pars']['t_gap_racepace']
+        t_base = t_quali + race_gap
+
+        t_pit_tirechange_min = pars_in['track_pars']['t_pit_tirechange_min']
+        t_pit_tirechange_add = pars_in['car_pars'][team]['t_pit_tirechange_add']
+        t_pit_tirechange = t_pit_tirechange_min + t_pit_tirechange_add
+
+        res = calc_racetimes_basic(t_base=t_base,
+                                    tot_no_laps=pars_in['race_pars']["tot_no_laps"],
+                                    t_lap_sens_mass=track_pars["t_lap_sens_mass"],
+                                    t_pitdrive_inlap=track_pars["t_pitdrive_inlap"],
+                                    t_pitdrive_outlap=track_pars["t_pitdrive_outlap"],
+                                    t_pitdrive_inlap_fcy=track_pars["t_pitdrive_inlap_fcy"],
+                                    t_pitdrive_outlap_fcy=track_pars["t_pitdrive_outlap_fcy"],
+                                    t_pitdrive_inlap_sc=track_pars["t_pitdrive_inlap_sc"],
+                                    t_pitdrive_outlap_sc=track_pars["t_pitdrive_outlap_sc"],
+                                    pits_aft_finishline=track_pars["pits_aft_finishline"],
+                                    t_pit_tirechange=t_pit_tirechange,
+                                    tire_pars=pars_in['tireset_pars'][initials],
+                                    p_grid=driver_pars["p_grid"],
+                                    t_loss_pergridpos=track_pars["t_loss_pergridpos"],
+                                    t_loss_firstlap=track_pars["t_loss_firstlap"],
+                                    strategy=driver_pars['strategy_info'],
+                                    drivetype=car_pars["drivetype"],
+                                    m_fuel_init=car_pars["m_fuel"],
+                                    b_fuel_perlap=car_pars["b_fuel_perlap"],
+                                    t_pit_refuel_perkg=car_pars["t_pit_refuel_perkg"],
+                                    t_pit_charge_perkwh=car_pars["t_pit_charge_perkwh"],
+                                    fcy_phases=[],
+                                    t_lap_sc=track_pars["mult_t_lap_sc"] * t_base,
+                                    t_lap_fcy=track_pars["mult_t_lap_fcy"] * t_base,
+                                    deact_pitstop_warn=False)
+        return np.hstack([res[0][-1], res[0][-1] - res[0]] )
 
     def reset(self):
 
@@ -574,6 +623,9 @@ class RaceEnv(PlanningEnv):
         self._compound_initials = pars_in["vse_pars"]["param_dry_compounds"]
         state = self._race_sim.get_simulation_state()
 
+        # print(pars_in['driver_pars'])
+        # exit()
+
         self._median_tyre_laps={}
         stints = defaultdict(list)
         for driver in state["drivers"]:
@@ -596,6 +648,13 @@ class RaceEnv(PlanningEnv):
         for i in range(self._drivers_number):
             self._drivers_mapping[self._drivers[i]] = i
             self._index_to_driver[i] = self._drivers[i]
+
+        # Run a reduced simulation for the strategy outcome
+        for driver in self._active_drivers:
+            index = self._drivers_mapping[driver]
+            initials = state['drivers'][index].initials
+            pre = self.simulate_strategy(pars_in=pars_in, initials=initials)
+            self.presim_data[driver] = pre[self.start_lap - 1:]
 
         # Use the default strategies before the actual start
         while self._race_sim.get_cur_lap() < self.start_lap:
@@ -683,6 +742,20 @@ class RaceEnv(PlanningEnv):
             return [self.map_compound_to_action(best)]
         else:
             return [0]
+
+    def get_mean_estimation(self, action, owner):
+        self._race_sim.enable_reduced_mode()
+        r = np.zeros(self._drivers_number)
+        while not self.is_terminal():
+            actions = []
+            for driver in self._active_drivers:
+                if driver == owner:
+                    actions.append (action)
+                else:
+                    actions.extend(self.get_default_strategy(driver))
+            r += self.__step(np.array(actions))[1]
+
+        return r[self._drivers_mapping[owner]]
 
     def get_log_info(self):
         logs = []

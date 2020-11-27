@@ -10,6 +10,15 @@ class PlanningEnv(Env):
         super(PlanningEnv, self).__init__()
         self.action_space = None
 
+    def get_max_episode_length(self):
+        return np.inf
+
+    def get_remaining_steps(self):
+        raise NotImplementedError("get_remaining_steps method must be implemented by subclasses of PlanningEnv")
+
+    def get_mean_estimation(self, action, owner):
+        raise NotImplementedError("get_mean_estimation method must be implemented by subclasses of PlanningEnv")
+
     def get_available_actions(self, agent: int) -> list:
         assert self.action_space is not None, "Action space has not been initialized"
         return [i for i in range(self.action_space.n)]

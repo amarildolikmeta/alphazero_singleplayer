@@ -29,7 +29,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
           pre_process=None, visualize=False, game_params={}, parallelize_evaluation=False, mcts_only=False,
           particles=0, show_plots=False, n_workers=1, use_sampler=False, budget=np.inf, unbiased=False, biased=False,
           max_workers=100, variance=False, depth_based_bias=False, scheduler_params=None, out_dir=None,
-          render=False, second_version=False, third_version=False, multiagent=False, csi=1., log_timestamp=None,
+          render=False, second_version=False, third_version=False, multiagent=False, csi=1., bayesian=False,
+          log_timestamp=None,
           verbose=False) -> List[OfflineScore]:
     parameter_dict = locals()  # Save the state of all variables for logging
     logger = Logger()
@@ -45,7 +46,10 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         from mcts_dpw import MCTSStochastic
     elif particles:
         if unbiased:
-            from particle_filtering.ol_uct import OL_MCTS
+            if bayesian:
+                from particle_filtering.bayesian_ol_uct import Bayesian_OL_MCTS
+            else:
+                from particle_filtering.ol_uct import OL_MCTS
         elif biased:
             if second_version:
                 from particle_filtering.pf_uct_2 import PFMCTS2 as PFMCTS
@@ -133,11 +137,16 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
             mcts_params['depth_based_bias'] = depth_based_bias
             if unbiased:
-                if verbose:
-                    print("\nUsing OLMCTS\n")
-                mcts_params['variance'] = variance
-                mcts_params['csi'] = csi
-                mcts_maker = OL_MCTS
+                if bayesian:
+                    if verbose:
+                        print("\nUsing Bayesian OLMCTS\n")
+                    mcts_maker = Bayesian_OL_MCTS
+                else:
+                    if verbose:
+                        print("\nUsing OLMCTS\n")
+                    mcts_params['variance'] = variance
+                    mcts_params['csi'] = csi
+                    mcts_maker = OL_MCTS
 
         elif stochastic:
             mcts_params['alpha'] = alpha

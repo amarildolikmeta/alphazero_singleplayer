@@ -149,6 +149,7 @@ if __name__ == '__main__':
                                                       third_version=args.third_version,
                                                       multiagent=args.multiagent,
                                                       csi=args.csi,
+                                                      bayesian=args.bayesian,
                                                       log_timestamp=time_str,
                                                       verbose=args.verbose)
 

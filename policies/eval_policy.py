@@ -132,7 +132,7 @@ def evaluate(add_terminal, wrapper, episode_id, interactive, max_len, visualize=
 
     while t//n_agents <= max_len:
         s = np.concatenate([s, [0]]) if add_terminal else s
-        a = wrapper.pi_wrapper(s, t, max_len - t)
+        a = wrapper.pi_wrapper(s, t, max_len - t, visualize)
 
         action_counter[a] += 1
         ns, r, done, inf = wrapper.step(a)
@@ -142,8 +142,8 @@ def evaluate(add_terminal, wrapper, episode_id, interactive, max_len, visualize=
         if "save_path" in inf:
             Logger().save_prices(inf, ns, a, r)
 
-        if visualize:
-            wrapper.visualize()
+        # if visualize:
+        #     wrapper.visualize()
         if render:
             wrapper.render()
 
