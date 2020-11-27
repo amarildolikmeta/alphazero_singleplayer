@@ -40,7 +40,7 @@ if __name__ == '__main__':
     alg = parse_alg_name(args)
     start_time = time.time()
     time_str = str(start_time)
-    out_dir = "logs/hyperopt/" + args.game + '/' + alg + str(args.budget) + "/" + time_str
+    out_dir = "logs/mango/" + args.game + '/' + alg + str(args.budget)
     base_dir = out_dir
     keys = {"game": args.game,
             "n_ep": args.n_ep,
@@ -81,7 +81,7 @@ if __name__ == '__main__':
             'csi': args.csi}
 
 
-    #@scheduler.parallel(n_jobs=6)
+    # @scheduler.parallel(n_jobs=3)
     @scheduler.serial
     def objective(**params):
         keywords = deepcopy(keys)
@@ -96,7 +96,7 @@ if __name__ == '__main__':
         # Take all the average returns for evaluation
         # for score in offline_scores:
         #     means.append(score[2])
-        means = offline_scores[0][0]
+        means = offline_scores[0].episode_rewards
         print("Mean return:", np.mean(means))
         print("Standard deviation:", np.std(means))
         print()
@@ -104,8 +104,9 @@ if __name__ == '__main__':
         score = -np.mean(means)
         return score
 
-    param_space = {"c": np.arange(0.1, 3.6, 0.1).tolist(),
-                   "csi": np.arange(1.5, 10.25, 0.25).tolist()}
+    param_space = {"c": np.arange(0.1, 2.5, 0.1).tolist(),
+                   #"csi": np.arange(0.25, 10.25, 0.25).tolist(),
+                   "alpha": np.arange(0.4, 0.95, 0.05).tolist()}
 
     conf_dict = dict(num_iteration=args.opt_iters, initial_random=3)
 

@@ -96,7 +96,7 @@ class Wrapper(object):
     #     max_depth = float(width)
     #     return (1 - 5 / max_depth) ** (x)
 
-    def pi_wrapper(self, s, current_depth, max_depth):
+    def pi_wrapper(self, s, current_depth, max_depth, visualize=False):
 
         width = min(self.get_env().get_max_ep_length(), max_depth+current_depth)
 
@@ -117,7 +117,7 @@ class Wrapper(object):
             actions = self.get_env().get_available_actions(owner)
 
             if len(actions) > 1:
-                self.search(self.n_mcts, self.c, self.mcts_env, max_depth)
+                self.search(self.n_mcts, self.c, self.mcts_env, max_depth, visualize)
                 state, pi, V = self.return_results(self.temp)  # TODO put 0 if the network is enabled
 
                 if not len(actions) == self.get_env().action_space.n:
@@ -219,13 +219,14 @@ class Wrapper(object):
             self.get_env().save_results(Logger().timestamp)
         return s, r, done, _
 
-    def search(self, n_mcts, c_dpw, mcts_env, max_depth=200):
+    def search(self, n_mcts, c_dpw, mcts_env, max_depth=200, visualize=False):
         self.get_mcts().search(n_mcts=n_mcts,
                                c=c_dpw,
                                Env=self.get_env(),
                                mcts_env=mcts_env,
                                max_depth=max_depth,
-                               budget=min(self.budget, self.scheduler_budget))
+                               budget=min(self.budget, self.scheduler_budget),
+                               visualize=visualize)
 
     def return_results(self, temp):
         return self.get_mcts().return_results(temp=temp)
