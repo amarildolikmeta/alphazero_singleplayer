@@ -6,6 +6,7 @@ import seaborn as sns
 
 # sns.set_style('darkgrid')
 
+
 def check_sub_trajectory(nu, distribution, depth):
     for particle in distribution:
         t = depth
@@ -60,7 +61,6 @@ class Node:
         self.visits = np.zeros(ns)
         self.true_P = true_P
         self.approx_ps = []
-        self.depths = []
         self.sampled_particles = []
         self.sampling_distributions = []
         self.passing_particles = []
@@ -73,7 +73,7 @@ class Node:
         self.child_node = node
 
     def get_approx_state_dist(self):
-        return np.array(self.visits / self.num_particles)
+        return np.copy(self.visits / self.num_particles)
 
     def get_true_state_dist(self):
         return self.true_P
@@ -86,82 +86,88 @@ class Node:
     def estimate_value(self):
         ps = self.ps
         trajectories = self.trajectories
-        depths = self.depths
-        particles = self.sampled_particles
-        distributions = self.sampling_distributions
+        sampling_depths = self.sampling_depths
+        sampled_particles = self.sampled_particles
+        sampling_distributions = self.sampling_distributions
         partial_q_sums = self.partial_q_sums
         passing_particles = self.passing_particles
-        last_particles = self.last_particles
+        final_particles = self.last_particles
         approx_state_distributions = self.approx_ps
         T = self.n
 
         assert len(ps) == self.estimated_n
         last_nus = trajectories[self.estimated_n:]
-        last_sampled_particles = particles[self.estimated_n:]
-        last_depths = depths[self.estimated_n:]
-        last_distributions = distributions[self.estimated_n:]
+        last_sampled_particles = sampled_particles[self.estimated_n:]
+        last_sampling_depths = sampling_depths[self.estimated_n:]
+        last_sampling_distributions = sampling_distributions[self.estimated_n:]
         last_passing_particles = passing_particles[self.estimated_n:]
-        last_last_particles = last_particles[self.estimated_n:]
+        last_final_particles = final_particles[self.estimated_n:]
         last_approx_state_distributions = approx_state_distributions[self.estimated_n:]
         for i in range(self.n - self.estimated_n):
-            last_nu = last_nus[i]
-            last_sampled_particle = last_sampled_particles[i]
-            last_depth = last_depths[i]
-            last_distribution = last_distributions[i][0]
-            last_num_particles = last_distributions[i][1]
-            passing_particle = last_passing_particles[i]
-            last_approx_state_distribution = last_approx_state_distributions[i]
-            last_last_particle = last_last_particles[i]
-            passing_state = passing_particle.state
-            last_p_nu = last_last_particle.prob / passing_particle.prob * self.true_P[passing_state]
+            # for every "new" trajectory
+            current_nu = last_nus[i]
+            current_sampled_particle = last_sampled_particles[i]
+            current_sampling_depth = last_sampling_depths[i]
+            current_sampling_distribution = last_sampling_distributions[i][0]
+            current_sampling_num_particles = last_sampling_distributions[i][1]
+            current_passing_particle = last_passing_particles[i]
+            current_passing_state = current_passing_particle.state
+            current_approx_state_distribution = last_approx_state_distributions[i]
+            current_final_particle = last_final_particles[i]
+            # compute the true trajectory distribution
+            current_p_nu = current_final_particle.prob / current_passing_particle.prob * \
+                           self.true_P[current_passing_state]
             qs_new = []
             partial_q_sum_new = 0
             for j in range(T):
-                # weight the current trajectory in the old sample distributions
-                num_particles_j = distributions[j][1]
-                if depths[j] == self.depth:
-                    weight = last_last_particle.prob / passing_particle.prob * approx_state_distributions[j][
-                        passing_state]
+                # weight the current trajectory in all sample distributions
+                num_particles_j = sampling_distributions[j][1]
+                if sampling_depths[j] == self.depth:
+                    weight = current_final_particle.prob / current_passing_particle.prob * \
+                             approx_state_distributions[j][current_passing_state]
 
-                elif depths[j] > self.depth:
-                    valid, lk_particle = check_sub_trajectory(nu=last_nu, depth=depths[j],
-                                                              distribution=distributions[j][0][:num_particles_j])
+                elif sampling_depths[j] > self.depth:
+                    valid, lk_particle = check_sub_trajectory(nu=current_nu, depth=sampling_depths[j],
+                                                              distribution=sampling_distributions[j][0][:num_particles_j])
                     if valid:
-                        prob = last_last_particle.prob / lk_particle.prob
+                        prob = current_final_particle.prob / lk_particle.prob
                         weight = prob / num_particles_j
                     else:
                         weight = 0
                 else:
                     prob = approx_state_distributions[j]
-                    for k in range(self.depth - depths[j]):
-                        prob = np.dot(prob, self.env.P[:, self.action_sequence[k + depths[j]], :])
-                    prob = prob[passing_state]
-                    prob *= last_last_particle.prob / passing_particle.prob
+                    for k in range(self.depth - sampling_depths[j]):
+                        prob = np.dot(prob, self.env.P[:, self.action_sequence[k + sampling_depths[j]], :])
+                    prob = prob[current_passing_state]
+                    prob *= current_final_particle.prob / current_passing_particle.prob
                     weight = prob
                 qs_new.append(weight)
                 partial_q_sum_new += weight
                 # weight old trajectories in the current sample distribution
                 if j < self.estimated_n:
-                    if last_depth == self.depth:
-                        weight = last_particles[j].prob / passing_particles[j].prob * last_approx_state_distribution[
-                            passing_state]
-                        partial_q_sums[j] += weight
-                    elif last_depth > self.depth:
-                        valid, lk_particle = check_sub_trajectory(nu=trajectories[j], depth=last_depth,
-                                                                  distribution=last_distribution[:last_num_particles])
+                    if current_sampling_depth == self.depth:
+                        weight = final_particles[j].prob / passing_particles[j].prob * \
+                                 current_approx_state_distribution[passing_particles[j].state]
+                    elif current_sampling_depth > self.depth:
+                        valid, lk_particle = check_sub_trajectory(nu=trajectories[j], depth=current_sampling_depth,
+                                                                  distribution=
+                                                                  current_sampling_distribution[:
+                                                                                                current_sampling_num_particles])
                         if valid:
-                            prob = last_particles[j].prob / lk_particle.prob
-                            partial_q_sums[j] += prob / last_num_particles
+                            prob = final_particles[j].prob / lk_particle.prob
+                            weight = prob / current_sampling_num_particles
+                        else:
+                            weight = 0
                     else:
-                        prob = last_approx_state_distribution
-                        for k in range(self.depth - last_depth):
-                            prob = np.dot(prob, self.env.P[:, self.action_sequence[k + last_depth], :])
+                        prob = current_approx_state_distribution
+                        for k in range(self.depth - current_sampling_depth):
+                            prob = np.dot(prob, self.env.P[:, self.action_sequence[k + current_sampling_depth], :])
                         prob = prob[passing_particles[j].state]
-                        prob *= last_particles[j].prob / passing_particles[j].prob
-                        partial_q_sums[j] += prob
-
+                        prob *= final_particles[j].prob / passing_particles[j].prob
+                        weight = prob
+                    partial_q_sums[j] += weight
             partial_q_sums.append(partial_q_sum_new)
-            ps.append(last_p_nu)
+            ps.append(current_p_nu)
         new_weights = np.array(ps) / np.array(partial_q_sums)
         new_weights = np.array(new_weights) / np.sum(new_weights)
         self.ps = ps
@@ -177,7 +183,7 @@ class Node:
         self.trajectories.append(trajectory)
         self.sampling_depths.append(sampling_depth)
         self.approx_ps.append(approx_p)
-        self.depths.append(sampling_depth)
+        self.sampling_depths.append(sampling_depth)
         self.sampled_particles.append(sampled_particle)
         self.sampling_distributions.append(sampling_distribution)
         self.passing_particles.append(passing_particle)
@@ -319,7 +325,7 @@ class Estimator:
             new_weight = new_weights[-1]
         else:
             new_weight = full_resampling_weights[-1]
-        return should_resample, candidate_particle, new_weight, margin
+        return should_resample, candidate_particle, new_weight, margin, ess
 
     def multi_step_model(self,  depth,  particle, len=None):
         p = 1.
@@ -358,7 +364,6 @@ class Estimator:
         return evaluations
 
     def backup(self, node, particle, sampled_particle, sampled_node):
-        final_particle = particle
         last_node = node
         last_particle = particle
         trajectory = []
@@ -377,7 +382,8 @@ class Estimator:
         self.T += 1
         weights = self.get_weights_balance_heuristic()
         weights = np.array(weights) / np.sum(weights)
-        self.ess = compute_ess(weights)
+        ess = compute_ess(weights)
+        self.ess = ess
         R = 0
         while node.parent_node is not None:
             if node.depth != len(self.action_sequence):
@@ -471,7 +477,7 @@ class Estimator:
                                                                                      distribution=(
                                                                                      [self.root_particle], 1))
                     while node.parent_node is not None:
-                        should_resample, particle, weight, margin = \
+                        should_resample, particle, weight, margin, ess = \
                             self.should_resample(node, full_resampling_weights=full_resampling_weights)
                         if should_resample:
                             resampled = True
@@ -559,20 +565,21 @@ if __name__ == '__main__':
 
     true_mean_samples = 20000
     estimations_mc_true = estimator.run_monte_carlo_estimation(true_mean_samples, 10)
-    mean_mc = np.mean(estimations_mc, axis=0)
-    std_hat_mc = np.std(estimations_mc, ddof=1, axis=0)
-    error_mc = ((np.array(estimations_mc) - mean_mc) ** 2).mean(axis=0)
-    error_std_mc = ((np.array(estimations_mc) - mean_mc) ** 2).std(axis=0)
+    true_mean = np.mean(estimations_mc_true, axis=0)
+    # mean_mc = np.mean(estimations_mc, axis=0)
+    # std_hat_mc = np.std(estimations_mc, ddof=1, axis=0)
+    error_mc = ((true_mean - np.array(estimations_mc)) ** 2).mean(axis=0)
+    error_std_mc = ((true_mean - np.array(estimations_mc)) ** 2).std(axis=0)
     xs = list(range(action_length))
     ax.plot(xs, error_mc, label='error mc')
     lower_mc = error_mc - 2 * error_std_mc / np.sqrt(num_experiments)
     upper_mc = error_mc + 2 * error_std_mc / np.sqrt(num_experiments)
     pyplot.fill_between(xs, lower_mc, upper_mc, alpha=0.2, color='c')
 
-    mean_bh = np.mean(estimations_particle_bh, axis=0)
-    std_hat_bh = np.std(estimations_particle_bh, ddof=1, axis=0)
-    error_bh = ((np.array(estimations_mc) - mean_bh) ** 2).mean(axis=0)
-    error_std_bh = ((np.array(estimations_mc) - mean_bh) ** 2).std(axis=0)
+    # mean_bh = np.mean(estimations_particle_bh, axis=0)
+    # std_hat_bh = np.std(estimations_particle_bh, ddof=1, axis=0)
+    error_bh = ((true_mean - np.array(estimations_particle_bh)) ** 2).mean(axis=0)
+    error_std_bh = ((true_mean - np.array(estimations_particle_bh)) ** 2).std(axis=0)
     ax.plot(xs, error_bh, label='error bh')
     lower_bh = error_bh - 2 * error_std_bh / np.sqrt(num_experiments)
     upper_bh = error_bh + 2 * error_std_bh / np.sqrt(num_experiments)
