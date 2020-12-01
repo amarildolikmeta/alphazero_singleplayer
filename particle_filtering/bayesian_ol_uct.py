@@ -8,7 +8,7 @@ import numpy as np
 
 from particle_filtering.ol_uct import OL_MCTS, State, Action, sample
 
-DEBUG = True
+DEBUG = False
 
 DEFAULT_ALPHA = 1.1
 DEFAULT_BETA = 50
@@ -43,8 +43,8 @@ class BayesianAction(Action):
 
         return self.child_state, self.child_state.remaining_budget
 
-    def update(self, R):
-        super(BayesianAction, self).update(R)
+    def update(self, R, q_learning=False, alpha=0.1, gamma=1):
+        super(BayesianAction, self).update(R, q_learning=False, alpha=alpha, gamma=gamma)
         self.beta += (self.lamda * (R - self.mu_zero) ** 2) / (2 * (self.lamda +1))
         self.mu_zero = (self.lamda * self.mu_zero + R) / (self.lamda + 1)
         self.alpha += 0.5
