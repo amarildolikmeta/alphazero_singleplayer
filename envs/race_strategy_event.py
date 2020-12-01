@@ -79,7 +79,7 @@ class RaceEnv(PlanningEnv):
 
         super(RaceEnv, self).__init__()
 
-        self.presim_data = {}
+        self._initials = {}
         self.verbose = verbose
         self.rl_mode = rl_mode
         self._actions_queue = deque()
@@ -144,8 +144,17 @@ class RaceEnv(PlanningEnv):
         self.agents_number = len(self._active_drivers)
 
         self.start_lap = start_lap
-        self._lap = 0
+        self._lap = 1
         self.race_length = 0
+
+        self.presim_data = {}
+        self.base_time = {}
+        self.default_strategy = {}
+        self.off_default = defaultdict(bool)
+        self._t_pit = {}
+        self.tireset_pars = {}
+        self._strategies = defaultdict(list)
+        self._pars_in = dict()
 
         self._t = -start_lap
 
@@ -168,7 +177,6 @@ class RaceEnv(PlanningEnv):
         self._drivers_mapping = {}
         self._index_to_driver = {}
 
-        self.terminal = False
         self._pit_counts = defaultdict(int)
         self.used_compounds = [set() for _ in range(self.agents_number)]
         self._compound_initials = []
@@ -307,10 +315,12 @@ class RaceEnv(PlanningEnv):
                #'simulator': deepcopy(self._race_sim.get_simulation_state()),
                'simulator': deepcopy(self._race_sim),
                't': deepcopy(self._t),
-               'terminal': deepcopy(self.terminal),
                'available_compounds': deepcopy(self._available_compounds),
                'pit_count': deepcopy(self._pit_counts),
-               'used_compounds': deepcopy(self.used_compounds)
+               'used_compounds': deepcopy(self.used_compounds),
+               'off_default': deepcopy(self.off_default),
+               'strategies': deepcopy(self._strategies),
+               'lap': deepcopy(self._lap)
                }
         return sig
 
@@ -322,10 +332,12 @@ class RaceEnv(PlanningEnv):
         self._agents_queue = deepcopy(sig['agents_queue'])
         self._last_pit = deepcopy(sig['last_pits'])
         self._t = deepcopy(sig['t'])
-        self.terminal = deepcopy(sig['terminal'])
         self._available_compounds = deepcopy(sig['available_compounds'])
         self._pit_counts = deepcopy(sig['pit_count'])
         self.used_compounds = deepcopy(sig['used_compounds'])
+        self.off_default = deepcopy(sig['off_default'])
+        self._strategies = deepcopy(sig['strategies'])
+        self._lap = deepcopy(sig['lap'])
 
 
     def get_available_actions(self, driver: int) -> list:
@@ -399,6 +411,9 @@ class RaceEnv(PlanningEnv):
         self._agents_queue.popleft()
         assert owner == agent, "Actions are de-synchronized with agents queue {} {}".format(owner, agent)
 
+        if not self.off_default[owner] and self.default_strategy[owner][self._lap] != action:
+            self.off_default[owner] = True
+
         self._actions_queue.append((action, self._active_drivers_mapping[owner]))
         if action == 0:  # No pit, increment the time from last pit
             self._last_pit[owner] += 1
@@ -413,6 +428,8 @@ class RaceEnv(PlanningEnv):
             self._available_compounds[owner][compound] -= 1
             self.used_compounds[owner].add(compound)
             self._pit_counts[owner] += 1
+            self._strategies[owner].append([self._lap, compound, 0, 0.])
+
 
         if len(self._actions_queue) == self.agents_number:  # We have an action for each agent, perform the transition
             actions = np.zeros(self.agents_number, dtype=int)
@@ -428,7 +445,7 @@ class RaceEnv(PlanningEnv):
 
         else:  # No transition, we don't have actions for all the agents
             print("AAA")
-            return self.get_state(), np.zeros(self.agents_number), self.terminal, {}
+            return self.get_state(), np.zeros(self.agents_number), self.is_terminal(), {}
 
     def has_transitioned(self):
         return len(self._actions_queue) == 0
@@ -467,8 +484,7 @@ class RaceEnv(PlanningEnv):
         assert self._race_sim is not None, "[ERROR] Tried to perform a step in the environment before resetting it"
 
         self._lap = self._race_sim.get_cur_lap()
-        self.terminal = True if self._t >= self.horizon or self._lap >= self._race_sim.get_race_length() else False
-        if self.terminal:
+        if self.is_terminal():
             print("BBB", self._t, self.horizon, self._lap, self._race_sim.get_race_length())
             return self.get_state(), np.zeros(self.agents_number), True, {}
 
@@ -502,7 +518,6 @@ class RaceEnv(PlanningEnv):
 
         self._t += 1
         self._lap = self._race_sim.get_cur_lap()
-        self.terminal = True if self._t >= self.horizon or self._lap >= self._race_sim.get_race_length() else False
 
         reward = np.ones(self.agents_number) * self.max_lap_time
         for driver in self._active_drivers:
@@ -520,7 +535,7 @@ class RaceEnv(PlanningEnv):
         # if self._terminal:
         #     print("//////////////////////////////////", reward)
 
-        return self.get_state(), reward, self.terminal, {}
+        return self.get_state(), reward, self.is_terminal(), {}
 
     def save_results(self, timestamp):
         save_path = self.results_path
@@ -528,20 +543,33 @@ class RaceEnv(PlanningEnv):
         os.makedirs(save_path, exist_ok=True)
         self._race_sim.export_results_as_csv(results_path=save_path)
 
-    def simulate_strategy(self, pars_in: dict, initials: str):
+    def simulate_strategy(self, pars_in: dict, initials: str, strategy:list):
         team = pars_in['driver_pars'][initials]['team']
         car_pars = pars_in['car_pars'][team]
         driver_pars = pars_in['driver_pars'][initials]
         track_pars = pars_in['track_pars']
+        driver_no = driver_pars['carno']
 
         t_quali = pars_in['track_pars']['t_q']
         race_gap = pars_in['track_pars']['t_gap_racepace']
-        t_base = t_quali + race_gap
+        t_driver = driver_pars['t_driver']
+        t_car = car_pars['t_car']
+        t_base = t_quali + race_gap + t_car + t_driver + pars_in['track_pars']['t_lap_sens_mass'] * car_pars['m_fuel']
+        self.base_time[driver_no] = t_base
+        self.default_strategy[driver_no] = defaultdict(int)
+        self.tireset_pars[driver_no] = pars_in['tireset_pars'][initials]
+
+        # Store the default strategy
+        for pit in driver_pars['strategy_info']:
+            if pit[0] > 0:
+                self.default_strategy[driver_no][pit[0]] = self.map_compound_to_action(pit[1])
 
         t_pit_tirechange_min = pars_in['track_pars']['t_pit_tirechange_min']
         t_pit_tirechange_add = pars_in['car_pars'][team]['t_pit_tirechange_add']
         t_pit_tirechange = t_pit_tirechange_min + t_pit_tirechange_add
+        self._t_pit[driver_no] = t_pit_tirechange + track_pars["t_pitdrive_inlap"] + track_pars["t_pitdrive_outlap"]
 
+        # Compute the lap times for the default strategy, ignoring any interference effects
         res = calc_racetimes_basic(t_base=t_base,
                                     tot_no_laps=pars_in['race_pars']["tot_no_laps"],
                                     t_lap_sens_mass=track_pars["t_lap_sens_mass"],
@@ -557,17 +585,17 @@ class RaceEnv(PlanningEnv):
                                     p_grid=driver_pars["p_grid"],
                                     t_loss_pergridpos=track_pars["t_loss_pergridpos"],
                                     t_loss_firstlap=track_pars["t_loss_firstlap"],
-                                    strategy=driver_pars['strategy_info'],
+                                    strategy=strategy,
                                     drivetype=car_pars["drivetype"],
                                     m_fuel_init=car_pars["m_fuel"],
                                     b_fuel_perlap=car_pars["b_fuel_perlap"],
                                     t_pit_refuel_perkg=car_pars["t_pit_refuel_perkg"],
                                     t_pit_charge_perkwh=car_pars["t_pit_charge_perkwh"],
-                                    fcy_phases=[],
+                                    fcy_phases=None,
                                     t_lap_sc=track_pars["mult_t_lap_sc"] * t_base,
                                     t_lap_fcy=track_pars["mult_t_lap_fcy"] * t_base,
-                                    deact_pitstop_warn=False)
-        return np.hstack([res[0][-1], res[0][-1] - res[0]] )
+                                    deact_pitstop_warn=True)
+        return np.hstack([res[-1], res[0] - res[0][-1]])
 
     def reset(self):
 
@@ -586,7 +614,6 @@ class RaceEnv(PlanningEnv):
         # use_print_result:     set if result should be printed to console or not
         # use_plot:             set if plotting should be used or not
 
-        self.terminal = False
         self.search_mode = False
         race_pars_file = self._races_config_files.pop(0)
         # print(race_pars_file)
@@ -649,13 +676,6 @@ class RaceEnv(PlanningEnv):
             self._drivers_mapping[self._drivers[i]] = i
             self._index_to_driver[i] = self._drivers[i]
 
-        # Run a reduced simulation for the strategy outcome
-        for driver in self._active_drivers:
-            index = self._drivers_mapping[driver]
-            initials = state['drivers'][index].initials
-            pre = self.simulate_strategy(pars_in=pars_in, initials=initials)
-            self.presim_data[driver] = pre[self.start_lap - 1:]
-
         # Use the default strategies before the actual start
         while self._race_sim.get_cur_lap() < self.start_lap:
             self._race_sim.step([])
@@ -675,15 +695,35 @@ class RaceEnv(PlanningEnv):
         self._available_compounds = {driver : deepcopy(default_availabilities) for driver in self._drivers}
 
         self.used_compounds = {driver: set() for driver in self._drivers}
+        self._strategies = defaultdict(list)
         # Enable pit stops for the drivers and remove one unit the starting tire from the available compounds
         for d in self._active_drivers:
             self._last_pit[d] = 6
             start_compound = start_strategies[d][0][1]
+            self._strategies[d].append(start_strategies[d][0])
             self.used_compounds[d].add(start_compound)
             self._available_compounds[d][start_compound] -= 1
 
         # Reset the pit counter
         self._pit_counts = defaultdict(int)
+
+        self._t_pit = {}
+        self.base_time = {}
+        self.default_strategy = {}
+        self.off_default = defaultdict(bool)
+        self.tireset_pars = {}
+        self._pars_in = pars_in
+        self._initials = {}
+
+        # Run a reduced simulation for the strategy outcome and set default values for time losses
+        for driver in self._active_drivers:
+            index = self._drivers_mapping[driver]
+            initials = state['drivers'][index].initials
+            strategy = pars_in['driver_pars'][initials]['strategy_info']
+            self.presim_data[driver] = self.simulate_strategy(pars_in=pars_in, initials=initials, strategy=strategy)
+            self._initials[driver] = initials
+
+        self._lap = self._race_sim.get_cur_lap()
 
         return self.get_state()
 
@@ -704,7 +744,7 @@ class RaceEnv(PlanningEnv):
         return self._agents_queue[0]
 
     def is_terminal(self):
-        return self.terminal
+        return self._lap >= self.race_length or self._t >= self.horizon
 
     def get_remaining_compounds(self, driver) -> list:
         remaining = []
@@ -744,18 +784,32 @@ class RaceEnv(PlanningEnv):
             return [0]
 
     def get_mean_estimation(self, action, owner):
-        self._race_sim.enable_reduced_mode()
-        r = np.zeros(self._drivers_number)
-        while not self.is_terminal():
-            actions = []
-            for driver in self._active_drivers:
-                if driver == owner:
-                    actions.append (action)
-                else:
-                    actions.extend(self.get_default_strategy(driver))
-            r += self.__step(np.array(actions))[1]
-
-        return r[self._drivers_mapping[owner]]
+        """Returns an estimation for the value of the current action in the race,
+        without considering stochastic effects"""
+        if self.is_terminal():
+            return 0, True
+        if not self.off_default[owner] and self.default_strategy[owner][self._lap] == action:
+            return self.presim_data[owner][self._lap], True
+        else:
+            strategy = deepcopy(self._strategies[owner])
+            if action > 0:
+                compound = self.map_action_to_compound(action)
+                strategy.append([self._lap, compound, 0, 0.0])
+            initials = self._initials[owner]
+            race_time = self.simulate_strategy(self._pars_in, initials, strategy)[self._lap]
+            # lap = self._lap - 1
+            # race_time = (self.race_length - lap) * self.base_time[owner]
+            # compound, age = self._race_sim.get_tyre_age(owner)
+            # current_compound = compound if action == 0 else self.map_action_to_compound(action)
+            # cur_age = age - 1 if action == 0 else 0
+            # k0 = self.tireset_pars[owner][current_compound]['k_0']
+            # k1 = self.tireset_pars[owner][current_compound]['k_1_lin']
+            # max_age = cur_age + self.race_length - lap
+            # tire_degradation = k0 * (max_age - cur_age) + 0.5 * k1 * (max_age ** 2 - cur_age ** 2)
+            # race_time += tire_degradation
+            # if action > 0:
+            #     race_time += self._t_pit[owner]
+            return race_time, False
 
     def get_log_info(self):
         logs = []

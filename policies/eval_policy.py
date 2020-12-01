@@ -42,6 +42,9 @@ def save_result(res:EvaluationResult, rewards_per_timestep:list, ep_lengths:list
     if pbar:
         pbar.update(1)
 
+def error_callback(e):
+    print("Error callback", e)
+
 
 def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, interactive=False,
                             max_len=200, max_workers=12, out_dir=None):
@@ -76,13 +79,15 @@ def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, interac
                                 action_counts=action_counts,
                                 ep_returns=res,
                                 pbar=pbar)
-
         # Use the async style to avoid the pool waiting on possibly longer experiments,
         # each experiment is logged independently
         for i in range(n_episodes):
             index = Logger().experiments[i] if Logger().enable_neptune else i
-            p.apply_async(evaluate, args=(add_terminal, copy.deepcopy(wrapper), index, interactive, max_len),
-                                    callback=callback_func)
+            try:
+                p.apply_async(evaluate, args=(add_terminal, copy.deepcopy(wrapper), index, interactive, max_len),
+                              callback=callback_func, error_callback=error_callback)#, kwds={"visualize": False, "render": False})
+            except Exception as e:
+                print(e)
         p.close()
         p.join()
 
@@ -121,8 +126,8 @@ def eval_policy(wrapper, n_episodes=100, add_terminal=False, interactive=False, 
 
 
 def evaluate(add_terminal, wrapper, episode_id, interactive, max_len, visualize=False, render=False):
-
     action_counter = [0] * wrapper.get_action_space()
+
     n_agents = wrapper.agents_count
     start = time.time()
     s = wrapper.reset()
@@ -133,7 +138,6 @@ def evaluate(add_terminal, wrapper, episode_id, interactive, max_len, visualize=
     while t//n_agents <= max_len:
         s = np.concatenate([s, [0]]) if add_terminal else s
         a = wrapper.pi_wrapper(s, t, max_len - t, visualize)
-
         action_counter[a] += 1
         ns, r, done, inf = wrapper.step(a)
 
