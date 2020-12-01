@@ -30,12 +30,11 @@ def compute_ess(weights):
 class Particle(object):
     """Class storing information about a particle"""
 
-    def __init__(self, state, signature, reward, terminal, weight, prob, parent_particle=None):
+    def __init__(self, state, signature, reward, terminal, prob, parent_particle=None):
         self.state = state
         self.signature = signature
         self.reward = reward
         self.terminal = terminal
-        self.weight = weight
         self.parent_particle = parent_particle
         self.prob = prob
 
@@ -321,25 +320,7 @@ class Estimator:
         resampling_error_reduction = (1 / self.ess - 1 / ess)
         should_resample = full_error_reduction / full_cost < resampling_error_reduction / resampling_cost
         margin = resampling_error_reduction / resampling_cost - full_error_reduction / full_cost
-        if should_resample:
-            new_weight = new_weights[-1]
-        else:
-            new_weight = full_resampling_weights[-1]
-        return should_resample, candidate_particle, new_weight, margin, ess
-
-    def multi_step_model(self,  depth,  particle, len=None):
-        p = 1.
-        while particle.parent_particle is not None:
-            prev_state = particle.parent_particle.state
-            state = particle.state
-            p *= self.env.P[prev_state, self.action_sequence[depth], state]
-            depth -= 1
-            particle = particle.parent_particle
-            if len is not None:
-                len -= 1
-                if len == 0:
-                    break
-        return p, depth
+        return should_resample, candidate_particle, margin
 
     def run_monte_carlo_estimation(self, n=1000, budget=1000):
         evaluations = []
@@ -406,7 +387,7 @@ class Estimator:
         for a in self.action_sequence[depth:]:
             s, r, done, _ = self.env.step(a)
             prob = prob * self.env.P[prev_state, a, s]
-            particle = Particle(s, self.env.get_signature(), r, done, weight=1, prob=prob,
+            particle = Particle(s, self.env.get_signature(), r, done, prob=prob,
                                 parent_particle=parent_particle)
             new_node = node.child_node
             new_node.add_particle(particle)
@@ -422,7 +403,7 @@ class Estimator:
         n_states = self.env.P.shape[0]
         for i in range(n):
             self.root_particle = root_particle = Particle(starting_state, signature=signature, reward=0, terminal=False,
-                                                          prob=1., weight=1)
+                                                          prob=1.)
             P = np.zeros(n_states)
             P[starting_state] = 1.
             self.root = root = Node(env=self.env, action_sequence=self.action_sequence, true_P=P, depth=0, ns=n_states)
@@ -445,7 +426,7 @@ class Estimator:
                     for depth, a in enumerate(self.action_sequence):
                         s, r, done, _ = self.env.step(a)
                         prob = prob * self.env.P[prev_state, a, s]
-                        particle = Particle(s, self.env.get_signature(),  r, done, weight=1, prob=prob,
+                        particle = Particle(s, self.env.get_signature(),  r, done, prob=prob,
                                             parent_particle=parent_particle)
                         P = np.dot(P, self.env.P[:, a, :])
                         new_node = Node(env=self.env, action_sequence=self.action_sequence, true_P=P, parent_node=node,
@@ -477,7 +458,7 @@ class Estimator:
                                                                                      distribution=(
                                                                                      [self.root_particle], 1))
                     while node.parent_node is not None:
-                        should_resample, particle, weight, margin, ess = \
+                        should_resample, particle, margin = \
                             self.should_resample(node, full_resampling_weights=full_resampling_weights)
                         if should_resample:
                             resampled = True
