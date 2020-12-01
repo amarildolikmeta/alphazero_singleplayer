@@ -41,12 +41,12 @@ PROB_2 = [0.95, 0.025, 0.025]
 PROB_3 = [0.91, 0.03, 0.03, 0.03]
 PROBS = {1: MAX_P, 2: PROB_1, 3: PROB_2, 4:PROB_3}
 
-DEBUG = False
+DEBUG = True
 
 
 def strategic_rollout(env, budget, max_depth=200, terminal=False, root_owner=None,
-                      no_pit=True,
-                      brain_on=False,
+                      no_pit=False,
+                      brain_on=True,
                       double_rollout=False):
     """Rollout from the current state following a default policy up to hitting a terminal state"""
     if double_rollout:
@@ -126,11 +126,27 @@ class Action(object):
 
         return self.child_state, self.child_state.remaining_budget
 
-    def update(self, R):
+    def update(self, R, q_learning=False, alpha=0.1, gamma=1.):
+        """
+        :param R: is the reward collected by the agent
+        :type R: float
+
+        :param q_learning: enables the Q-learning update in place of the Monte-Carlo one
+        :type q_learning: bool
+
+        :param alpha: is the Q-learning algorithm learning rate
+        :type alpha: float
+
+        :param gamma: is the MDP discount factor
+        :type gamma: float
+        """
         self.max_r = max(R, self.max_r)
         self.min_r = min(R, self.min_r)
-        self.update_aggregate(R)
-        self.finalize_aggregate()
+        if q_learning:
+            self.Q = self.Q + alpha * (R + gamma * np.max([a.Q for a in self.child_state.actions]) - self.Q)
+        else:
+            self.update_aggregate(R)
+            self.finalize_aggregate()
 
     def update_aggregate(self, new_sample):
         self.n += 1
@@ -178,7 +194,7 @@ class State(object):
             self.V, self.remaining_budget = self.evaluate(env, budget, max_depth, terminal)
 
     def is_terminal(self, max_depth, env):
-        return self.depth == max_depth or env.terminal
+        return self.depth == max_depth or env.is_terminal()
 
     def to_json(self):
         inf = {
@@ -267,7 +283,8 @@ class State(object):
 class OL_MCTS(object):
     """ MCTS object """
 
-    def __init__(self, root, root_index, na, gamma, model=None, variance=False, depth_based_bias=False, csi=1.):
+    def __init__(self, root, root_index, na, gamma, model=None, variance=False, depth_based_bias=False, csi=1.,
+                 q_learning = False, alpha=0.1):
         self.root = root
         self.root_index = root_index
         self.na = na
@@ -276,6 +293,8 @@ class OL_MCTS(object):
         self.variance = variance
         self.csi = csi
         self.c = 1
+        self.q_learning = q_learning
+        self.alpha = alpha
 
     def create_root(self, env, budget):
         if self.root is None:
@@ -339,26 +358,29 @@ class OL_MCTS(object):
 
                     break
 
-            # Back-up
-            # if budget < 0: #finished budget before rollout
-            #     break
-            R = state.V
-            state.update()
-            while state.parent_action is not None:  # loop back-up until root is reached
-                if state.reward > -85:
-                    print("WTF:", state.reward)
-                if not terminal:
-                    R = state.reward + self.gamma * R
-                else:
-                    R = state.reward
-                    terminal = False
-                action = state.parent_action
-                action.update(R)
-                state = action.parent_state
-                state.update()
+            self.backup(state, terminal)
 
         if visualize:
             self.visualize()
+
+    def backup(self, state, terminal):
+        # Back-up
+        # if budget < 0: #finished budget before rollout
+        #     break
+        R = state.V
+        state.update()
+        while state.parent_action is not None:  # loop back-up until root is reached
+            if state.reward > -85:
+                print("WTF:", state.reward)
+            if not terminal and not self.q_learning:
+                R = state.reward + self.gamma * R
+            else:
+                R = state.reward
+                terminal = False
+            action = state.parent_action
+            action.update(R, q_learning=self.q_learning, alpha=self.alpha, gamma=self.gamma)
+            state = action.parent_state
+            state.update()
 
     def return_results(self, temp, on_visits=True, on_lower=False):
         """ Process the output at the root node """
