@@ -264,7 +264,10 @@ def compute_probabilities(grid_map, cell_list, passenger_list, prob):
                         k = i
 
                     p[i, a, k] += (1. - prob) * .5
-
+    for s in range(n_states):
+        for a in range(4):
+            if (p[s, a] == 0).all():
+                p[s, a, s] = 1.
     return p
 
 
