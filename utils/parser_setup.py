@@ -6,7 +6,7 @@ def parse_game_params(args):
     # Accept custom grid if the environment requires it
     if args.game == 'Taxi' or args.game == 'TaxiEasy':
         game_params['grid'] = args.grid
-        game_params['box'] = True
+        game_params['box'] = args.box
         # TODO modify this to return to original taxi problem
     elif args.game in ['RiverSwim-continuous', 'MountainCar', 'Cartpole']:
         game_params['fail_prob'] = args.fail_prob
@@ -106,5 +106,7 @@ def setup_parser():
     # Race strategy model arguments
     parser.add_argument('--max_xgb_workers', type=int, default=1, help="Number of threads to be used by each XGB model,"
                                                                         "only used for RaceStrategy environment")
+    parser.add_argument('--model_based', action='store_true', help='Use the model_based algorithm')
+    parser.add_argument('--box', action='store_true', help='Used for Taxi environment')
 
     return parser.parse_args()

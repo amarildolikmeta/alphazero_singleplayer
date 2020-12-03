@@ -25,7 +25,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
           pre_process=None, visualize=False, game_params={}, parallelize_evaluation=False, mcts_only=False,
           particles=0, show_plots=False, n_workers=1, use_sampler=False, budget=np.inf, unbiased=False, biased=False,
           max_workers=100, variance=False, depth_based_bias=False, scheduler_params=None, out_dir=None,
-          render=False, second_version=False, third_version=False):
+          render=False, second_version=False, third_version=False, model_based=False):
     visualizer = None
 
     # if particles:
@@ -34,6 +34,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     if not mcts_only:
         from mcts import MCTS
         from mcts_dpw import MCTSStochastic
+    elif model_based:
+        from particle_filtering.pf_model_based_uct import PFModelBasedMCTS
     elif particles:
         if unbiased:
             from particle_filtering.ol_uct import OL_MCTS
@@ -125,7 +127,10 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
     else:
         mcts_params = dict(gamma=gamma)
-        if particles:
+        if model_based:
+            mcts_params['depth_based_bias'] = depth_based_bias
+            mcts_maker = PFModelBasedMCTS
+        elif particles:
             if not (biased or unbiased):
                 mcts_params['particles'] = particles
                 mcts_params['sampler'] = sampler

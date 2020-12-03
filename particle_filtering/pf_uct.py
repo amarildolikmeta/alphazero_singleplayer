@@ -19,7 +19,7 @@ class PFAction(Action):
     """ Action object """
 
     def sample_from_particle(self, source_particle, env, budget):
-        env.set_signature(source_particle.state)
+        env.set_signature(source_particle.signature)
         env.seed(np.random.randint(1e7))
         s, r, done, _ = env.step(self.index)
         budget -= 1

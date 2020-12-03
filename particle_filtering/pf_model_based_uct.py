@@ -4,6 +4,7 @@ import numpy as np
 from particle_filtering.pf_uct import PFState, PFAction
 from particle_filtering.ol_uct import OL_MCTS
 from test_particle_tree_estimator import check_sub_trajectory, Particle, compute_ess
+from helpers import argmax
 
 
 class Action(PFAction):
@@ -15,6 +16,7 @@ class Action(PFAction):
         self.W = 0.0
         self.n = 0
         self.Q = 0
+        self.ess = 0
         self.rewards = []
         self.child_state = None
         self.xs = []
@@ -58,16 +60,17 @@ class Action(PFAction):
         budget -= 1
         return Particle(env.get_signature(), None, r, done, parent_particle=particle, prob=1), budget
 
-    def add_child_state(self, env, budget, max_depth=200, depth=0, source_particle=None, ):
-        if source_particle is not None:
-            new_particle, budget = self.sample_from_particle(source_particle, env, budget)
-        else:
-            new_particle, budget = self.sample_from_parent_state(env, budget)
+    def add_child_state(self, env, budget, max_depth=200, depth=0, source_particle=None):
+        # if source_particle is not None:
+        #     new_particle, budget = self.sample_from_particle(source_particle, env, budget)
+        # else:
+        #     new_particle, budget = self.sample_from_parent_state(env, budget)
         self.child_state = State(parent_action=self, na=self.parent_state.na, env=env, root=False, max_depth=max_depth,
-                                 budget=budget, particle=new_particle, depth=depth)
-        last_particle = self.child_state.last_particle
+                                 budget=budget, particle=source_particle, depth=depth,
+                                 sequence=self.action_sequence)
+        last_particle = self.child_state.final_particle
 
-        return self.child_state, self.child_state.remaining_budget, new_particle, last_particle
+        return self.child_state, self.child_state.remaining_budget, last_particle
 
     def update(self, r, sampling_depth, sampling_distribution, trajectory, approx_p, passing_particle, last_particle,
                estimate=False):
@@ -75,7 +78,6 @@ class Action(PFAction):
         self.trajectories.append(trajectory)
         self.sampling_depths.append(sampling_depth)
         self.approx_ps.append(approx_p)
-        self.sampling_depths.append(sampling_depth)
         self.sampling_distributions.append(sampling_distribution)
         self.passing_particles.append(passing_particle)
         self.last_particles.append(last_particle)
@@ -84,6 +86,8 @@ class Action(PFAction):
         self.n += 1
 
     def estimate_value(self):
+        if self.estimated_n == self.n:
+            return
         ps = self.ps
         trajectories = self.trajectories
         sampling_depths = self.sampling_depths
@@ -133,11 +137,14 @@ class Action(PFAction):
                     else:
                         weight = 0
                 else:
-                    prob = approx_state_distributions[j]
-                    for k in range(self.parent_state.depth - sampling_depths[j]):
-                        prob = np.dot(prob, self.parent_state.env.P[:, self.action_sequence[k + sampling_depths[j]], :])
-                    prob = prob[current_passing_state]
-                    prob *= current_final_particle.prob / current_passing_particle.prob
+                    if sampling_depths[j] > 0:
+                        prob = approx_state_distributions[j]
+                        for k in range(self.parent_state.depth - sampling_depths[j]):
+                            prob = np.dot(prob, self.parent_state.P[:, self.action_sequence[k + sampling_depths[j]], :])
+                        prob_ = prob[current_passing_state]
+                    else:
+                        prob_ = self.parent_state.true_P[current_passing_state]
+                    prob = prob_ * current_final_particle.prob / current_passing_particle.prob
                     weight = prob
                 qs_new.append(weight)
                 partial_q_sum_new += weight
@@ -157,12 +164,15 @@ class Action(PFAction):
                         else:
                             weight = 0
                     else:
-                        prob = current_approx_state_distribution
-                        for k in range(self.parent_state.depth - current_sampling_depth):
-                            prob = np.dot(prob, self.parent_state.env.P[:,
-                                                self.action_sequence[k + current_sampling_depth], :])
-                        prob = prob[passing_particles[j].state]
-                        prob *= final_particles[j].prob / passing_particles[j].prob
+                        if current_sampling_depth > 0:
+                            prob = current_approx_state_distribution
+                            for k in range(self.parent_state.depth - current_sampling_depth):
+                                prob = np.dot(prob, self.parent_state.P[:,
+                                                    self.action_sequence[k + current_sampling_depth], :])
+                            prob_ = prob[passing_particles[j].state]
+                        else:
+                            prob_ = self.parent_state.true_P[current_passing_state]
+                        prob = prob_ * final_particles[j].prob / passing_particles[j].prob
                         weight = prob
                     partial_q_sums[j] += weight
             partial_q_sums.append(partial_q_sum_new)
@@ -175,6 +185,8 @@ class Action(PFAction):
         self.V = np.dot(self.xs, self.weights)
         self.ess = compute_ess(self.weights)
         self.estimated_n = self.n
+        if np.isnan(new_weights).any():
+            print("What")
 
 
 class State(PFState):
@@ -195,7 +207,15 @@ class State(PFState):
         self.n_particles = 1
         self.particles = [particle]
         self.visits = np.zeros(env.P.shape[0])
-        self.true_P = env.P
+        self.visits[particle.state] = 1
+        self.P = env.P
+        if self.depth == 0:
+            self.true_P = np.zeros(env.P.shape[0])
+            self.true_P[particle.state] = 1
+        else:
+            P = self.parent_action.parent_state.true_P
+            P = np.dot(P, env.P[:, sequence[-1], :])
+            self.true_P = P
         self.sequence = sequence
         final_particle = None
         if self.terminal or root or particle.terminal:
@@ -204,7 +224,7 @@ class State(PFState):
             print("Warning, no environment was provided, initializing to 0 the value of the state!")
             self.V = 0
         else:
-            env.set_signature(particle.state)
+            env.set_signature(particle.signature)
             self.V, self.remaining_budget, final_particle = self.evaluate(env, budget, particle, max_depth)
             final_particle = final_particle
         self.last_particle = particle
@@ -218,8 +238,8 @@ class State(PFState):
     def random_rollout(self, actions, env, budget, particle, max_depth=200):
         """Rollout from the current state following a random policy up to hitting a terminal state"""
         terminal = particle.terminal
-        if terminal or budget <= 0:
-            return 0, budget
+        if terminal:
+            return 0, budget, particle
 
         done = False
         env.seed(np.random.randint(1e7))
@@ -256,11 +276,30 @@ class State(PFState):
         self.last_particle = particle
         self.visits[particle.state] += 1
 
+    def select(self, c=1.5):
+        """
+         Select one of the child actions based on UCT rule
+         :param c: UCB exploration constant
+         :param csi: exploration constant
+         :param b: parameter such that the rewards belong to [0, b]
+         """
+        ess = 0
+        for child_action in self.child_actions:
+            if self.depth != 0:
+                child_action.estimate_value()
+            ess += child_action.ess
+        uct_upper_bound = np.array(
+            [child_action.Q + c * np.sqrt(np.log(ess) / (child_action.ess)) if child_action.ess > 0 else np.inf
+             for child_action in self.child_actions])
+        winner = argmax(uct_upper_bound)
+        return self.child_actions[winner]
+
 
 class PFModelBasedMCTS(OL_MCTS):
     """ MCTS object """
-    def __init__(self, root, root_index, na, gamma, model=None, variance=False, depth_based_bias=False):
-        super(OL_MCTS, self).__init__(root, root_index, na, gamma, model, variance, depth_based_bias)
+    def __init__(self, root, root_index, na, gamma, model=None, depth_based_bias=False):
+        super(PFModelBasedMCTS, self).__init__(root, root_index, na, gamma, model, variance=False,
+                                      depth_based_bias=depth_based_bias)
         self.na = na
         self.reset()
 
@@ -285,7 +324,7 @@ class PFModelBasedMCTS(OL_MCTS):
             self.root_state = state
             particle = Particle(state=state, signature=signature, reward=0, terminal=False, parent_particle=None,
                                 prob=1)
-            self.root = PFState(parent_action=None, na=self.na, env=env, particle=particle, root=True,
+            self.root = State(parent_action=None, na=self.na, env=env, particle=particle, root=True,
                                 budget=budget, depth=0)
             return particle
         else:
@@ -318,10 +357,13 @@ class PFModelBasedMCTS(OL_MCTS):
         last_depth = depths[-1]
         last_distribution = distributions[-1]
         last_p_nu = last_particle.prob
+        if isinstance(last_p_nu, np.ndarray):
+            last_p_nu = last_p_nu[0]
         last_num_particles = distributions[-1][1]
         qs_new = []
         partial_q_sum_new = 0
         for j in range(T):
+            # compute new trajectory weight under old trajectory distribution
             num_particles_j = distributions[j][1]
             if depths[j] > last_depth:
                 qs_new.append(0)
@@ -334,6 +376,8 @@ class PFModelBasedMCTS(OL_MCTS):
                         p_nu_j = 1
                     else:
                         p_nu_j = last_p_nu / valid_particle.prob
+                    if isinstance(p_nu_j, np.ndarray):
+                        p_nu_j = p_nu_j[0]
                     qs_new.append(p_nu_j / num_particles_j)
                     partial_q_sum_new += p_nu_j / num_particles_j
                 else:
@@ -351,6 +395,8 @@ class PFModelBasedMCTS(OL_MCTS):
                         p_nu_j = 1
                     else:
                         p_nu_j = last_particle.prob / valid_particle.prob
+                    if isinstance(p_nu_j, np.ndarray):
+                        p_nu_j = p_nu_j[0]
                     partial_q_sums[j] += p_nu_j / last_num_particles
                 else:
                     partial_q_sums[j] += 0
@@ -359,6 +405,11 @@ class PFModelBasedMCTS(OL_MCTS):
         ps.append(last_p_nu)
         new_weights = np.array(ps) / np.array(partial_q_sums)
         new_weights = np.array(new_weights) / np.sum(new_weights)
+        try:
+            if np.isnan(new_weights).any():
+                print("What")
+        except:
+            print("Whaaaaat")
         return new_weights, ps, partial_q_sums
 
     def should_resample(self, node, action, full_resampling_weights=None):
@@ -371,10 +422,11 @@ class PFModelBasedMCTS(OL_MCTS):
         while p.parent_particle is not None:
             p = p.parent_particle
             trajectory.append(p)
+
         trajectory = trajectory[::-1]
         new_weights = self.get_new_weights_balance_heuristic(trajectory=trajectory, depth=node.depth,
                                                              particle=candidate_particle,
-                                                             distribution=(node.particles, node.num_particles),
+                                                             distribution=(node.particles, node.n_particles),
                                                              action=action)
         ess = compute_ess(new_weights)
         sample_size = compute_ess(full_resampling_weights)
@@ -399,16 +451,18 @@ class PFModelBasedMCTS(OL_MCTS):
         prob = particle.prob
         prev_state = particle.state
         for a in action_sequence[depth:]:
+            a = a.index
             s, r, done, _ = env.step(a)
             budget -= 1
             prob = prob * env.P[prev_state, a, s]
             particle = Particle(s, env.get_signature(), r, done, prob=prob,
                                 parent_particle=parent_particle)
             new_node = node.child_actions[a].child_state
-            new_node.add_particle(particle)
-            node = new_node
-            parent_particle = particle
-            prev_state = s
+            if new_node is not None:
+                new_node.add_particle(particle)
+                node = new_node
+                parent_particle = particle
+                prev_state = s
         return particle, budget
 
     def get_weights_balance_heuristic(self, action):
@@ -429,16 +483,16 @@ class PFModelBasedMCTS(OL_MCTS):
         last_state = state
         trajectory = []
         action = action_sequence[0].index
-        particle = last_particle
+        particle = source_particle
         while state.parent_action is not None:
             trajectory.append(particle)
             state = state.parent_action.parent_state
             particle = particle.parent_particle
-        trajectory.append(particle)
+        # trajectory.append(particle)
         self.trajectories[action].append(trajectory[::-1])
         state = last_state
         self.particles[action].append(sampled_particle)
-        distribution = (sampled_node.particles, sampled_node.num_particles)
+        distribution = (sampled_node.particles, sampled_node.n_particles)
         self.distributions[action].append(distribution)
         self.depths[action].append(sampled_node.depth)
         self.T[action] += 1
@@ -456,14 +510,15 @@ class PFModelBasedMCTS(OL_MCTS):
             else:
                 R = r
             action = state.parent_action
-            action.update(R)
+            if action.parent_state.parent_action is not None:
+                action.update(R, sampling_depth=sampled_node.depth,
+                              trajectory=trajectory, estimate=False, sampling_distribution=distribution,
+                              passing_particle=particle.parent_particle, last_particle=last_particle,
+                              approx_p=sampled_node.get_approx_state_dist())
             state = action.parent_state
             state.update()
             particle = particle.parent_particle
-            action.update(R, sampling_depth=sampled_node.depth, sampled_particle=sampled_particle,
-                          trajectory=trajectory, estimate=False, sampling_distribution=distribution,
-                          passing_particle=particle, last_particle=last_particle,
-                          approx_p=sampled_node.get_approx_state_dist())
+        action = action_sequence[0].index
         self.xs[action].append(R)
         self.root.child_actions[action].ess = ess
         self.root.child_actions[action].Q = np.dot(weights, self.xs[action])
@@ -492,7 +547,7 @@ class PFModelBasedMCTS(OL_MCTS):
             mcts_env.seed()
             st = 0
             bias = c * self.gamma ** st / (1 - self.gamma) if self.depth_based_bias else c
-            action = state.select(c=bias, variance=self.variance).index
+            action = state.select(c=bias).index
             full_resampling_weights = self.get_new_weights_balance_heuristic(trajectory=[root_particle], depth=0,
                                                                              particle=root_particle,
                                                                              distribution=([root_particle], 1),
@@ -504,17 +559,17 @@ class PFModelBasedMCTS(OL_MCTS):
 
             while not state.terminal:
                 bias = c * self.gamma ** st / (1 - self.gamma) if self.depth_based_bias else c
-                action = state.select(c=bias, variance=self.variance)
+                action = state.select(c=bias)
                 action_sequence.append(action)
                 st += 1
                 if action.child_state is not None:
                     particle, weight, margin = self.should_resample(state, action=action_sequence[0].index,
                                                                     full_resampling_weights=full_resampling_weights)
-                    state = action.child_state
                     if margin > max_margin:
                             max_margin = margin
                             starting_particle = particle
                             starting_node = state
+                    state = action.child_state
                     # terminal, budget = state.sample(mcts_env, action.index, budget)
                     # if terminal:
                     #     break
@@ -524,13 +579,13 @@ class PFModelBasedMCTS(OL_MCTS):
                                                                              action_sequence=action_sequence,
                                                                              budget=budget)
                     rollout_depth = max_depth if fixed_depth else max_depth - st
-                    state, budget, source_particle, last_particle = \
+                    state, budget, last_particle = \
                         action.add_child_state(source_particle=generated_particle, env=mcts_env, budget=budget,
                                                max_depth=rollout_depth, depth=st,)
                     break
 
             # Back-up
-            self.backup(state, last_particle=last_particle, source_particle=source_particle,
+            self.backup(state, last_particle=last_particle, source_particle=generated_particle,
                         sampled_node=starting_node, sampled_particle=starting_particle,
                         action_sequence=action_sequence)
 

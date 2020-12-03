@@ -8,17 +8,20 @@ import seaborn as sns
 
 
 def check_sub_trajectory(nu, distribution, depth):
-    for particle in distribution:
-        t = depth
-        p = nu[t]
-        sampled_p = particle
-        while particle.state == p.state and particle.parent_particle is not None:
-            particle = particle.parent_particle
-            t -= 1
+    try:
+        for particle in distribution:
+            t = depth
             p = nu[t]
-        if particle.parent_particle is None:
-            return True, sampled_p
-    return False, None
+            sampled_p = particle
+            while particle.state == p.state and particle.parent_particle is not None:
+                particle = particle.parent_particle
+                t -= 1
+                p = nu[t]
+            if particle.parent_particle is None:
+                return True, sampled_p
+        return False, None
+    except:
+        return False, None
 
 
 def compute_ess(weights):

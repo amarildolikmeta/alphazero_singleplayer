@@ -26,11 +26,13 @@ class TaxiEasy(FiniteMDP):
     def step(self, action):
         old_passenger_state = self.current_passenger_state.copy()
         s, reward, absorbing, info = super(TaxiEasy, self).step(action)
-        state = self.index_to_box(s)
-
+        if self.box:
+            state = np.array(self.index_to_box(s))
+        else:
+            state = s
         if not (old_passenger_state == self.current_passenger_state).all():
             reward = self.rewards[int(np.sum(self.current_passenger_state))-1]
-        return np.array(state), reward, absorbing, info
+        return state, reward, absorbing, info
 
     def reset(self, s=None):
         s = super(TaxiEasy, self).reset(s)
