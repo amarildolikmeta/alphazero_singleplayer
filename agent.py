@@ -25,7 +25,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
           pre_process=None, visualize=False, game_params={}, parallelize_evaluation=False, mcts_only=False,
           particles=0, show_plots=False, n_workers=1, use_sampler=False, budget=np.inf, unbiased=False, biased=False,
           max_workers=100, variance=False, depth_based_bias=False, scheduler_params=None, out_dir=None,
-          render=False, second_version=False, third_version=False, model_based=False):
+          render=False, second_version=False, third_version=False, model_based=False, on_visits=False):
     visualizer = None
 
     # if particles:
@@ -62,7 +62,9 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                       "out_dir": numpy_dump_dir, "pre_process": pre_process, "visualize": visualize,
                       "game_params": game_params, "n_workers": n_workers, "use_sampler": use_sampler,
                       "variance": variance, "depth_based_bias": depth_based_bias, "unbiased": unbiased,
-                      "second_version": second_version, 'third_version': third_version}
+                      "second_version": second_version, 'third_version': third_version,
+                      "model_based": model_based, 'on_visits': on_visits,
+                      }
     if out_dir is not None:
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
@@ -200,12 +202,12 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
 
             if game == "RaceStrategy-v1":
                 env_wrapper = RaceWrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, budget,
-                                  mcts_env, c_dpw, temp, env=penv, game_maker=pgame, mcts_only=mcts_only,
-                                  scheduler_params=scheduler_params)
+                                          mcts_env, c_dpw, temp, env=penv, game_maker=pgame, mcts_only=mcts_only,
+                                          scheduler_params=scheduler_params)
             else:
                 env_wrapper = Wrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, budget,
                                       mcts_env, c_dpw, temp, env=penv, game_maker=pgame, mcts_only=mcts_only,
-                                      scheduler_params=scheduler_params)
+                                      scheduler_params=scheduler_params, on_visits=on_visits)
 
             # Run the evaluation
             if parallelize_evaluation:

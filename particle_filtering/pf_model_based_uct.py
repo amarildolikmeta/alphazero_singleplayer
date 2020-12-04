@@ -4,7 +4,7 @@ import numpy as np
 from particle_filtering.pf_uct import PFState, PFAction
 from particle_filtering.ol_uct import OL_MCTS
 from test_particle_tree_estimator import check_sub_trajectory, Particle, compute_ess
-from helpers import argmax
+from helpers import stable_normalizer, argmax, max_Q
 
 
 class Action(PFAction):
@@ -256,6 +256,7 @@ class State(PFState):
             return 0, budget, particle
 
         done = False
+        env.set_signature(particle.signature)
         env.seed(np.random.randint(1e7))
         ret = 0
         t = 0
@@ -265,7 +266,10 @@ class State(PFState):
         while t < max_depth and not done:
             action = np.random.choice(actions)
             s, r, done, _ = env.step(action)
-            prob = prob * env.P[prev_state, action, s]
+            prob_ = prob * env.P[prev_state, action, s]
+            if prob_ == 0:
+                print("What")
+            prob = prob_
             ret += r
             budget -= 1
             t += 1
@@ -465,9 +469,12 @@ class PFModelBasedMCTS(OL_MCTS):
         prob = particle.prob
         prev_state = particle.state
         if particle.terminal:
+            budget -= 1
+            # return particle, budget, False, node
             i = 0
             while i < len(action_sequence[depth:]):
                 a = action_sequence[depth + i].index
+                budget -= 1
                 particle = Particle(particle.state, particle.signature, 0, True, prob=prob,
                                     parent_particle=parent_particle)
                 new_node = node.child_actions[a].child_state
@@ -477,6 +484,7 @@ class PFModelBasedMCTS(OL_MCTS):
                 parent_particle = particle
                 i += 1
         else:
+            # expand = True
             for i, a in enumerate(action_sequence[depth:]):
 
                 a = a.index
@@ -488,13 +496,14 @@ class PFModelBasedMCTS(OL_MCTS):
                 new_node = node.child_actions[a].child_state
                 if new_node is not None:
                     new_node.add_particle(particle)
-                node = new_node
+                    node = new_node
                 parent_particle = particle
                 prev_state = s
                 if done:
                     i += 1
                     while i < len(action_sequence[depth:]):
                         a = action_sequence[depth + i].index
+                        budget -= 1
                         particle = Particle(s, particle.signature, 0, done, prob=prob,
                                             parent_particle=parent_particle)
                         new_node = node.child_actions[a].child_state
@@ -503,8 +512,12 @@ class PFModelBasedMCTS(OL_MCTS):
                         node = new_node
                         parent_particle = particle
                         i += 1
+                    # if new_node is not None:
+                    #     expand = False
+                    # else:
+                    #     new_node = node
                     break
-        return particle, budget
+        return particle, budget#, expand, new_node
 
     def get_weights_balance_heuristic(self, action):
         trajectories = self.trajectories[action]
@@ -620,17 +633,27 @@ class PFModelBasedMCTS(OL_MCTS):
                     generated_particle, budget = self.resample_from_particle(env=env, node=starting_node,
                                                                              particle=starting_particle,
                                                                              action_sequence=action_sequence,
-                                                                             budget=budget)
+                                                                             budget=budget) #, expand, node
                     rollout_depth = max_depth if fixed_depth else max_depth - st
-                    state, budget, last_particle = \
-                        action.add_child_state(source_particle=generated_particle, env=mcts_env, budget=budget,
-                                               max_depth=rollout_depth, depth=st,)
+                    state, budget, last_particle = action.add_child_state(source_particle=generated_particle,
+                                                                          env=mcts_env, budget=budget,
+                                                                          max_depth=rollout_depth, depth=st,)
+                    # if expand:
+                    #
+                    #     state, budget, last_particle = \
+                    #         action.add_child_state(source_particle=generated_particle, env=mcts_env, budget=budget,
+                    #                                max_depth=rollout_depth, depth=st,)
+                    # else:
+                    #     state = node
+                    #     last_particle = generated_particle
                     break
                 if state.terminal:
                     generated_particle, budget = self.resample_from_particle(env=env, node=starting_node,
                                                                                  particle=starting_particle,
                                                                                  action_sequence=action_sequence,
-                                                                                 budget=budget)
+                                                                                 budget=budget)#, expand, node
+                    # if not expand:
+                    #     state = node
                     last_particle = generated_particle
             # Back-up
             self.backup(state, last_particle=last_particle, source_particle=generated_particle,
@@ -649,3 +672,14 @@ class PFModelBasedMCTS(OL_MCTS):
             #     action.update(R)
             #     state = action.parent_state
             #     state.update()
+
+    def return_results(self, temp, on_visits=False):
+        """ Process the output at the root node """
+        counts = np.array([child_action.ess for child_action in self.root.child_actions])
+        Q = np.array([child_action.Q for child_action in self.root.child_actions])
+        if on_visits:
+            pi_target = stable_normalizer(counts, temp)
+        else:
+            pi_target = max_Q(Q)
+        V_target = np.sum((counts / np.sum(counts)) * Q)[None]
+        return self.root_signature, pi_target, V_target

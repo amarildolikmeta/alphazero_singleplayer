@@ -10,7 +10,7 @@ from gym.envs.registration import register
 from envs import generate_taxi, generate_taxi_easy, generate_arms, generate_river, generate_loop, generate_chain, \
     generate_three_arms, generate_collect_stochastic, generate_bridge_stochastic, generate_river_continuous, \
     generate_race, generate_cliff, generate_trade, generate_toy, generate_gridworld, generate_mountain, \
-    generate_cartpole, generate_race_full
+    generate_cartpole, generate_race_full, generate_gridworld_discrete
 
 
 from rl.wrappers import NormalizeWrapper, ReparametrizeWrapper, PILCOWrapper, ScaleRewardWrapper, ClipRewardWrapper, \
@@ -41,6 +41,7 @@ game_to_env = {
     "SixArms": generate_arms,
     "ThreeArms": generate_three_arms,
     "Gridworld": generate_gridworld,
+    "GridworldDiscrete": generate_gridworld_discrete,
     "MiniGrid-Collect-Stochastic-9x9-v0": generate_collect_stochastic,
     "Bridge-stochastic": generate_bridge_stochastic,
     "RiverSwim-continuous": generate_river_continuous,

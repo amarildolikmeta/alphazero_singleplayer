@@ -86,7 +86,7 @@ class State(object):
         done = False
         t = 0
         ret = 0
-        while t < max_depth and budget > 0 and not done:
+        while t < max_depth and not done:
             a = np.random.choice(np.arange(self.na))
             _, r, done, _ = env.step(a)
             ret += r

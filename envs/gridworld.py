@@ -10,7 +10,7 @@ def generate_gridworld(shape=(4, 4), horizon=30, gamma=0.99, randomized_initial=
     return GridWorld(shape=shape, horizon=horizon, gamma=gamma, randomized_initial=randomized_initial)
 
 
-class GridWorld(gym.Env):
+class GridWorld(FiniteMDP):
 
     ACTION_LABELS = ["UP", "RIGHT", "DOWN", "LEFT"]
     """
@@ -70,6 +70,7 @@ class GridWorld(gym.Env):
 
         self.mu = mu
         self.p = p
+        self.P = p
         self.r = r
         self.n_states = self.W * self.H  # Number of states
         self.n_actions = 4  # Number of actions
@@ -77,7 +78,7 @@ class GridWorld(gym.Env):
         self.reset()
 
     def generate_mdp(self):
-        return FiniteMDP(self.p.transpose([1,0,2]), self.r.transpose([1,0,2]), self.mu, self.gamma, self.horizon)
+        return FiniteMDP(self.p, self.r, self.mu, self.gamma, self.horizon)
 
     def _coupleToInt(self, x, y):
         return y + x * self.H
@@ -89,7 +90,7 @@ class GridWorld(gym.Env):
         if state is None:
             if self.done:
                 return np.zeros(3)
-            state = self.state
+            state = self._state
         x, y = self._intToCouple(state)
         features = np.zeros(3)
         if state == self.goal_state: #goal state
@@ -101,46 +102,51 @@ class GridWorld(gym.Env):
         return features
 
     def step(self, action, ohe=False):
-        if self.state == self.goal_state:
-            return self.get_state(ohe), 0, 1, {'features': np.zeros(3)}
-        x, y = self._intToCouple(self.state)
-        action = np.random.choice(4) if np.random.rand() < self.fail_prob else action
-        
-        if action == 0:
-            y = min(y+1, self.H-1)
-        elif action == 1:
-            x = min(x+1, self.W-1)
-        elif action == 2:
-            y = max(y-1, 0)
-        elif action == 3:
-            x = max(x-1, 0)
-        else:
-            raise AttributeError("Illegal action")
-        
-        self.state = self._coupleToInt(x, y)
+        if self._state == self.goal_state or self._t >= self.horizon:
+            return self._state, 0, True, {'features': np.zeros(3)}
+        # x, y = self._intToCouple(self._state)
+        # action = np.random.choice(4) if np.random.rand() < self.fail_prob else action
+        #
+        # if action == 0:
+        #     y = min(y+1, self.H-1)
+        # elif action == 1:
+        #     x = min(x+1, self.W-1)
+        # elif action == 2:
+        #     y = max(y-1, 0)
+        # elif action == 3:
+        #     x = max(x-1, 0)
+        # else:
+        #     raise AttributeError("Illegal action")
+        #
+        # self._state = self._coupleToInt(x, y)
+        self._state = np.random.choice(self.P.shape[0], p=self.P[self._state, action, :])
         features = self.get_rew_features()
         reward = np.sum(self.rew_weights * features)
-        self.done = 1 if self.state == self.goal_state else 0
+        self._t += 1
+        self.done = 1 if self._state == self.goal_state or self._t >= self.horizon else 0
         if self.extended_features:
             features = np.zeros(self.n_states)
-            features[self.state] = reward
+            features[self._state] = reward
+
         return self.get_state(ohe), reward, self.done, {'features': features}
 
     def get_state(self, ohe=False):
         if ohe:
-            return self.ohe[self.state]
-        return self.state
+            return self.ohe[self._state]
+        return self._state
 
     def reset(self, state=None, ohe=False):
 
         if state is None:
             if self.randomized_initial:
-                self.state = np.random.choice(self.observation_space.n,p = self.mu)
+                self._state = np.random.choice(self.observation_space.n,p = self.mu)
             else:
-                self.state = self.init_state
+                self._state = self.init_state
         else:
-            self.state = state
+            self._state = state
         self.done = False
+        self._state = self._state
+        self._t = 0
         return self.get_state(ohe)
 
     def _render(self, mode='human', close=False):
@@ -171,7 +177,7 @@ class GridWorld(gym.Env):
 
         agent = self.viewer.draw_circle(radius=0.4)
         agent.set_color(.8, 0, 0)
-        agent_x, agent_y = self._intToCouple(self.state)
+        agent_x, agent_y = self._intToCouple(self._state)
         transform = rendering.Transform(translation=(agent_x + 0.5, agent_y + 0.5))
         agent.add_attr(transform)
 
@@ -202,7 +208,7 @@ class GridWorld(gym.Env):
         n_states = self.W * self.H  # Number of states
         n_actions = 4  # Number of actions
 
-        # Compute the initiial state distribution
+        # Compute the initial state distribution
         if self.randomized_initial:
             P0 = np.ones(n_states) * 1 / (n_states - 1)
             P0[self.goal_state] = 0
@@ -235,9 +241,16 @@ class GridWorld(gym.Env):
                     y_new = max(min(y + delta_y[a_fail], self.H - 1), 0)  # Correct next-state for a_fail
                     P[a, s, self._coupleToInt(x_new, y_new)] += p / 4  # a_fail is taken with prob. p/4
         # The goal state is terminal -> only self-loop transitions
+
         P[:, self.goal_state, :] = 0
-        #P[:, self.goal_state, self.goal_state] = 1
+        P[:, self.goal_state, self.goal_state] = 1
+        for s in range(n_states):
+            for a in range(n_actions):
+                if np.sum(P[a, s, :]) != 1:
+                    print("What")
         R[:, self.goal_state, self.goal_state] = 0  # don't get reward after reaching goal state
+        P = np.transpose(P, [1, 0, 2])
+        R = np.transpose(R, [1, 0, 2])
         return P0, P, R
 
     def get_mdp(self):

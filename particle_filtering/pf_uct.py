@@ -7,8 +7,8 @@ from particle_filtering.ol_uct import OL_MCTS, State, Action
 class Particle(object):
     """Class storing information about a particle"""
 
-    def __init__(self, state, seed, reward, terminal, parent_particle=None):
-        self.state = state
+    def __init__(self, signature, seed, reward, terminal, parent_particle=None):
+        self.signature = signature
         self.seed = seed
         self.reward = reward
         self.terminal = terminal
@@ -39,9 +39,9 @@ class PFAction(Action):
         """Generate the successor particle for a given particle"""
         # Do not give any reward if a particle is being generated from a terminal state particle
         if particle.terminal:
-            return Particle(particle.state, None, 0, True, parent_particle=particle), budget
+            return Particle(particle.signature, None, 0, True, parent_particle=particle), budget
         # Apply the selected action to the state encapsulated by the particle and store the new state and reward
-        env.set_signature(particle.state)
+        env.set_signature(particle.signature)
         env.seed(np.random.randint(1e7))
         s, r, done, _ = env.step(self.index)
         budget -= 1
@@ -88,7 +88,7 @@ class PFState(State):
             print("Warning, no environment was provided, initializing to 0 the value of the state!")
             self.V = 0
         else:
-            env.set_signature(particle.state)
+            env.set_signature(particle.signature)
             self.V, self.remaining_budget = self.evaluate(env, budget, max_depth, particle.terminal)
         self.last_particle = particle
 
@@ -121,7 +121,7 @@ class PFMCTS(OL_MCTS):
         if self.root is None:
             signature = env.get_signature()
             self.root_signature = signature
-            particle = Particle(state=signature, seed=None, reward=0, terminal=False, parent_particle=None)
+            particle = Particle(signature=signature, seed=None, reward=0, terminal=False, parent_particle=None)
             self.root = PFState(parent_action=None, na=self.na, env=env, particle=particle, root=True,
                               budget=budget, depth=0)
         else:

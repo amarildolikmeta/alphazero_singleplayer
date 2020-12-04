@@ -14,6 +14,7 @@ class TaxiEasy(FiniteMDP):
                                   range(len(passenger_list))]
         self.passenger_states = cartesian([[0, 1]] * len(passenger_list))
         goals = np.argwhere(np.array(grid_map) == 'G')
+        self.rendering = None
         self.goal_indexes = [np.where((np.array(cell_list) == goals[i]).all(axis=1))[0] for i in range(len(goals))]
         if box:
             # state =[my_position, [passenger_positions], goal_position, [passenger_states]]
@@ -50,6 +51,43 @@ class TaxiEasy(FiniteMDP):
         # normalize indexes
         state[:-len(self.passenger_list)] /= len(self.cell_list)
         return state
+
+    def render(self, mode='human'):
+        self._render(mode)
+
+    def _render(self, mode='human', close=False):
+        if not self.rendering:
+            from gym.envs.classic_control import rendering as rend
+            self.rendering = rend
+        rendering = self.rendering
+        if close:
+            if self.viewer is not None:
+                self.viewer.close()
+                self.viewer = None
+            return
+
+        if self.viewer is None:
+            self.viewer = rendering.Viewer(500, 500)
+            self.viewer.set_bounds(0, self.W, 0, self.H)
+
+        # Draw the grid
+        for i in range(self.W):
+            self.viewer.draw_line((i, 0), (i, self.H))
+        for i in range(self.H):
+            self.viewer.draw_line((0, i), (self.W, i))
+
+        goal = self.viewer.draw_circle(radius=0.5)
+        goal.set_color(0, 0.8, 0)
+        goal_x, goal_y = self._intToCouple(self.goal_state)
+        goal.add_attr(rendering.Transform(translation=(goal_x + 0.5, goal_y + 0.5)))
+
+        agent = self.viewer.draw_circle(radius=0.4)
+        agent.set_color(.8, 0, 0)
+        agent_x, agent_y = self._intToCouple(self.state)
+        transform = rendering.Transform(translation=(agent_x + 0.5, agent_y + 0.5))
+        agent.add_attr(transform)
+
+        return self.viewer.render(return_rgb_array=mode == 'rgb_array')
 
 
 def generate_taxi_easy(grid, prob=.9, rew=(1, 3, 15), gamma=.99, horizon=np.inf, box=False):

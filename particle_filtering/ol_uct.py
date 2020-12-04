@@ -140,14 +140,14 @@ class State(object):
     @staticmethod
     def random_rollout(actions, env, budget, max_depth=200, terminal=False):
         """Rollout from the current state following a random policy up to hitting a terminal state"""
-        if terminal or budget <= 0:
+        if terminal :
             return 0, budget
 
         done = False
         env.seed(np.random.randint(1e7))
         ret = 0
         t = 0
-        while budget > 0 and t < max_depth and not done:
+        while t < max_depth and not done:
             action = np.random.choice(actions)
             s, r, done, _ = env.step(action)
             ret += r

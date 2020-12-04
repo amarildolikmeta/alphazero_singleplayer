@@ -19,3 +19,4 @@ mpi4py
 pandas
 statsmodels
 xgboost
+prettytable

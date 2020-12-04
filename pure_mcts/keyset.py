@@ -10,6 +10,8 @@ class KeySet(object):
             self.state = {'state': state.tostring()}
         elif type(state) == list:
             self.state = {'state': str(state)}
+        elif type(state) == int:
+            self.state = {'state': str(state)}
         else:
             for k in state.keys():
                 if type(self.state[k]) == np.ndarray:

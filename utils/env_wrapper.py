@@ -18,7 +18,7 @@ def signal_handler(signum, frame):
 class Wrapper(object):
     def __init__(self, root_index, mcts_maker, model_save_file, model_wrapper_params,
                  mcts_params, is_atari, n_mcts, budget, mcts_env, c_dpw,
-                 temp, game_maker=None, env=None, mcts_only=True, scheduler_params=None):
+                 temp, game_maker=None, env=None, mcts_only=True, scheduler_params=None, on_visits=False):
 
         assert game_maker is not None or env is not None, "No environment or maker provided to the wrapper"
 
@@ -44,6 +44,7 @@ class Wrapper(object):
         self.mcts_only = mcts_only
         self.c_dpw = c_dpw
         self.temp = temp
+        self.on_visits = on_visits
         self.scheduler_params = scheduler_params
         self.scheduler_budget = np.inf
 
@@ -78,9 +79,11 @@ class Wrapper(object):
 
         if self.mcts_only:
             self.search(self.n_mcts, self.c_dpw, self.mcts_env, max_depth)
-            state, pi, V = self.return_results(self.temp)  # TODO put 0 if the network is enabled
+            state, pi, V = self.return_results(self.temp, on_visits=self.on_visits)  # TODO put 0 if the network is enabled
             self.curr_probs.append(pi)
             a_w = argmax(pi)
+            # actions = ["Up", "Right", "Down", "Left"]
+            # print("Action: " + actions[a_w])
             # max_p = np.max(pi)
             # a_w = np.random.choice(np.argwhere(pi == max_p)[0])
         else:
@@ -161,5 +164,5 @@ class Wrapper(object):
                                budget=min(self.budget, self.scheduler_budget))
         # self.get_mcts().visualize()
 
-    def return_results(self, temp):
-        return self.get_mcts().return_results(temp=temp)
+    def return_results(self, temp, on_visits=False):
+        return self.get_mcts().return_results(temp=temp, on_visits=on_visits)

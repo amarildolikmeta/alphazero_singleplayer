@@ -108,5 +108,6 @@ def setup_parser():
                                                                         "only used for RaceStrategy environment")
     parser.add_argument('--model_based', action='store_true', help='Use the model_based algorithm')
     parser.add_argument('--box', action='store_true', help='Used for Taxi environment')
+    parser.add_argument('--on_visits', action='store_true', help='Make final selection based on action counts')
 
     return parser.parse_args()
