@@ -8,7 +8,7 @@ import numpy as np
 
 from particle_filtering.ol_uct import OL_MCTS, State, Action, sample
 
-DEBUG = False
+DEBUG = True
 
 DEFAULT_ALPHA = 1.1
 DEFAULT_BETA = 50
@@ -74,9 +74,11 @@ class BayesianState(State):
             beta = DEFAULT_BETA + 10 * correction
             mu_zero, on_default = env.get_mean_estimation(a, owner)
             lamda = 1
-            if on_default or (not on_default and a == 0):
-                # beta = beta / 10 # Reduce variance for the default strategy action
-                lamda = 10
+            if on_default:
+                #beta = beta / 10 # Reduce variance for the default strategy action
+                lamda = 30
+            else:
+                beta = beta / 10
             actions.append(BayesianAction(a, parent_state=self,
                                           mu_zero=mu_zero,
                                           alpha=alpha,
@@ -95,10 +97,10 @@ class BayesianState(State):
         return json.dumps(dic)
 
     def rollout(self, actions, env, budget, max_depth=200, terminal=False, brain_on=False, double_rollout=False, no_pit=False):
-        return super(BayesianState, self).rollout(actions, env, budget, max_depth=200, terminal=False,
-                                           brain_on=True,
+        return super(BayesianState, self).rollout(actions, env, budget, max_depth=200, terminal=terminal,
+                                           brain_on=False,
                                            double_rollout=False,
-                                           no_pit=False)
+                                           no_pit=True)
 
     def select(self, c=1.5, csi=1., b=1., variance=False, bias_zero=True):
         """
