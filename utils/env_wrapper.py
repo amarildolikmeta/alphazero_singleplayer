@@ -211,6 +211,9 @@ class Wrapper(object):
             self.get_mcts().forward(a, s, r)
 
     def step(self, a):
+        if a > 0:
+            self.visualize()
+
         if self.verbose:
             print("Action:", a)
             print()
