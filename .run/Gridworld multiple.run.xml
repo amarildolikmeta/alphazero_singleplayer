@@ -1,0 +1,9 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Gridworld multiple" type="CompoundRunConfigurationType">
+    <toRun name="dpw  gridworld " type="PythonConfigurationType" />
+    <toRun name="pf_uct  girdworld  " type="PythonConfigurationType" />
+    <toRun name="ol_uct  girdworld " type="PythonConfigurationType" />
+    <toRun name="model-based girdworld" type="PythonConfigurationType" />
+    <method v="2" />
+  </configuration>
+</component>

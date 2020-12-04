@@ -119,7 +119,7 @@ class GridWorld(FiniteMDP):
         #     raise AttributeError("Illegal action")
         #
         # self._state = self._coupleToInt(x, y)
-        self._state = np.random.choice(self.P.shape[0], p=self.P[self._state, action, :])
+        self._state = self.np_random.choice(self.P.shape[0], p=self.P[self._state, action, :])
         features = self.get_rew_features()
         reward = np.sum(self.rew_weights * features)
         self._t += 1
@@ -139,7 +139,7 @@ class GridWorld(FiniteMDP):
 
         if state is None:
             if self.randomized_initial:
-                self._state = np.random.choice(self.observation_space.n,p = self.mu)
+                self._state = self.np_random.choice(self.observation_space.n,p = self.mu)
             else:
                 self._state = self.init_state
         else:
@@ -252,14 +252,3 @@ class GridWorld(FiniteMDP):
         P = np.transpose(P, [1, 0, 2])
         R = np.transpose(R, [1, 0, 2])
         return P0, P, R
-
-    def get_mdp(self):
-
-        """Returns an MDP representing this gridworld"""
-        n_states = self.W * self.H  # Number of states
-        n_actions = 4  # Number of actions
-        P0 = self.mu
-        R = self.r
-        P = self.p
-
-        return MDP(n_states, n_actions, P, R, P0, self.gamma)

@@ -22,7 +22,9 @@ def parse_game_params(args):
 
 def parse_alg_name(args):
     alg = "dpw/"
-    if not args.stochastic:
+    if args.model_based:
+        alg = 'model_based/'
+    elif not args.stochastic:
         if args.unbiased:
             if args.variance:
                 alg = 'p_uct_var/'

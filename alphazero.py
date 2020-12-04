@@ -61,6 +61,8 @@ if __name__ == '__main__':
         # Define the name of the agent to be stored in the dataframe
         if args.stochastic:
             agent_name = "dpw_"
+        elif args.model_based:
+            agent_name = "model_based_"
         elif args.particles > 0:
             agent_name = str(args.particles) + "_pf_"
         else:
