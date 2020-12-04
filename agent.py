@@ -30,7 +30,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
           particles=0, show_plots=False, n_workers=1, use_sampler=False, budget=np.inf, unbiased=False, biased=False,
           max_workers=100, variance=False, depth_based_bias=False, scheduler_params=None, out_dir=None,
           render=False, second_version=False, third_version=False, multiagent=False, csi=1., bayesian=False,
-          log_timestamp=None,
+          q_learning=False, log_timestamp=None,
           verbose=False) -> List[OfflineScore]:
     parameter_dict = locals()  # Save the state of all variables for logging
     logger = Logger()
@@ -48,6 +48,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
         if unbiased:
             if bayesian:
                 from particle_filtering.bayesian_ol_uct import Bayesian_OL_MCTS
+            elif q_learning:
+                from particle_filtering.q_learning_ol_uct import QL_OL_MCTS
             else:
                 from particle_filtering.ol_uct import OL_MCTS
         elif biased:
@@ -141,6 +143,9 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                     if verbose:
                         print("\nUsing Bayesian OLMCTS\n")
                     mcts_maker = Bayesian_OL_MCTS
+                elif q_learning:
+                    mcts_maker = QL_OL_MCTS
+                    mcts_params['alpha'] = alpha
                 else:
                     if verbose:
                         print("\nUsing OLMCTS\n")

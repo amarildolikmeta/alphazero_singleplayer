@@ -150,6 +150,7 @@ if __name__ == '__main__':
                                                       multiagent=args.multiagent,
                                                       csi=args.csi,
                                                       bayesian=args.bayesian,
+                                                      q_learning=args.q_learning,
                                                       log_timestamp=time_str,
                                                       verbose=args.verbose)
 

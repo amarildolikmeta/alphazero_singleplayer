@@ -127,7 +127,7 @@ class Action(object):
 
         return self.child_state, self.child_state.remaining_budget
 
-    def update(self, R, q_learning=False, alpha=0.1, gamma=1.):
+    def update(self, R, q_learning=False, mixed_q_learning=False, alpha=0.1, gamma=1.):
         """
         :param R: is the reward collected by the agent
         :type R: float
@@ -143,7 +143,7 @@ class Action(object):
         """
         self.max_r = max(R, self.max_r)
         self.min_r = min(R, self.min_r)
-        if q_learning:
+        if mixed_q_learning:
             if self.n == 0:
                 self.Q = self.child_state.V + R
             else:
@@ -156,7 +156,10 @@ class Action(object):
                     # TODO this eliminates zeroes, probably not always correct
                     opt_future = np.max([a.Q if a.Q < 0 else -np.inf for a in self.child_state.child_actions])
                 self.Q = self.Q + alpha * (R + gamma * opt_future - self.Q)
-            # self.Q = self.Q + alpha * (R + gamma *  np.max([a.Q for a in self.child_state.child_actions]) - self.Q)
+            self.n += 1
+
+        elif q_learning:
+            self.Q = self.Q + alpha * (R + gamma *  np.max([a.Q for a in self.child_state.child_actions]) - self.Q)
             self.n += 1
 
         else:
@@ -296,11 +299,11 @@ class State(object):
             return random_rollout(actions, env, budget, max_depth, terminal)
 
 
-class OL_MCTS(object):
+class QL_OL_MCTS(object):
     """ MCTS object """
 
     def __init__(self, root, root_index, na, gamma, model=None, variance=False, depth_based_bias=False, csi=1.,
-                 q_learning = False, alpha=0.1, mixed_q_learning=False):
+                 q_learning = False, alpha=0.1, mixed_q_learning=True):
         self.root = root
         self.root_index = root_index
         self.na = na
@@ -321,7 +324,7 @@ class OL_MCTS(object):
         else:
             raise (NotImplementedError("Need to reset the tree"))
 
-    def search(self, n_mcts, c, Env: PlanningEnv, mcts_env, budget, max_depth=200, fixed_depth=True, deepen=True, visualize=False):
+    def search(self, n_mcts, c, Env: PlanningEnv, mcts_env, budget, max_depth=200, fixed_depth=True, deepen=False, visualize=False):
         """ Perform the MCTS search from the root """
 
         deepen = deepen and (not self.q_learning or self.mixed_q_learning)
@@ -392,13 +395,14 @@ class OL_MCTS(object):
         while state.parent_action is not None:  # loop back-up until root is reached
             # if state.reward > -85:
             #     print("WTF:", state.reward)
-            if not terminal and not self.q_learning:
+            if not terminal and not (self.q_learning or self.mixed_q_learning):
                 R = state.reward + self.gamma * R
             else:
                 R = state.reward
                 terminal = False
             action = state.parent_action
-            action.update(R, q_learning=self.q_learning, alpha=self.alpha, gamma=self.gamma)
+            action.update(R, q_learning=self.q_learning, mixed_q_learning=self.mixed_q_learning,
+                          alpha=self.alpha, gamma=self.gamma)
             state = action.parent_state
             state.update()
 
