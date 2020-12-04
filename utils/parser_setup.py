@@ -31,7 +31,10 @@ def parse_alg_name(args):
             if args.variance:
                 alg = 'ol_uct_var/'
             else:
-                alg = 'ol_uct/'
+                if args.bayesian:
+                    alg = 'ol_uct_bayesian/'
+                else:
+                    alg = 'ol_uct/'
         else:
             alg = 'pf_uct'
             if args.second_version:

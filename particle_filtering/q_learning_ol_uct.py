@@ -111,7 +111,7 @@ class Action(object):
         self.max_r = - np.inf
         self.min_r = np.inf
 
-    def add_child_state(self, env, budget, max_depth=200, depth=0, deepen=False):
+    def add_child_state(self, env, budget, max_depth=200, depth=0, deepen=False, q_learning=False):
         reward, terminal, budget = sample(env, self.index, budget)
         self.child_state = State(parent_action=self,
                                  na=self.parent_state.na,
@@ -122,19 +122,46 @@ class Action(object):
                                  reward=reward,
                                  terminal=terminal,
                                  depth=depth,
-                                 deepen=deepen)
+                                 deepen=deepen,
+                                 q_learning=q_learning)
 
         return self.child_state, self.child_state.remaining_budget
 
-    def update(self, R:float):
+    def update(self, R, q_learning=False, alpha=0.1, gamma=1.):
         """
         :param R: is the reward collected by the agent
         :type R: float
+
+        :param q_learning: enables the Q-learning update in place of the Monte-Carlo one
+        :type q_learning: bool
+
+        :param alpha: is the Q-learning algorithm learning rate
+        :type alpha: float
+
+        :param gamma: is the MDP discount factor
+        :type gamma: float
         """
         self.max_r = max(R, self.max_r)
         self.min_r = min(R, self.min_r)
-        self.update_aggregate(R)
-        self.finalize_aggregate()
+        if q_learning:
+            if self.n == 0:
+                self.Q = self.child_state.V + R
+            else:
+                no_children = True
+                for a in self.child_state.child_actions:
+                    no_children = no_children and (a.child_state is None)
+                if no_children:
+                    opt_future = self.child_state.V
+                else:
+                    # TODO this eliminates zeroes, probably not always correct
+                    opt_future = np.max([a.Q if a.Q < 0 else -np.inf for a in self.child_state.child_actions])
+                self.Q = self.Q + alpha * (R + gamma * opt_future - self.Q)
+            # self.Q = self.Q + alpha * (R + gamma *  np.max([a.Q for a in self.child_state.child_actions]) - self.Q)
+            self.n += 1
+
+        else:
+            self.update_aggregate(R)
+            self.finalize_aggregate()
 
     def update_aggregate(self, new_sample):
         self.n += 1
@@ -153,7 +180,8 @@ class Action(object):
 class State(object):
     """ State object """
 
-    def __init__(self, parent_action, na, env, budget, root=False, max_depth=200, reward=0, terminal=False, depth=0, deepen=False):
+    def __init__(self, parent_action, na, env, budget, root=False, max_depth=200, reward=0, terminal=False, depth=0,
+                 deepen=False, q_learning=False):
 
         """ Initialize a new state """
         self.parent_action = parent_action
@@ -176,7 +204,7 @@ class State(object):
         if env is None:
             print("[WARNING] No environment was provided, initializing to 0 the value of the state!")
             self.V = 0
-        elif self.terminal or root or (deepen and len(self.child_actions) == 1):
+        elif self.terminal or root or (deepen and len(self.child_actions) == 1) or q_learning:
             self.V = 0.
         else:
             self.V, self.remaining_budget = self.evaluate(env, budget, max_depth, terminal)
@@ -213,7 +241,7 @@ class State(object):
 
         if not variance:
             uct_upper_bound = np.array(
-                [child_action.Q + c * np.sqrt(np.log(self.n) / child_action.n) if child_action.n > 0 else np.inf
+                [child_action.Q + c * np.sqrt(np.log(self.n) / (child_action.n)) if child_action.n > 0 else np.inf
                  for child_action in self.child_actions])
 
             winner = argmax(uct_upper_bound, bias_zero=bias_zero)
@@ -272,7 +300,7 @@ class OL_MCTS(object):
     """ MCTS object """
 
     def __init__(self, root, root_index, na, gamma, model=None, variance=False, depth_based_bias=False, csi=1.,
-                 alpha=0.1):
+                 q_learning = False, alpha=0.1, mixed_q_learning=False):
         self.root = root
         self.root_index = root_index
         self.na = na
@@ -281,19 +309,22 @@ class OL_MCTS(object):
         self.variance = variance
         self.csi = csi
         self.c = 1
+        self.q_learning = q_learning or mixed_q_learning
         self.alpha = alpha
+        self.mixed_q_learning = mixed_q_learning
 
     def create_root(self, env, budget):
         if self.root is None:
             signature = env.get_signature()
             self.root_signature = signature
-            self.root = State(parent_action=None, na=self.na, env=env, root=True, budget=budget)
+            self.root = State(parent_action=None, na=self.na, env=env, root=True, budget=budget, q_learning=self.q_learning)
         else:
             raise (NotImplementedError("Need to reset the tree"))
 
-    def search(self, n_mcts, c, Env: PlanningEnv, mcts_env, budget, max_depth=200, fixed_depth=True, deepen=False,
-               visualize=False):
+    def search(self, n_mcts, c, Env: PlanningEnv, mcts_env, budget, max_depth=200, fixed_depth=True, deepen=True, visualize=False):
         """ Perform the MCTS search from the root """
+
+        deepen = deepen and (not self.q_learning or self.mixed_q_learning)
 
         self.c = c
 
@@ -331,16 +362,18 @@ class OL_MCTS(object):
                         break
                 else:
                     # Expand state
+                    enable = self.q_learning and not self.mixed_q_learning
                     rollout_depth = max_depth if fixed_depth else max_depth - st
                     state, budget = action.add_child_state(mcts_env, budget, rollout_depth, depth=st,
-                                                           deepen=deepen)
+                                                           deepen=deepen, q_learning=enable)
                     # If the state has only one possible action, immediately add its successor to the tree
                     while deepen and len(state.child_actions) == 1 and not state.terminal:
                         action = state.child_actions[0]
                         rollout_depth = max_depth if fixed_depth else max_depth - st
                         if budget < rollout_depth:
                             budget = rollout_depth
-                        state, budget = action.add_child_state(mcts_env, budget, rollout_depth, depth=st, deepen=deepen)
+                        state, budget = action.add_child_state(mcts_env, budget, rollout_depth, depth=st,
+                                                               deepen=deepen, q_learning=enable)
                         st += 1
 
                     break
@@ -359,13 +392,13 @@ class OL_MCTS(object):
         while state.parent_action is not None:  # loop back-up until root is reached
             # if state.reward > -85:
             #     print("WTF:", state.reward)
-            if not terminal:
+            if not terminal and not self.q_learning:
                 R = state.reward + self.gamma * R
             else:
                 R = state.reward
                 terminal = False
             action = state.parent_action
-            action.update(R)
+            action.update(R, q_learning=self.q_learning, alpha=self.alpha, gamma=self.gamma)
             state = action.parent_state
             state.update()
 

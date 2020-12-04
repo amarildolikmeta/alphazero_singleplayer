@@ -346,14 +346,14 @@ class RaceEnv(PlanningEnv):
 
         actions = [0]
         # Check if the agent can do a pit stop
-        if self._last_pit[driver] > 5 or self._lap == self.race_length - 1:
+        if (self._last_pit[driver] > 5 and self._pit_counts[driver] < 2) or self._lap == self.race_length - 2:
             # Check if the agent has left any of the tyres
             for i, compound in enumerate(self._compound_initials):
                 if self._available_compounds[driver][compound] > 0:
                     actions.append(i+1)
 
         # Force pit-stop in penultimate lap if no two different compounds have been used or no pit stop has been done
-        if self._lap == self.race_length - 1:
+        if self._lap == self.race_length - 2:
             if self._pit_counts[driver] == 0 or len(self.used_compounds[driver]) == 1:
                 actions.remove(0)
 
@@ -595,7 +595,7 @@ class RaceEnv(PlanningEnv):
                                     t_lap_sc=track_pars["mult_t_lap_sc"] * t_base,
                                     t_lap_fcy=track_pars["mult_t_lap_fcy"] * t_base,
                                     deact_pitstop_warn=True)
-        return np.hstack([res[-1], res[0] - res[0][-1]])
+        return res[0]
 
     def reset(self):
 
