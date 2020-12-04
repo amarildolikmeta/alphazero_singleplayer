@@ -654,6 +654,8 @@ class RaceEnv(PlanningEnv):
         # print(pars_in['driver_pars'])
         # exit()
 
+        self.race_length = self._race_sim.get_race_length()
+
         self._median_tyre_laps={}
         stints = defaultdict(list)
         for driver in state["drivers"]:
@@ -663,9 +665,12 @@ class RaceEnv(PlanningEnv):
                     if i < len(strategy) - 1 :
                         next_stint = strategy[i+1]
                         stint_duration = next_stint[0] - stint[0]
-                        stints[stint[1]].append(stint_duration)
+                    else:
+                        stint_duration = self.race_length - stint[0]
+                    stints[stint[1]].append(stint_duration)
+
         for compound in stints:
-            self._median_tyre_laps[compound] = np.median(stints[compound])
+            self._median_tyre_laps[compound] = np.quantile(stints[compound], 0.7)
 
         for i, compound in enumerate(self._compound_initials):
             self._compound_indices[compound] = i+1
@@ -682,7 +687,6 @@ class RaceEnv(PlanningEnv):
             self._race_sim.step([])
         self._t = 0
         start_strategies = self._race_sim.set_controlled_drivers(list(self._active_drivers))
-        self.race_length = self._race_sim.get_race_length()
 
         # Setup initial tyre allocation for different availabilities
         if len(self._compound_initials) == 2:
