@@ -17,7 +17,7 @@ from agent import agent
 #### Command line call, parsing and plotting ##
 colors = ['r', 'b', 'g', 'orange', 'c', 'k', 'purple', 'y']
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
-budgets = [1000, 5000, 10000, 20000, 35000, 50000, 70000, 85000, 100000]
+budgets = [200, 500, 1000, 2000, 3000, 5000, 7000, 10000]
 # budgets = [1000, 3000, 5000, 7000, 10000]
 
 # budgets = [ 70000, 85000]
@@ -55,6 +55,8 @@ if __name__ == '__main__':
     # Define the name of the agent to be stored in the dataframe
     if args.stochastic:
         agent_name = "dpw_"
+    elif args.model_based:
+        agent_name = "model_based_"
     elif args.particles > 0:
         agent_name = str(args.particles) + "_pf_"
     else:
@@ -127,7 +129,10 @@ if __name__ == '__main__':
                                                   scheduler_params=scheduler_params,
                                                   out_dir=out_dir,
                                                   second_version=args.second_version,
-                                                  third_version=args.third_version)
+                                                  third_version=args.third_version,
+                                                  model_based=args.model_based,
+                                                  on_visits=args.on_visits
+                                                  )
 
         total_rewards = offline_scores[0][0]
         undiscounted_returns = offline_scores[0][1]

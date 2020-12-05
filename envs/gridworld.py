@@ -6,8 +6,10 @@ from math import floor
 from envs.FiniteMDP import FiniteMDP
 
 
-def generate_gridworld(shape=(4, 4), horizon=30, gamma=0.99, randomized_initial=False):
-    return GridWorld(shape=shape, horizon=horizon, gamma=gamma, randomized_initial=randomized_initial)
+def generate_gridworld(shape=(4, 4), horizon=30, gamma=0.99, randomized_initial=False, scale_reward=False,
+                       fail_prob=0.1):
+    return GridWorld(shape=shape, horizon=horizon, gamma=gamma, randomized_initial=randomized_initial,
+                     scale_reward=scale_reward, fail_prob=fail_prob)
 
 
 class GridWorld(FiniteMDP):
@@ -36,7 +38,7 @@ class GridWorld(FiniteMDP):
     }
 
     def __init__(self, shape=(4, 4), horizon=100, fail_prob=0.1, goal=None, start=None, gamma=0.99,
-                 rew_weights=None, randomized_initial=True, extended_features=False):
+                 rew_weights=None, randomized_initial=True, extended_features=False, scale_reward=False):
 
         assert shape[0] >= 3 and shape[1] >= 3, "The grid must be at least 3x3"
         self.H = 2 * shape[0] + 1 #mirrored grid
@@ -54,12 +56,15 @@ class GridWorld(FiniteMDP):
         self.init_state = self._coupleToInt(start[0], start[1])
         self.randomized_initial = randomized_initial
         self.goal_state = self._coupleToInt(goal[0], goal[1])
+        self.scale_reward = scale_reward
         self.PrettyTable = None
         self.rendering = None
         self.gamma = gamma
         if rew_weights is None:
             rew_weights = [1, 10, 0]
         self.rew_weights = np.array(rew_weights)
+        if scale_reward:
+            self.rew_weights = self.rew_weights / np.max(self.rew_weights)
         # gym attributes
         self.viewer = None
         self.action_space = spaces.Discrete(4)
