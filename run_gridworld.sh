@@ -1,0 +1,1 @@
+python3 alphazero.py --game=GridworldDiscrete    --gamma=0.99 --max_ep_len=25  --particles 1 --model_based    --temp=0 --c=1.2  --eval_episodes=20  --mcts_only --n_experiments=1 --max_workers 4 --parallel  --scale_reward --budget 2000
