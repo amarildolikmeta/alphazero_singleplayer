@@ -10,7 +10,7 @@ from gym.envs.registration import register
 from envs import generate_taxi, generate_taxi_easy, generate_arms, generate_river, generate_loop, generate_chain, \
     generate_three_arms, generate_collect_stochastic, generate_bridge_stochastic, generate_river_continuous, \
     generate_race, generate_cliff, generate_trade, generate_toy, generate_gridworld, generate_mountain, \
-    generate_cartpole, generate_race_full, generate_gridworld_discrete
+    generate_cartpole, generate_race_full, generate_gridworld_discrete, generate_trade_discrete
 
 
 from rl.wrappers import NormalizeWrapper, ReparametrizeWrapper, PILCOWrapper, ScaleRewardWrapper, ClipRewardWrapper, \
@@ -47,6 +47,7 @@ game_to_env = {
     "RiverSwim-continuous": generate_river_continuous,
     "RaceStrategy": generate_race,
     "Trading-v0": generate_trade,
+    "Trading_discrete-v0": generate_trade_discrete,
     "Cliff": generate_cliff,
     "MountainCar": generate_mountain,
     "Cartpole": generate_cartpole,
@@ -81,7 +82,7 @@ def make_game(game, game_params=None):
     else:
         modify = ''
 
-    print('Making game {}'.format(game))
+    #print('Making game {}'.format(game))
     env = gym.make(game)
     # remove timelimit wrapper
     try:

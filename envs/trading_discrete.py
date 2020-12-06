@@ -7,6 +7,7 @@ import errno
 import os
 from envs.FiniteMDP import FiniteMDP
 
+
 def generate_trade(**game_params):
     if game_params is None:
         game_params = {}
@@ -22,7 +23,7 @@ class Trade(FiniteMDP):
         self.n_states = self.n_ret*self.n_actions
         self.max_ret = max_ret
         self.ret = np.linspace(-max_ret, max_ret, n_ret)
-        print(self.ret)
+        #print(self.ret)
         # Internals
         self.previous_portfolio = 0
         self.current_portfolio = 0

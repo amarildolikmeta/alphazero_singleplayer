@@ -11,7 +11,7 @@ from envs.river_swim_continuous import generate_river_continuous
 from envs.race_strategy import generate_race
 from envs.cliff_continuous_mono import generate_cliff
 from envs.trading import generate_trade
-from envs.trading_discrete import generate_trade
+from envs.trading_discrete import generate_trade as generate_trade_discrete
 from envs.toy_env import generate_toy
 from envs.continous_gridworld import generate_gridworld
 from envs.gridworld import generate_gridworld as generate_gridworld_discrete
