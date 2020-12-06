@@ -133,7 +133,7 @@ class RaceEnv(PlanningEnv):
             self._year = int(line[0])
             f.close()
 
-        self._median_tyre_laps = None
+        self._tyre_expected_duration = None
 
         self._active_drivers_mapping = {}
         self._index_to_active = {}
@@ -654,24 +654,31 @@ class RaceEnv(PlanningEnv):
         # print(pars_in['driver_pars'])
         # exit()
 
+        # Compute the expected duration for each tire compound
+
         self.race_length = self._race_sim.get_race_length()
+        #
+        # self._tyre_expected_duration={}
+        # stints = defaultdict(list)
+        #
+        # for driver in state["drivers"]:
+        #     strategy = driver.strategy_info
+        #
+        #     if len(strategy) > 1: # If the strategy is only one stint long, the driver has crashed
+        #         for i, stint_info in enumerate(strategy):
+        #             if i < len(strategy) - 1 :
+        #                 next_stint = strategy[i+1]
+        #                 stint_duration = next_stint[0] - stint_info[0]
+        #             else:
+        #                 stint_duration = self.race_length - stint_info[0]
+        #             stints[stint_info[1]].append(stint_duration)
+        #
+        # for compound in stints:
+        #     self._tyre_expected_duration[compound] = np.quantile(stints[compound], 0.6)
 
-        self._median_tyre_laps={}
-        stints = defaultdict(list)
-        for driver in state["drivers"]:
-            strategy = driver.strategy_info
-            if len(strategy) > 1:
-                for i, stint in enumerate(strategy):
-                    if i < len(strategy) - 1 :
-                        next_stint = strategy[i+1]
-                        stint_duration = next_stint[0] - stint[0]
-                    else:
-                        stint_duration = self.race_length - stint[0]
-                    stints[stint[1]].append(stint_duration)
+        self._tyre_expected_duration = {"A5": 22, "A4": 35, "A3": 36}
 
-        for compound in stints:
-            self._median_tyre_laps[compound] = np.quantile(stints[compound], 0.7)
-
+        # Store the mapping between action indices and compounds
         for i, compound in enumerate(self._compound_initials):
             self._compound_indices[compound] = i+1
 
@@ -759,11 +766,11 @@ class RaceEnv(PlanningEnv):
         return remaining
 
     def get_default_strategy(self, owner):
-        assert self._median_tyre_laps is not None, "You need to reset the environment before " \
+        assert self._tyre_expected_duration is not None, "You need to reset the environment before " \
                                                    "you can get the default tyre durations"
         compound, age = self._race_sim.get_tyre_age(owner)
         remaining = self.get_remaining_compounds(owner)
-        if age >= self._median_tyre_laps[compound] and len(remaining) > 0:
+        if age >= self._tyre_expected_duration[compound] and len(remaining) > 0:
             missing_laps = self.race_length - self._race_sim.get_cur_lap()
 
             # Force change of compound to avoid penalty at the end of the race
@@ -772,7 +779,7 @@ class RaceEnv(PlanningEnv):
                 if start_compound in remaining:
                     remaining.remove(start_compound)
             remaining = np.array(remaining)
-            delta = np.array([self._median_tyre_laps[compound] - missing_laps for compound in remaining])
+            delta = np.array([self._tyre_expected_duration[compound] - missing_laps for compound in remaining])
             positive = np.argwhere(delta > 0)
 
             # If any compound allows to complete the race, use the one that fits better the remaining laps
