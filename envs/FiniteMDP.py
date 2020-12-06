@@ -124,8 +124,8 @@ class FiniteMDP(gym.Env):
         if np.isscalar(action):
             action = [action]
         p = self.p[self._state[0], action[0], :]
-        if np.sum(p) != 1:
-            print("ASD")
+        # if np.sum(p) != 1:
+        #     print("ASD")
         next_state = np.array([self.np_random.choice(p.size, p=p)])
 
         absorbing = not np.any(self.p[next_state[0], :, :])
