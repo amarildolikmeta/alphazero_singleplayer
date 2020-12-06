@@ -18,7 +18,7 @@ if __name__ == '__main__':
     today = datetime.now()
     timestamp = today.strftime('%Y-%m-%d_%H-%M')
 
-    env = RaceEnv(horizon=100, scale_reward=False, randomize_events=False, start_lap=8)
+    env = RaceEnv(horizon=100, scale_reward=False, randomize_events=True, start_lap=8)
 
     # print("Default Strategies")
     # strategy = [[0, "A5", 2, 0.0], [22, "A3", 0, 0.0], [42, "A3", 0, 0.0]]
