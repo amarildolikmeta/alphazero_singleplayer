@@ -7,6 +7,9 @@ def parse_game_params(args):
     if args.game == 'Taxi' or args.game == 'TaxiEasy':
         game_params['grid'] = args.grid
         game_params['box'] = args.box
+    if args.game == 'GridworldDiscrete':
+        game_params['scale_reward'] = args.scale_reward
+        game_params['fail_prob'] = args.fail_prob
         # TODO modify this to return to original taxi problem
     elif args.game in ['RiverSwim-continuous', 'MountainCar', 'Cartpole']:
         game_params['fail_prob'] = args.fail_prob
@@ -46,7 +49,7 @@ def setup_parser():
     parser.add_argument('--n_ep', type=int, default=1, help='Number of episodes')
     parser.add_argument('--n_mcts', type=int, default=20, help='Number of MCTS traces per step')
     parser.add_argument('--chain_dim', type=int, default=10, help='Chain dimension')
-    parser.add_argument('--fail_prob', type=float, default=0.4, help='Fail probability in riverswim')
+    parser.add_argument('--fail_prob', type=float, default=0.1, help='Fail probability in riverswim')
     parser.add_argument('--max_ep_len', type=int, default=50, help='Maximum number of steps per episode')
     parser.add_argument('--lr', type=float, default=0.01, help='Learning rate')
     parser.add_argument('--c', type=float, default=1.5, help='UCT constant')
