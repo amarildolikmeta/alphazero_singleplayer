@@ -16,7 +16,6 @@ def generate_trade(**game_params):
 
 class Trade(FiniteMDP):
     def __init__(self, fees=0.001, horizon=50, log_actions=True, save_dir='', n_ret=30, max_ret=0.07):
-        print('fees:', fees)
         self.actions = [-1, 0, 1]
         self.n_actions = len(self.actions)
         self.n_ret = n_ret
@@ -70,7 +69,10 @@ class Trade(FiniteMDP):
     def step(self, action):
         _, reward, absorbing, _ = super().step(action)
         current_ret = self.ret[self._state-action*self.n_ret]
-        return self._state, reward, absorbing, {'save_path': self.file_name, 'return': current_ret}
+        if self.log_actions:
+            return self._state, reward, absorbing, {'save_path': self.file_name, 'return': current_ret}
+        else:
+            return self._state, reward, absorbing, _
 
     def reset(self):
         super().reset()
