@@ -16,8 +16,7 @@ def generate_trade(**game_params):
 
 class Trade(FiniteMDP):
     def __init__(self, fees=0.001, horizon=50, log_actions=True, save_dir='', n_ret=30, max_ret=0.07):
-        print(save_dir)
-        print(fees)
+
         self.actions = [-1, 0, 1]
         self.n_actions = len(self.actions)
         self.n_ret = n_ret
