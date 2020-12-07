@@ -120,10 +120,12 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=
             save_path = inf['save_path']
             if bool(save_path):
                 with open(save_path, 'a') as text_file:
+                    if "return" in inf:
+                        prices = str(inf['return'][0])
+                    else:
                         prices = ','.join(str(e) for e in ns[:-1])
-                        # toprint = prices+','+str(a-1)+',real \n'
-                        toprint = prices+','+str(a-1)+','+str(r)+'\n'
-                        text_file.write(toprint)
+                    toprint = prices+','+str(a-1)+','+str(r)+'\n'
+                    text_file.write(toprint)
 
         if visualize:
             wrapper.visualize()
