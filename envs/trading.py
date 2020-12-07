@@ -56,7 +56,7 @@ class Trade(gym.Env):
             text_file.write(s)
             text_file.close()
 
-            print('\n writing actions in ' + self.file_name)
+            # print('\n writing actions in ' + self.file_name)
 
             # reset action file
         self.reset()

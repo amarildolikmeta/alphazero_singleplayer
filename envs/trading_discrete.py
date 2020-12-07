@@ -56,7 +56,7 @@ class Trade(FiniteMDP):
             s += 'a,r\n'
             text_file.write(s)
             text_file.close()
-            print('writing actions in ' + self.file_name)
+            # print('writing actions in ' + self.file_name)
 
         super(Trade, self).__init__(self.p, self.r, self.mu, horizon=horizon)
         self.reset()
