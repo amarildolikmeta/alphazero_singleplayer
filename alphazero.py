@@ -151,6 +151,7 @@ if __name__ == '__main__':
                                                       csi=args.csi,
                                                       bayesian=args.bayesian,
                                                       q_learning=args.q_learning,
+                                                      ucth=args.ucth,
                                                       log_timestamp=time_str,
                                                       verbose=args.verbose)
 

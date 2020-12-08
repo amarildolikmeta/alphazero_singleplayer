@@ -35,6 +35,8 @@ def parse_alg_name(args):
                     alg = 'ol_uct_bayesian/'
                 elif args.q_learning:
                     alg = "q_learning_ol_uct/"
+                elif args.ucth:
+                    alg = "q_learning_ol_uct_h/"
                 else:
                     alg = 'ol_uct/'
         else:
@@ -105,6 +107,7 @@ def setup_parser():
     parser.add_argument('--csi', type=float, default=1., help='Constant regulating the variance-based bias')
     parser.add_argument('--bayesian', action='store_true', help='Enables Bayesian OL UCT in place of regular OL UCT')
     parser.add_argument('--q_learning', action='store_true', help='Enables Q-learning OL UCT in place of regular OL UCT')
+    parser.add_argument('--ucth', action='store_true', help='Enables Q-learning OL UCT-H in place of regular OL UCT')
 
     # Hyperparameter optimization args
     parser.add_argument('--opt_iters', type=int, default=20, help='Number of hyperparameter tries,'

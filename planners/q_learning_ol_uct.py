@@ -41,7 +41,7 @@ PROB_2 = [0.95, 0.025, 0.025]
 PROB_3 = [0.91, 0.03, 0.03, 0.03]
 PROBS = {1: MAX_P, 2: PROB_1, 3: PROB_2, 4:PROB_3}
 
-DEBUG = True
+DEBUG = False
 
 
 def strategic_rollout(env, budget, max_depth=200, terminal=False, root_owner=None,

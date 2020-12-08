@@ -10,13 +10,16 @@ class PlanningEnv(Env):
         super(PlanningEnv, self).__init__()
         self.action_space = None
 
-    def get_max_episode_length(self):
+    def get_max_episode_length(self) -> int:
         return np.inf
 
-    def get_remaining_steps(self):
-        raise NotImplementedError("get_remaining_steps method must be implemented by subclasses of PlanningEnv")
+    def get_distance_to_horizon(self) -> int:
+        return np.inf
 
-    def get_mean_estimation(self, action, owner):
+    def is_terminal(self) -> bool:
+        raise NotImplementedError("is_terminal method must be implemented by subclasses of PlanningEnv")
+
+    def get_mean_estimation(self, action, owner) -> float:
         raise NotImplementedError("get_mean_estimation method must be implemented by subclasses of PlanningEnv")
 
     def get_available_actions(self, agent: int) -> list:
@@ -32,7 +35,7 @@ class PlanningEnv(Env):
     def reset(self):
         raise NotImplementedError("reset method must be implemented by subclasses of PlanningEnv")
 
-    def enable_search_mode(self):
+    def enable_search_mode(self) -> None:
         pass
 
     def seed(self, seed=None):
