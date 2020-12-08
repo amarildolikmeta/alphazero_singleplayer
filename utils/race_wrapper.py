@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 
 from utils.env_wrapper import Wrapper
-from envs.race_strategy_full import compute_ranking
 from helpers import argmax
 
 LOG_COLUMNS = ["driver", "agent", "turn", "race", "total_time", "starting_position", "final_position", "pit_count"]
