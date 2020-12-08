@@ -339,6 +339,8 @@ class RaceEnv(PlanningEnv):
         self._strategies = deepcopy(sig['strategies'])
         self._lap = deepcopy(sig['lap'])
 
+    def get_distance_to_horizon(self) -> int:
+        return self.race_length - self._lap
 
     def get_available_actions(self, driver: int) -> list:
         """Allow another pit stop, signified by actions 1-3, only if the last pit
@@ -502,7 +504,8 @@ class RaceEnv(PlanningEnv):
                     actions = self.get_default_strategy(d) # get_available_actions(d)
                     prob = PROBS[len(actions)]
                     a = np.random.choice(actions, p=prob)
-                    if a > 0:
+                    execute = np.random.random() > 0.9 # Drivers have a 10% probability of postponing the pit
+                    if a > 0 and execute:
                         compound = self.map_action_to_compound(a)
                         self._available_compounds[d][compound] -= 1
                         self.used_compounds[d].add(compound)
