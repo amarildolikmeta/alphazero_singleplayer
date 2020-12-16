@@ -6,17 +6,14 @@ from collections import deque, defaultdict
 from os import listdir
 from os.path import isfile, join
 import random
-import gym
 from copy import deepcopy
 import numpy as np
 from gym import spaces
-from gym.utils import seeding
 from gym import register
-
-# Since the module race_simulation was forked it is not configured to work with the repository's folder structure
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-
+from sklearn.preprocessing import OneHotEncoder
 from envs.planning_env import PlanningEnv
+# Since the module race_simulation was forked it is not configured to work with the repository's folder structure
+
 
 ROOT_PATH = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(os.path.join(ROOT_PATH, 'race_simulation'))
@@ -91,7 +88,7 @@ class RaceEnv(PlanningEnv):
 
         # TODO regulate dynamically the number of actions and drivers
         self.obs_dim = 30
-        self.n_actions = 3
+        self.n_actions = 4
         self.action_space = spaces.Discrete(n=self.n_actions)
         self.observation_space = spaces.Box(low=0., high=self.horizon,
                                             shape=(self.obs_dim,), dtype=np.float64)
@@ -340,7 +337,7 @@ class RaceEnv(PlanningEnv):
         self._lap = deepcopy(sig['lap'])
 
     def get_distance_to_horizon(self) -> int:
-        return self.race_length - self._lap
+        return self.race_length - self._race_sim.get_cur_lap()
 
     def get_available_actions(self, driver: int) -> list:
         """Allow another pit stop, signified by actions 1-3, only if the last pit
@@ -450,11 +447,17 @@ class RaceEnv(PlanningEnv):
             print("AAA")
             return self.get_state(), np.zeros(self.agents_number), self.is_terminal(), {}
 
-    def has_transitioned(self):
+    def has_transitioned(self) -> bool:
+        """Check if the environment has performed a state transition"""
         return len(self._actions_queue) == 0
 
-    def step(self, action):
-        """Step wrapper for single-agent execution"""
+    def step(self, action: int):
+        """
+        Step wrapper for single-agent execution
+
+        :param action: the index of the action to be executed
+        :type action: int
+        """
 
         if type(action) == np.ndarray and len(action) == 1:
             action = action[0]
@@ -542,7 +545,7 @@ class RaceEnv(PlanningEnv):
         return self.get_state(), reward, self.is_terminal(), {}
 
     def save_results(self, timestamp):
-        save_path = self.results_path
+        save_path = self.results_path + timestamp
         # save_path = os.path.join(self.results_path, timestamp)
         os.makedirs(save_path, exist_ok=True)
         self._race_sim.export_results_as_csv(results_path=save_path)
@@ -623,7 +626,13 @@ class RaceEnv(PlanningEnv):
         # print(race_pars_file)
         self._races_config_files.append(race_pars_file)
 
-        race_pars_file = "pars_Melbourne_2017.ini"
+        # race_pars_file = "pars_Melbourne_2017.ini"
+        # race_pars_file = "pars_SaoPaulo_2018.ini"
+        # race_pars_file = "pars_Suzuka_2015.ini"
+        # race_pars_file = "pars_Suzuka_2016.ini"
+        # race_pars_file = "pars_SaoPaulo_2018.ini"
+        race_pars_file = "pars_Spielberg_2017.ini"
+
 
         # load parameters
         pars_in, vse_paths = import_pars(use_print=self.sim_opts["use_print"],
@@ -660,10 +669,10 @@ class RaceEnv(PlanningEnv):
         # Compute the expected duration for each tire compound
 
         self.race_length = self._race_sim.get_race_length()
-        #
-        # self._tyre_expected_duration={}
-        # stints = defaultdict(list)
-        #
+
+        self._tyre_expected_duration={}
+        stints = defaultdict(list)
+
         # for driver in state["drivers"]:
         #     strategy = driver.strategy_info
         #
@@ -679,7 +688,7 @@ class RaceEnv(PlanningEnv):
         # for compound in stints:
         #     self._tyre_expected_duration[compound] = np.quantile(stints[compound], 0.6)
 
-        self._tyre_expected_duration = {"A5": 22, "A4": 35, "A3": 36}
+        self._tyre_expected_duration = pars_in['track_pars']['predicted_duration']
 
         # Store the mapping between action indices and compounds
         for i, compound in enumerate(self._compound_initials):
@@ -700,11 +709,11 @@ class RaceEnv(PlanningEnv):
 
         # Setup initial tyre allocation for different availabilities
         if len(self._compound_initials) == 2:
-            default_availabilities = {self._compound_initials[0]: 3, self._compound_initials[1]: 2}
+            default_availabilities = {self._compound_initials[0]: 2, self._compound_initials[1]: 3}
         elif len(self._compound_initials) == 3:
-            default_availabilities = {self._compound_initials[0]: 2,
+            default_availabilities = {self._compound_initials[0]: 1,
                                       self._compound_initials[1]: 2,
-                                      self._compound_initials[2]: 1}
+                                      self._compound_initials[2]: 2}
         else:
             raise ValueError("Unexpected compound availabilities number, {}", self._compound_initials)
         self._available_compounds = {driver : deepcopy(default_availabilities) for driver in self._drivers}
@@ -773,22 +782,27 @@ class RaceEnv(PlanningEnv):
                                                    "you can get the default tyre durations"
         compound, age = self._race_sim.get_tyre_age(owner)
         remaining = self.get_remaining_compounds(owner)
-        if age >= self._tyre_expected_duration[compound] and len(remaining) > 0:
+        if age >= self._tyre_expected_duration[compound] and len(remaining) > 0 and self._last_pit[owner] > 5:
             missing_laps = self.race_length - self._race_sim.get_cur_lap()
 
-            # Force change of compound to avoid penalty at the end of the race
-            if len(self.used_compounds[owner]) == 1:
-                start_compound = next(iter(self.used_compounds[owner]))
-                if start_compound in remaining:
-                    remaining.remove(start_compound)
             remaining = np.array(remaining)
             delta = np.array([self._tyre_expected_duration[compound] - missing_laps for compound in remaining])
-            positive = np.argwhere(delta > 0)
+            positive = np.argwhere(delta >= 0)
 
             # If any compound allows to complete the race, use the one that fits better the remaining laps
             if len(positive) > 0:
                 remaining = remaining[positive]
                 delta = delta[positive]
+                remaining = remaining.ravel()
+                delta = delta.ravel()
+                # Force change of compound to avoid penalty at the end of the race
+                if len(self.used_compounds[owner]) == 1:
+                    start_compound = next(iter(self.used_compounds[owner]))
+                    allowed = np.argwhere(remaining != start_compound)
+                    remaining = remaining[allowed]
+                    delta = delta[allowed]
+                assert len(remaining) > 0, "Something wrong with tyre change constraint"
+
             remaining = remaining.tolist()
             delta = delta.tolist()
             best = remaining[np.argmin(delta)]
