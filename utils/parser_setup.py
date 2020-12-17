@@ -4,6 +4,11 @@ import argparse
 def parse_game_params(args):
     game_params = {'horizon': args.max_ep_len}
     # Accept custom grid if the environment requires it
+    if args.game in ['Trading-v0', 'Trading_discrete-v0']:
+        game_params['max_ret'] = args.max_ret
+        game_params['n_ret'] = args.n_ret
+        game_params['fees'] = args.fees
+        game_params["log_actions"] = args.log_actions
     if args.game == 'Taxi' or args.game == 'TaxiEasy':
         game_params['grid'] = args.grid
         game_params['box'] = args.box
@@ -21,6 +26,7 @@ def parse_game_params(args):
         game_params['scale_reward'] = args.scale_reward
         game_params['n_cores'] = args.max_xgb_workers
     return game_params
+
 
 
 def parse_alg_name(args):
@@ -114,5 +120,11 @@ def setup_parser():
     parser.add_argument('--model_based', action='store_true', help='Use the model_based algorithm')
     parser.add_argument('--box', action='store_true', help='Used for Taxi environment')
     parser.add_argument('--on_visits', action='store_true', help='Make final selection based on action counts')
+
+    # trading env arguments
+    parser.add_argument('--fees', type=float, default=0.001, help='Fees for transaction costs')
+    parser.add_argument('--max_ret', type=float, default=0.07, help='Maximum return in case of discrete enviroment')
+    parser.add_argument('--n_ret', type=int, default=20, help='Number of returns in case of discrete enviroment')
+    parser.add_argument('--log_actions', action='store_true', help='Write excel file and plot graphs')
 
     return parser.parse_args()

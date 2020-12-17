@@ -15,7 +15,7 @@ def generate_trade(**game_params):
 
 
 class Trade(FiniteMDP):
-    def __init__(self, fees=0.001, horizon=50, log_actions=True, save_dir='', n_ret=10, max_ret=0.3):
+    def __init__(self, fees=0.001, horizon=50, log_actions=True, save_dir='', n_ret=30, max_ret=0.07):
 
         self.actions = [-1, 0, 1]
         self.n_actions = len(self.actions)
@@ -41,40 +41,23 @@ class Trade(FiniteMDP):
         self.r = r
 
         # # Start logging file
-        # sd = self.seed()
-        # self.log_actions = log_actions
-        # if self.log_actions:
-        #     try:
-        #         os.makedirs(os.path.join(save_dir, "state_action"))
-        #     except OSError as e:
-        #         if e.errno != errno.EEXIST:
-        #             raise  # This was not a "directory exist" error..
-        #     self.file_name = os.path.join(save_dir, 'state_action', str(sd[0]) + '.csv')
-        #     text_file = open(self.file_name, 'w')
-        #     s = ''
-        #     s += 'p' + ','
-        #     s += 'a,r\n'
-        #     text_file.write(s)
-        #     text_file.close()
-        # if self.log_actions==True:
-        #     try:
-        #         os.makedirs(os.path.join(logpath, "state_action"))
-        #         self.file_name = os.path.join(logpath, 'state_action', "real_actions" + '.csv')
-        #         text_file = open(self.file_name, 'a')
-        #         s = ''
-        #         for j in range(time_lag):
-        #             s += 'p' + str(j) + ','
-        #         s += 'a,r\n'
-        #         text_file.write(s)
-        #         text_file.close()
-        #     except OSError as e:
-        #         if e.errno != errno.EEXIST:
-        #             raise  # This was not a "directory exist" error..
-        #
-        #     self.file_name = os.path.join(logpath, 'state_action', "real_actions" + '.csv')
-            #print('writing actions in ' + self.file_name)
+        sd = self.seed()
+        self.log_actions = log_actions
+        if self.log_actions:
+            try:
+                os.makedirs(os.path.join(save_dir, "state_action"))
+            except OSError as e:
+                if e.errno != errno.EEXIST:
+                    raise  # This was not a "directory exist" error..
+            self.file_name = os.path.join(save_dir, 'state_action', str(sd[0]) + '.csv')
+            text_file = open(self.file_name, 'w')
+            s = ''
+            s += 'p1' + ','
+            s += 'a,r\n'
+            text_file.write(s)
+            text_file.close()
+            # print('writing actions in ' + self.file_name)
 
-            # reset action file
         super(Trade, self).__init__(self.p, self.r, self.mu, horizon=horizon)
         self.reset()
 
@@ -86,9 +69,11 @@ class Trade(FiniteMDP):
 
     def step(self, action):
         _, reward, absorbing, _ = super().step(action)
-
-        return self._state, reward, absorbing, _
-               # {'save_path': self.file_name}
+        current_ret = self.ret[self._state-action*self.n_ret]
+        if self.log_actions:
+            return self._state, reward, absorbing, {'save_path': self.file_name, 'return': current_ret}
+        else:
+            return self._state, reward, absorbing, _
 
     def reset(self):
         super().reset()
@@ -109,10 +94,10 @@ class Trade(FiniteMDP):
         # Initialize the transition probability matrix
         P = np.zeros((n_actions, n_states, n_states))
 
-        prob = round(1/n_ret,2)
+        prob = 1/n_ret
 
         for i in range(n_actions):
-            P[i, :, i*n_ret : (i+1)*n_ret] = prob
+            P[i, :, i*n_ret : (i+1)*n_ret].fill(prob)
             # print(np.sum(P[i, :, i*n_ret : (i+1)*n_ret]))
             reward = self.actions[i] * self.ret
             for j in range(n_actions):
@@ -122,10 +107,10 @@ class Trade(FiniteMDP):
         return P0, P, R
 
 
-register(
-    id='Trading_discrete-v0',
-    entry_point='envs.trading_discrete:Trade'
-)
+# register(
+#     id='Trading_discrete-v0',
+#     entry_point='envs.trading_discrete:Trade'
+# )
 
 if __name__ == '__main__':
     t0 = time.time()
@@ -139,8 +124,8 @@ if __name__ == '__main__':
         s, r, done, prices = mdp.step(a)
         print("Reward:" + str(r) + " State:" + str(s) )
         mdp.set_signature(mdp.get_signature())
-        ret += r - 0.5
-        # print(prices)
+        # ret += r - 0.5
+        print(prices)
         if done:
             print("Return:", ret)
             rt0 = time.time()

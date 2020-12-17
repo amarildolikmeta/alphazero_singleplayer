@@ -1,8 +1,8 @@
-import numpy as np
+# import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import math
-# import matplotlib
+# import math
+# #import matplotlib
 import errno
 import os
 import ntpath
@@ -44,9 +44,12 @@ def plot_trading(df, save_path):
     df['price'] = price[:-1]
 
     cr = [0]
+    # modify this if the reward goes through some normalization function
     for rew in df['r'][:-1]:
-        norm = -1/4*np.log(1/rew-1)
+        # norm = -1/4*np.log(1/rew-1)
+        norm = rew
         cr.append(cr[-1] + norm)
+
     df['Cum_rew'] = cr
 
     fig, host = plt.subplots()
@@ -108,7 +111,7 @@ if __name__ == '__main__':
     #
     # print(data)
     # path = "/Users/edoardovittori/Code/alphazero_singleplayer/logs/Trading-v0/2020-07-13_14-40-22/state_action/3261920518430412717.csv"
-    path = "/Users/edoardovittori/Code/alphazero_singleplayer/logs/Trading-v0/2020-07-13_14-56-33/state_action/11204837701962185700.csv"
+    path = "/Users/edoardovittori/Code/alphazero_singleplayer/logs/Trading_discrete-v0/model_based/1607344531.452786/state_action/13612170037138901808.csv"
     data_p(path)
 
     ## loading pickle file

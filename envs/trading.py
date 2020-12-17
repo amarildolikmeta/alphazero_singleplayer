@@ -16,7 +16,7 @@ def generate_trade(**game_params):
 
 
 class Trade(gym.Env):
-    def __init__(self, fees=0.001, time_lag=2, horizon=50, log_actions=True, save_dir='', process = "arma"):
+    def __init__(self, fees=0.001, time_lag=2, horizon=20, log_actions=True, save_dir='', process = "arma"):
         # price history, previous portfolio, time
         observation_low = np.concatenate([np.full(time_lag, -1), [-1.0]])
         observation_high = np.concatenate([np.full(time_lag, +1), [+1.0]])
@@ -55,23 +55,8 @@ class Trade(gym.Env):
             s += 'a,r\n'
             text_file.write(s)
             text_file.close()
-        # if self.log_actions==True:
-        #     try:
-        #         os.makedirs(os.path.join(logpath, "state_action"))
-        #         self.file_name = os.path.join(logpath, 'state_action', "real_actions" + '.csv')
-        #         text_file = open(self.file_name, 'a')
-        #         s = ''
-        #         for j in range(time_lag):
-        #             s += 'p' + str(j) + ','
-        #         s += 'a,r\n'
-        #         text_file.write(s)
-        #         text_file.close()
-        #     except OSError as e:
-        #         if e.errno != errno.EEXIST:
-        #             raise  # This was not a "directory exist" error..
-        #
-        #     self.file_name = os.path.join(logpath, 'state_action', "real_actions" + '.csv')
-            #print('writing actions in ' + self.file_name)
+
+            # print('\n writing actions in ' + self.file_name)
 
             # reset action file
         self.reset()
@@ -103,7 +88,7 @@ class Trade(gym.Env):
                 abs(self.current_portfolio - self.previous_portfolio) * self.fees
 
         # transform with logistic in [0,1] for algorithm
-        pl = 1/(1+np.exp(-4*pl))
+        # pl = 1/(1+np.exp(-4*pl))
         return pl
 
     def gbm(self, sigma=0.2, r=0, days=2, ppd=1):
@@ -158,8 +143,10 @@ class Trade(gym.Env):
             terminal = True
         else:
             terminal = False
-        return self.get_state(), reward, terminal, {'save_path': self.file_name}
-
+        if self.log_actions:
+            return self.get_state(), reward, terminal, {'save_path': self.file_name}
+        else:
+            return self.get_state(), reward, terminal, _
     def reset(self):
         self._t = 0
 
