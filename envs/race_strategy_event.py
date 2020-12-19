@@ -85,6 +85,7 @@ class RaceEnv(PlanningEnv):
         self.horizon = horizon
         self.gamma = gamma
         self.search_mode = False
+        self.rollout_mode = False
 
         # TODO regulate dynamically the number of actions and drivers
         self.obs_dim = 30
@@ -100,7 +101,7 @@ class RaceEnv(PlanningEnv):
 
         self.sim_opts = {"use_prob_infl": True,
                     "create_rand_events": randomize_events,
-                    "use_vse": False,
+                    "use_vse": True,
                     "no_sim_runs": 1,
                     "no_workers": 1,
                     "use_print": False,
@@ -382,6 +383,11 @@ class RaceEnv(PlanningEnv):
                 self._pit_counts[driver] -= 1
                 self._last_pit[driver] = self._race_sim.get_cur_lap() - previous_strategies[driver][-1][0]
 
+    def enable_rollout_mode(self) -> None:
+        self.rollout_mode = True
+        self._race_sim.set_enable_vse(True)
+        self._race_sim.set_vse_enabled_drivers(self._active_drivers)
+
     def reset_stochasticity(self) -> None:
         """Regenerate random events in the simulator from this state onwards, as they need to be precomputed"""
         if self.sim_opts["create_rand_events"]:
@@ -630,7 +636,7 @@ class RaceEnv(PlanningEnv):
         # race_pars_file = "pars_SaoPaulo_2018.ini"
         # race_pars_file = "pars_Suzuka_2015.ini"
         # race_pars_file = "pars_Suzuka_2016.ini"
-        # race_pars_file = "pars_SaoPaulo_2018.ini"
+        #race_pars_file = "pars_SaoPaulo_2018.ini"
         race_pars_file = "pars_Spielberg_2017.ini"
 
 
@@ -656,9 +662,7 @@ class RaceEnv(PlanningEnv):
                               event_pars=pars_in["event_pars"],
                               disable_retirements=True)
 
-        # Remove the VSE because it contains Tensorflow objects which can't be serialized, its work is already done
-        # during the initialization of the Race object
-        self._race_sim.vse = None
+        self._race_sim.set_enable_vse(False)
 
         self._compound_initials = pars_in["vse_pars"]["param_dry_compounds"]
         state = self._race_sim.get_simulation_state()
@@ -671,7 +675,7 @@ class RaceEnv(PlanningEnv):
         self.race_length = self._race_sim.get_race_length()
 
         self._tyre_expected_duration={}
-        stints = defaultdict(list)
+        # stints = defaultdict(list)
 
         # for driver in state["drivers"]:
         #     strategy = driver.strategy_info

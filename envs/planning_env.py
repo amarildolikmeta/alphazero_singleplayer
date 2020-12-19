@@ -29,7 +29,7 @@ class PlanningEnv(Env):
     def get_next_agent(self) -> int:
         return 0
 
-    def step(self, action):
+    def step(self, action) -> tuple:
         raise NotImplementedError("step method must be implemented by subclasses of PlanningEnv")
 
     def reset(self):
@@ -38,18 +38,21 @@ class PlanningEnv(Env):
     def enable_search_mode(self) -> None:
         pass
 
-    def seed(self, seed=None):
+    def seed(self, seed=None) -> list:
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
     def render(self, mode='human'):
         print("[WARNING] No render mode is implemented for this environment")
 
-    def save_results(self, timestamp):
+    def save_results(self, timestamp) -> None:
         print("[WARNING] No save method is implemented for this environment")
 
-    def reset_stochasticity(self):
+    def reset_stochasticity(self) -> None:
         pass
 
     def get_max_ep_length(self):
         return np.inf
+
+    def enable_rollout_mode(self) -> None:
+        pass
