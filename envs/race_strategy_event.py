@@ -387,6 +387,9 @@ class RaceEnv(PlanningEnv):
         if self.sim_opts["create_rand_events"]:
             self._race_sim.handle_random_events_generation()
 
+    def add_fcy_custom(self, type, stop =-1)->None:
+        self._race_sim.handle_custom_fcy_generation(type, stop)
+
     def map_action_to_compound(self, action_index: int) -> str:
         """Returns the compound name string for the desired input action"""
         assert len(self._compound_initials) > 0, "[ERROR] Env has not been reset yet"
@@ -545,8 +548,8 @@ class RaceEnv(PlanningEnv):
         return self.get_state(), reward, self.is_terminal(), {}
 
     def save_results(self, timestamp):
-        save_path = self.results_path + timestamp
-        # save_path = os.path.join(self.results_path, timestamp)
+        #_path = self.results_path + timestamp
+        save_path = os.path.join(self.results_path, timestamp)
         os.makedirs(save_path, exist_ok=True)
         self._race_sim.export_results_as_csv(results_path=save_path)
 
@@ -673,22 +676,22 @@ class RaceEnv(PlanningEnv):
         self._tyre_expected_duration={}
         stints = defaultdict(list)
 
-        # for driver in state["drivers"]:
-        #     strategy = driver.strategy_info
-        #
-        #     if len(strategy) > 1: # If the strategy is only one stint long, the driver has crashed
-        #         for i, stint_info in enumerate(strategy):
-        #             if i < len(strategy) - 1 :
-        #                 next_stint = strategy[i+1]
-        #                 stint_duration = next_stint[0] - stint_info[0]
-        #             else:
-        #                 stint_duration = self.race_length - stint_info[0]
-        #             stints[stint_info[1]].append(stint_duration)
-        #
-        # for compound in stints:
-        #     self._tyre_expected_duration[compound] = np.quantile(stints[compound], 0.6)
+        for driver in state["drivers"]:
+            strategy = driver.strategy_info
 
-        self._tyre_expected_duration = pars_in['track_pars']['predicted_duration']
+            if len(strategy) > 1: # If the strategy is only one stint long, the driver has crashed
+                for i, stint_info in enumerate(strategy):
+                 if i < len(strategy) - 1 :
+                     next_stint = strategy[i+1]
+                     stint_duration = next_stint[0] - stint_info[0]
+                 else:
+                     stint_duration = self.race_length - stint_info[0]
+                 stints[stint_info[1]].append(stint_duration)
+
+        for compound in stints:
+            self._tyre_expected_duration[compound] = np.quantile(stints[compound], 0.6)
+        #print("[DEBUG] --> " + str(pars_in['track_pars']))
+        #self._tyre_expected_duration = pars_in['track_pars']['predicted_duration']
 
         # Store the mapping between action indices and compounds
         for i, compound in enumerate(self._compound_initials):

@@ -18,7 +18,7 @@ if __name__ == '__main__':
     today = datetime.now()
     timestamp = today.strftime('%Y-%m-%d_%H-%M')
 
-    env = RaceEnv(horizon=100, scale_reward=False, randomize_events=True, start_lap=8)
+    env = RaceEnv(horizon=100, scale_reward=False, randomize_events=False, start_lap=8)
 
     # print("Default Strategies")
     # strategy = [[0, "A5", 2, 0.0], [22, "A3", 0, 0.0], [42, "A3", 0, 0.0]]
@@ -36,7 +36,7 @@ if __name__ == '__main__':
     # print(env._tyre_expected_duration)
 
     #for special_action in [env.map_compound_to_action("A3"), env.map_compound_to_action("A4"), 0]:
-    for i in trange(200):
+    for i in trange(20):
         env.reset()
         lap = 8
 
@@ -80,14 +80,20 @@ if __name__ == '__main__':
             #     #action = env.map_compound_to_action("A3")
             # else:
             #     action = 0
+            start = 20
+            stop = 22
+            if lap ==start:
+                print(env._race_sim.get_cur_lap())
+                env.add_fcy_custom("VSC", stop)
+
 
             s, r, done, _ = env.partial_step(action, agent)
             # TODO state compression
             sig = env.get_signature()
             env.set_signature(sig)
 
-            # TODO safety car randomization (enable randomize_events in constructor)
-            env.reset_stochasticity()
+
+
             # print(env.used_compounds)
             # print(env._pit_counts)
             cumulative += r
