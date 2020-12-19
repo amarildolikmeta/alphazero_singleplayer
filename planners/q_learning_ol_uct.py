@@ -127,7 +127,7 @@ class Action(object):
 
         return self.child_state, self.child_state.remaining_budget
 
-    def update(self, R, q_learning=False, mixed_q_learning=False, alpha=0.1, gamma=1.):
+    def update(self, R, q_learning=False, mixed_q_learning=False, alpha=0.1, gamma=1., a=0.5, b=2):
         """
         :param R: is the reward collected by the agent
         :type R: float
@@ -140,10 +140,19 @@ class Action(object):
 
         :param gamma: is the MDP discount factor
         :type gamma: float
+
+        :param a: exponentiation term for learning rate schedule
+        :type a: float
+
+        :param b: constant term for learning rate schedule
+        :type b: float
         """
+
         self.max_r = max(R, self.max_r)
         self.min_r = min(R, self.min_r)
+
         if mixed_q_learning:
+            alpha = 1/(b + self.n ** a)
             if self.n == 0:
                 self.Q = self.child_state.V + R
             else:
@@ -286,11 +295,11 @@ class State(object):
         return_, budget = self.rollout(actions, env, budget, max_depth, terminal)
         return return_, budget
 
-    # TODO remove, only for debugging raceStrategy
     @staticmethod
-    def rollout(actions, env, budget, max_depth=200, terminal=False, brain_on=True, double_rollout=False, no_pit=False):
+    def rollout(actions, env, budget, max_depth=200, terminal=False, brain_on=False, double_rollout=False, no_pit=True):
 
-        if hasattr(env, "get_available_actions") and hasattr(env, "get_next_agent"):
+        if isinstance(env, PlanningEnv):
+            env.enable_rollout_mode()
             owner = env.get_next_agent()
             ret, budget = strategic_rollout(env, budget, max_depth, terminal, owner,
                                             double_rollout=double_rollout, brain_on=brain_on, no_pit=no_pit)
