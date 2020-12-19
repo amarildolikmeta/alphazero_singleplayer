@@ -107,6 +107,7 @@ class Action(object):
         self.child_state = None
         self.max_r = - np.inf
         self.min_r = np.inf
+        self.horizon = horizon
 
     def add_child_state(self, env, budget, max_depth=200, depth=0):
         reward, terminal, budget = sample(env, self.index, budget)
@@ -122,7 +123,7 @@ class Action(object):
 
         return self.child_state, self.child_state.remaining_budget
 
-    def update(self, R: float, horizon: int, iota: float, c: float):
+    def update(self, R: float, iota: float, c: float):
         """
         :param R: is the reward collected by the agent
         :type R: float
@@ -144,8 +145,8 @@ class Action(object):
         self.min_r = min(R, self.min_r)
 
         self.n += 1
-        alpha = (horizon + 1) / (horizon + self.n)
-        bound = c * np.sqrt(horizon ** 3 * iota / self.n)
+        alpha = (self.horizon + 1) / (self.horizon + self.n)
+        bound = c * np.sqrt(self.horizon ** 3 * iota / self.n)
         self.Q = (1 - alpha) * self.Q + alpha * (R + self.child_state.V + bound)
         pass
 
@@ -168,7 +169,7 @@ class State(object):
         self.root = root
         self.n = 0
 
-        horizon = min(max_depth, env.get_distance_to_horizon())
+        horizon = min(max_depth, parent_action.horizon - 1 if self.parent_action else env.get_distance_to_horizon())
 
         if hasattr(env, "get_available_actions") and hasattr(env, "get_next_agent"):
             owner = env.get_next_agent()
@@ -178,6 +179,7 @@ class State(object):
             self.child_actions = [Action(a, parent_state=self, horizon=horizon) for a in range(na)]
 
         self.V = horizon
+        self.horizon = horizon
 
     def is_terminal(self, max_depth, env):
         return self.depth == max_depth or env.is_terminal()
@@ -209,10 +211,10 @@ class State(object):
         winner = argmax(bound, bias_zero=bias_zero)
         return self.child_actions[winner]
 
-    def update(self, horizon: int):
+    def update(self):
         """ Update count and state-value function estimation on backward pass """
         self.n += 1
-        self.V = min(horizon, np.max([action.Q for action in self.child_actions]))
+        self.V = min(self.horizon, np.max([action.Q for action in self.child_actions]))
 
     def evaluate(self, env, budget, max_depth=200, terminal=False):
         actions = np.arange(self.na, dtype=int)
@@ -252,7 +254,7 @@ class QL_UCTH_OL_MCTS(object):
         else:
             raise (NotImplementedError("Need to reset the tree"))
 
-    def search(self, n_mcts, c, Env: PlanningEnv, mcts_env, budget, max_depth=200, fixed_depth=True, deepen=True, visualize=False):
+    def search(self, n_mcts, c, Env: PlanningEnv, mcts_env, budget, max_depth=200, fixed_depth=True, deepen=False, visualize=False):
         """ Perform the MCTS search from the root """
 
 
@@ -315,8 +317,7 @@ class QL_UCTH_OL_MCTS(object):
             # if budget < 0: #finished budget before rollout
             #     break
             # R = state.V
-            horizon = env.get_distance_to_horizon()
-            state.update(horizon)
+            state.update()
             while state.parent_action is not None:  # loop back-up until root is reached
                 # if state.reward > -85:
                 #     print("WTF:", state.reward)
@@ -327,10 +328,9 @@ class QL_UCTH_OL_MCTS(object):
                 #     terminal = False
                 R = state.reward
                 action = state.parent_action
-                action.update(R, horizon, iota, self.c)
-                horizon += 1
+                action.update(R, iota, self.c)
                 state = action.parent_state
-                state.update(horizon)
+                state.update()
 
             # self.visualize()
 
