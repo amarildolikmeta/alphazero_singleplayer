@@ -295,11 +295,11 @@ class State(object):
         return_, budget = self.rollout(actions, env, budget, max_depth, terminal)
         return return_, budget
 
-    # TODO remove, only for debugging raceStrategy
     @staticmethod
-    def rollout(actions, env, budget, max_depth=200, terminal=False, brain_on=True, double_rollout=False, no_pit=False):
+    def rollout(actions, env, budget, max_depth=200, terminal=False, brain_on=False, double_rollout=False, no_pit=True):
 
-        if hasattr(env, "get_available_actions") and hasattr(env, "get_next_agent"):
+        if isinstance(env, PlanningEnv):
+            env.enable_rollout_mode()
             owner = env.get_next_agent()
             ret, budget = strategic_rollout(env, budget, max_depth, terminal, owner,
                                             double_rollout=double_rollout, brain_on=brain_on, no_pit=no_pit)
