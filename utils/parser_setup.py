@@ -4,7 +4,10 @@ import argparse
 def parse_game_params(args):
     game_params = {'horizon': args.max_ep_len}
     # Accept custom grid if the environment requires it
-    if args.game in ['Trading-v0', 'Trading_discrete-v0']:
+    if args.game in ['Trading-v0']:
+        game_params['fees'] = args.fees
+        game_params["log_actions"] = args.log_actions
+    if args.game in ['Trading_discrete-v0']:
         game_params['max_ret'] = args.max_ret
         game_params['n_ret'] = args.n_ret
         game_params['fees'] = args.fees

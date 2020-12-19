@@ -146,7 +146,7 @@ class Trade(gym.Env):
         if self.log_actions:
             return self.get_state(), reward, terminal, {'save_path': self.file_name}
         else:
-            return self.get_state(), reward, terminal, _
+            return self.get_state(), reward, terminal, {}
     def reset(self):
         self._t = 0
 
