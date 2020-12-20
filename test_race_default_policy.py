@@ -82,6 +82,11 @@ if __name__ == '__main__':
             #     action = env.map_compound_to_action("A3")
             # else:
             #     action = 0
+            start = 20
+            stop = 22
+            if lap ==start:
+                print(env._race_sim.get_cur_lap())
+                env.add_fcy_custom("VSC", stop)
 
             # Suzuka 2015 true
             # if lap == 13:
@@ -106,8 +111,8 @@ if __name__ == '__main__':
             sig = env.get_signature()
             env.set_signature(sig)
 
-            # TODO safety car randomization (enable randomize_events in constructor)
-            # env.reset_stochasticity()
+
+
             # print(env.used_compounds)
             # print(env._pit_counts)
             cumulative += r
