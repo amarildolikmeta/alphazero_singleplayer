@@ -18,7 +18,7 @@ if __name__ == '__main__':
     today = datetime.now()
     timestamp = today.strftime('%Y-%m-%d_%H-%M')
 
-    env = RaceEnv(horizon=100, scale_reward=False, randomize_events=True, start_lap=8)
+    env = RaceEnv(horizon=100, scale_reward=False, randomize_events=False, start_lap=8)
 
     # print("Default Strategies")
     # strategy = [[0, "A5", 2, 0.0], [22, "A3", 0, 0.0], [42, "A3", 0, 0.0]]
@@ -28,15 +28,15 @@ if __name__ == '__main__':
     # env.reset()
     # print(env.simulate_strategy(env._pars_in, 'VET', strategy)[40: 45])
     # strategy = [[0, "A5", 2, 0.0], [22, "A3", 0, 0.0]]
-    # env.reset()
+    env.reset()
+    print(env._tyre_expected_duration)
     # print(env.simulate_strategy(env._pars_in, 'VET', strategy)[40: 45])
     rews = []
 
-    # print(env.map_compound_to_action("A3"))
-    # print(env._tyre_expected_duration)
+    #print(env.map_compound_to_action("A3"))
 
     #for special_action in [env.map_compound_to_action("A3"), env.map_compound_to_action("A4"), 0]:
-    for i in trange(200):
+    for i in trange(100):
         env.reset()
         lap = 8
 
@@ -49,7 +49,7 @@ if __name__ == '__main__':
             # prob = PROBS[len(actions)]
             # action = np.random.choice(actions, p=prob)
             # if action > 0:
-            #     print(lap)
+            #     print(lap, env.map_action_to_compound(action))
 
             # Catalunya 2017 true
 
@@ -66,20 +66,40 @@ if __name__ == '__main__':
             # else:
             #     action = 0
 
-            if lap == 23:
+            # Brazil 2018 true
+            if lap == 27:
                 action = env.map_compound_to_action("A3")
+            elif lap == 53:
+                action = env.map_compound_to_action("A5")
             else:
                 action = 0
 
-            # if lap == 14:
+            # Suzuka 2016 True
+
+            # if lap == 12:
+            #     action = env.map_compound_to_action("A1")
+            # elif lap == 34:
             #     action = env.map_compound_to_action("A3")
-            # #
-            # elif lap == 26:
-            # # #if lap == 30 or lap == 43:
-            #     action = special_action
-            #     #action = env.map_compound_to_action("A3")
             # else:
             #     action = 0
+
+            # Suzuka 2015 true
+            # if lap == 13:
+            #     action = env.map_compound_to_action("A1")
+            # elif lap == 30:
+            #     action = env.map_compound_to_action("A1")
+            # else:
+            #     action = 0
+
+
+            # Austria 2017 true
+            # if lap == 34:
+            #     action = env.map_compound_to_action("A4")
+
+            # else:
+            #     action = 0
+
+
 
             s, r, done, _ = env.partial_step(action, agent)
             # TODO state compression
@@ -87,14 +107,14 @@ if __name__ == '__main__':
             env.set_signature(sig)
 
             # TODO safety car randomization (enable randomize_events in constructor)
-            env.reset_stochasticity()
+            # env.reset_stochasticity()
             # print(env.used_compounds)
             # print(env._pit_counts)
             cumulative += r
             lap += 1
             if done:
                 rews.append(cumulative.tolist())
-        env.save_results(timestamp + "_aus_test")
+        env.save_results("/bra_2018/" + timestamp)
     # print(rews)
     print("Return:", np.mean(rews, axis=0))
     print("std: +-", np.std(rews, axis=0))

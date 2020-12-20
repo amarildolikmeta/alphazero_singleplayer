@@ -101,7 +101,7 @@ class RaceEnv(PlanningEnv):
 
         self.sim_opts = {"use_prob_infl": True,
                     "create_rand_events": randomize_events,
-                    "use_vse": True,
+                    "use_vse": False,
                     "no_sim_runs": 1,
                     "no_workers": 1,
                     "use_print": False,
@@ -830,57 +830,10 @@ class RaceEnv(PlanningEnv):
                 strategy.append([self._lap, compound, 0, 0.0])
             initials = self._initials[owner]
             race_time = self.simulate_strategy(self._pars_in, initials, strategy)[self._lap]
-            # lap = self._lap - 1
-            # race_time = (self.race_length - lap) * self.base_time[owner]
-            # compound, age = self._race_sim.get_tyre_age(owner)
-            # current_compound = compound if action == 0 else self.map_action_to_compound(action)
-            # cur_age = age - 1 if action == 0 else 0
-            # k0 = self.tireset_pars[owner][current_compound]['k_0']
-            # k1 = self.tireset_pars[owner][current_compound]['k_1_lin']
-            # max_age = cur_age + self.race_length - lap
-            # tire_degradation = k0 * (max_age - cur_age) + 0.5 * k1 * (max_age ** 2 - cur_age ** 2)
-            # race_time += tire_degradation
-            # if action > 0:
-            #     race_time += self._t_pit[owner]
             return race_time, False
-
-    def get_log_info(self):
-        logs = []
-        ranks = compute_ranking(self._cumulative_time)
-        for driver in self._drivers:
-            index = self._drivers_mapping[driver]
-            log = {
-                "position": ranks[index],
-                "cumulative_time": self._cumulative_time[index],
-                "pit_count": self._pit_counts[index],
-                "driver": driver,
-                "race": self.get_current_race(),
-                "start_lap": self.start_lap,
-                "current_lap": self._lap,
-                "starting_position": self._starting_positions[index]
-            }
-            logs.append(log)
-
-        return logs
 
 
 register(
     id='RaceStrategy-v2',
     entry_point='envs.race_strategy_full:RaceModel'
 )
-
-if __name__ == '__main__':
-    mdp = RaceEnv()
-    _ = mdp.reset()
-    ret = 0
-    lap = 1
-    while True:
-        a = np.random.choice([0, 1, 2, 3], 9, replace=True)
-        s, r, done, _ = mdp.step(a)
-        print("Reward:" + str(r) + " Lap Time: " + str(r * mdp.max_lap_time))
-        mdp.set_signature(mdp.get_signature())
-        ret += r
-        if done:
-            print("Return:", ret)
-            # print("Race Time:", mdp.time)
-            break

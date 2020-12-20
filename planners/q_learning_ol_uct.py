@@ -296,7 +296,7 @@ class State(object):
         return return_, budget
 
     @staticmethod
-    def rollout(actions, env, budget, max_depth=200, terminal=False, brain_on=False, double_rollout=False, no_pit=True):
+    def rollout(actions, env, budget, max_depth=200, terminal=False, brain_on=True, double_rollout=False, no_pit=True):
 
         if isinstance(env, PlanningEnv):
             env.enable_rollout_mode()
