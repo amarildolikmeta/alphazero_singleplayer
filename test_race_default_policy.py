@@ -28,7 +28,7 @@ if __name__ == '__main__':
     # env.reset()
     # print(env.simulate_strategy(env._pars_in, 'VET', strategy)[40: 45])
     # strategy = [[0, "A5", 2, 0.0], [22, "A3", 0, 0.0]]
-    env.reset()
+    env.reset(quantile_strategies=True)
     print(env._tyre_expected_duration)
     # print(env.simulate_strategy(env._pars_in, 'VET', strategy)[40: 45])
     rews = []
@@ -36,18 +36,18 @@ if __name__ == '__main__':
     #print(env.map_compound_to_action("A3"))
 
     #for special_action in [env.map_compound_to_action("A3"), env.map_compound_to_action("A4"), 0]:
-    for i in trange(100):
-        env.reset()
+    for i in trange(10):
+        env.reset(quantile_strategies=True)
         lap = 8
 
         done = False
         cumulative = np.zeros(env.agents_number)
         while not done:
             agent = env.get_next_agent()
-            # actions = env.get_default_strategy(agent)
-            # # actions = env.get_available_actions(agent)
-            # prob = PROBS[len(actions)]
-            # action = np.random.choice(actions, p=prob)
+            actions = env.get_default_strategy(agent)
+            # actions = env.get_available_actions(agent)
+            prob = PROBS[len(actions)]
+            action = np.random.choice(actions, p=prob)
             # if action > 0:
             #     print(lap, env.map_action_to_compound(action))
 
@@ -67,12 +67,12 @@ if __name__ == '__main__':
             #     action = 0
 
             # Brazil 2018 true
-            if lap == 27:
-                action = env.map_compound_to_action("A3")
-            elif lap == 53:
-                action = env.map_compound_to_action("A5")
-            else:
-                action = 0
+            # if lap == 27:
+            #     action = env.map_compound_to_action("A3")
+            # elif lap == 53:
+            #     action = env.map_compound_to_action("A5")
+            # else:
+            #     action = 0
 
             # Suzuka 2016 True
 
@@ -82,11 +82,11 @@ if __name__ == '__main__':
             #     action = env.map_compound_to_action("A3")
             # else:
             #     action = 0
-            start = 20
-            stop = 22
-            if lap ==start:
-                print(env._race_sim.get_cur_lap())
-                env.add_fcy_custom("VSC", stop)
+            # start = 20
+            # stop = 22
+            # if lap ==start:
+            #     print(env._race_sim.get_cur_lap())
+            #     env.add_fcy_custom("VSC", stop)
 
             # Suzuka 2015 true
             # if lap == 13:
@@ -108,8 +108,8 @@ if __name__ == '__main__':
 
             s, r, done, _ = env.partial_step(action, agent)
             # TODO state compression
-            sig = env.get_signature()
-            env.set_signature(sig)
+            # sig = env.get_signature()
+            # env.set_signature(sig)
 
 
 
@@ -119,7 +119,7 @@ if __name__ == '__main__':
             lap += 1
             if done:
                 rews.append(cumulative.tolist())
-        env.save_results("/bra_2018/" + timestamp)
+        #env.save_results("/bra_2018/" + timestamp)
     # print(rews)
     print("Return:", np.mean(rews, axis=0))
     print("std: +-", np.std(rews, axis=0))
