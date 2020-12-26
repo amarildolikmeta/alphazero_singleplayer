@@ -1,0 +1,9 @@
+{
+  "controlled_drivers": [5],
+  "year": 2017,
+  "track": "Spielberg",
+  "extra_pits": true,
+  "vse": true,
+  "randomize_events": false,
+  "rollout_vse": false
+}
