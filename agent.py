@@ -205,7 +205,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
             print('--------------------------------\nEvaluating policy for {} episodes!'.format(eval_episodes))
             seed = np.random.randint(1e7)  # draw some Env seed
             Env.seed(seed)
-            s = Env.reset()
+            # s = Env.reset()
 
             if parallelize_evaluation:
                 penv = None
@@ -221,12 +221,12 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 model_wrapper.save(model_file)
 
             if game == "RaceStrategy-v1" or game == "RaceStrategy-v2" and multiagent:
-
-                env_wrapper = RaceWrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, budget,
-                                  mcts_env, c, temp, env=penv, game_maker=pgame, mcts_only=mcts_only,
-                                  scheduler_params=scheduler_params, verbose=verbose)
+                raise NotImplementedError
+                # env_wrapper = RaceWrapper(mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, budget,
+                #                   mcts_env, c, temp, env=penv, game_maker=pgame, mcts_only=mcts_only,
+                #                   scheduler_params=scheduler_params, verbose=verbose)
             else:
-                env_wrapper = Wrapper(s, mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, budget,
+                env_wrapper = Wrapper(mcts_maker, model_file, model_params, mcts_params, is_atari, n_mcts, budget,
                                       mcts_env, c, temp, env=penv, game_maker=pgame, mcts_only=mcts_only,
                                       scheduler_params=scheduler_params)
 

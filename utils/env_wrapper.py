@@ -19,7 +19,7 @@ def signal_handler(signum, frame):
 
 
 class Wrapper(object):
-    def __init__(self, root_index, mcts_maker, model_save_file, model_wrapper_params,
+    def __init__(self, mcts_maker, model_save_file, model_wrapper_params,
                  mcts_params, is_atari, n_mcts, budget, mcts_env, c,
                  temp, game_maker=None, env=None, mcts_only=True, scheduler_params=None,
                  enable_logging=True):
@@ -30,8 +30,8 @@ class Wrapper(object):
         self._depths=[]
 
         self.agents_count = 1
-        self.root_index = root_index
         self.env = env
+        self.root_index = None
         self.mcts_only = mcts_only
         self.episode_probabilities = []
         self.curr_probs = None
@@ -95,6 +95,11 @@ class Wrapper(object):
     #     # return 1/denom
     #     max_depth = float(width)
     #     return (1 - 5 / max_depth) ** (x)
+
+    def get_root_index(self):
+        if self.root_index is None:
+            self.root_index = self.get_env().reset()
+        return self.root_index
 
     def pi_wrapper(self, s, current_depth, max_depth, visualize=False):
 
@@ -169,7 +174,7 @@ class Wrapper(object):
         return self.mcts
 
     def make_mcts(self):
-        self.mcts = self.mcts_maker(root_index=self.root_index, root=None, model=self.get_model(),
+        self.mcts = self.mcts_maker(root_index=self.get_root_index(), root=None, model=self.get_model(),
                                     na=self.env.action_space.n, **self.mcts_params)
 
     def make_env(self):

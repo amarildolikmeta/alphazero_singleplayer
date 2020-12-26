@@ -1,3 +1,4 @@
+import sys
 from collections import defaultdict
 from functools import partial
 
@@ -43,7 +44,10 @@ def save_result(res:EvaluationResult, rewards_per_timestep:list, ep_lengths:list
         pbar.update(1)
 
 def error_callback(e):
-    print("Error callback", e)
+    print("[ERROR]", e)
+    # exc_type, exc_obj, exc_tb = sys.exc_info()
+    # fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+    # print(exc_type, fname, exc_tb.tb_lineno)
 
 
 def parallelize_eval_policy(wrapper, n_episodes=100, add_terminal=False, interactive=False,
