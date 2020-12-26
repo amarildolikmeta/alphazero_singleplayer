@@ -67,10 +67,8 @@ def strategic_rollout(env, budget, max_depth=200, terminal=False, root_owner=Non
         agent = root_owner
 
         while t / env.agents_number < max_depth and not done:
-            if brain_on:
-                actions = env.get_default_strategy(root_owner)
-            else:
-                actions = env.get_available_actions(agent)
+
+            actions = env.get_available_actions(agent, default_strategy=brain_on)
 
             if no_pit:
                 action = 0

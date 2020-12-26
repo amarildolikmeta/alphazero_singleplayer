@@ -8,6 +8,8 @@ from os import listdir
 from os.path import isfile, join
 import random
 from copy import deepcopy
+
+import json
 import numpy as np
 from gym import spaces
 from gym import register
@@ -31,6 +33,7 @@ PROB_3 = [0.91, 0.03, 0.03, 0.03]
 PROBS = {1: MAX_P, 2: PROB_1, 3: PROB_2, 4:PROB_3}
 
 MCS_PARS_FILE = 'pars_mcs.ini'
+MAX_PIT_COUNT = 2
 
 COMPOUND_MAPPING = {"A1": 1,
                     "A2": 2,
@@ -42,7 +45,7 @@ COMPOUND_MAPPING = {"A1": 1,
                     "W": 8}
 
 FLAGS = ["G", "Y", "R", "FCY", "SC", "VSC"]
-COMPOUNDS = ["A1", "A2", "A3", "A4", "A5", "A6", "I", "W"]
+COMPOUNDS = ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "I", "W"]
 
 
 def generate_race_event(**game_params):
@@ -72,11 +75,12 @@ def select_races(year: int, ini_path="./race_simulation/racesim/input/parameters
 class RaceEnv(PlanningEnv):
 
     def __init__(self, gamma=0.95, horizon=20, scale_reward=True, positive_reward=True, start_lap=8,
-                 verbose=False, config_path='./envs/race_strategy_model/active_drivers.csv', skip_steps=False,
-                 n_cores=-1, randomize_events=False, rl_mode=False, log_path=None):
+                 verbose=False, config_path='./envs/configs/race_strategy_event_env_config.json', skip_steps=False,
+                 n_cores=-1, rl_mode=False, log_path=None):
 
         super(RaceEnv, self).__init__()
 
+        self._max_pit_count = MAX_PIT_COUNT
         self._initials = {}
         self.verbose = verbose
         self.rl_mode = rl_mode
@@ -100,9 +104,21 @@ class RaceEnv(PlanningEnv):
 
         self._skip_steps = skip_steps
 
+        with open(config_path) as config:
+            config_data = json.load(config)
+            self._active_drivers = np.asarray(config_data['controlled_drivers'])
+            self._year = config_data['year']
+            self.race_config = "pars_" + config_data['track'] + "_" + str(config_data['year']) + ".ini"
+            self._add_extra_pits = config_data['extra_pits']
+            self._use_vse = config_data['vse']
+            self._use_rollout_vse = config_data['rollout_vse']
+            randomize_events = config_data['randomize_events']
+            config.close()
+
+
         self.sim_opts = {"use_prob_infl": True,
                     "create_rand_events": randomize_events,
-                    "use_vse": False,
+                    "use_vse": self._use_vse,
                     "no_sim_runs": 1,
                     "no_workers": 1,
                     "use_print": False,
@@ -125,12 +141,14 @@ class RaceEnv(PlanningEnv):
         self.testobjects_path = os.path.join(self.output_path, "testobjects")
         os.makedirs(self.testobjects_path, exist_ok=True)
 
-        with open(config_path, newline='') as f:
-            reader = csv.reader(f)
-            line = reader.__next__()
-            self._active_drivers = np.asarray(line[1:], dtype=int)
-            self._year = int(line[0])
-            f.close()
+        # with open(config_path, newline='') as f:
+        #     reader = csv.reader(f)
+        #     line = reader.__next__()
+        #     self._active_drivers = np.asarray(line[1:], dtype=int)
+        #     self._year = int(line[0])
+        #     f.close()
+
+        # self.race_config = race_config_path
 
         self._tyre_expected_duration = None
 
@@ -158,8 +176,8 @@ class RaceEnv(PlanningEnv):
 
         self._t = -start_lap
 
-        self._races_config_files = select_races(self._year)
-        random.shuffle(self._races_config_files)
+        # self._races_config_files = select_races(self._year)
+        # random.shuffle(self._races_config_files)
 
         self._compound_initials = []
         self._race_sim = None
@@ -342,13 +360,20 @@ class RaceEnv(PlanningEnv):
     def get_distance_to_horizon(self) -> int:
         return self.race_length - self._race_sim.get_cur_lap()
 
-    def get_available_actions(self, driver: int) -> list:
+    def get_available_actions(self, driver: int, default_strategy=False) -> list:
         """Allow another pit stop, signified by actions 1-3, only if the last pit
         for the same agents was at least 5 laps earlier"""
 
+        # Don't allow pit actions if the strategy is fully decided by the env
+        if self.rollout_mode and self._use_vse:
+            return [0]
+
+        if default_strategy:
+            return self.get_default_strategy(driver)
+
         actions = [0]
         # Check if the agent can do a pit stop
-        if (self._last_pit[driver] > 5 and self._pit_counts[driver] < 2) \
+        if (self._last_pit[driver] > 5 and self._pit_counts[driver] < self._max_pit_count) \
                 or (self._lap == self.race_length - 2 and len(self.used_compounds[driver]) == 1):
             # Check if the agent has left any of the tyres
             for i, compound in enumerate(self._compound_initials):
@@ -385,18 +410,26 @@ class RaceEnv(PlanningEnv):
                 self._pit_counts[driver] -= 1
                 self._last_pit[driver] = self._race_sim.get_cur_lap() - previous_strategies[driver][-1][0]
 
-    def enable_rollout_mode(self) -> None:
-        self.rollout_mode = True
-        self._race_sim.set_enable_vse(True)
-        self._race_sim.set_vse_enabled_drivers(self._active_drivers)
+        if self._use_vse:
+            self._race_sim.set_enable_vse(True)
+            self._race_sim.set_vse_enabled_drivers(set(self._drivers).difference(set(self._active_drivers)))
 
-    def reset_stochasticity(self) -> None:
-        """Regenerate random events in the simulator from this state onwards, as they need to be precomputed"""
-        if self.sim_opts["create_rand_events"]:
-            self._race_sim.handle_random_events_generation()
+    def enable_rollout_mode(self) -> None:
+        if self._use_rollout_vse:
+            self.rollout_mode = True
+            self._race_sim.set_enable_vse(True)
+            self._race_sim.set_vse_enabled_drivers(self._active_drivers)
+
+    # def reset_stochasticity(self) -> None:
+    #     """Regenerate random events in the simulator from this state onwards, as they need to be precomputed"""
+    #     if self.sim_opts["create_rand_events"]:
+    #         self._race_sim.handle_random_events_generation()
 
     def add_fcy_custom(self, fcy_type, stop=-1)->None:
+        #print("[DEBUG] adding FCY at", self._lap + 2)
         self._race_sim.handle_custom_fcy_generation(fcy_type, stop=stop)
+        if self._add_extra_pits:
+            self._max_pit_count += 1
 
     def map_action_to_compound(self, action_index: int) -> str:
         """Returns the compound name string for the desired input action"""
@@ -505,6 +538,7 @@ class RaceEnv(PlanningEnv):
         if not self.search_mode and self._lap + 2 in self._fcy_data:
             end_lap, fcy_type = self._fcy_data[self._lap + 2]
             self.add_fcy_custom(fcy_type, stop=end_lap)
+            pass
 
         if self.is_terminal():
             print("BBB", self._t, self.horizon, self._lap, self._race_sim.get_race_length())
@@ -517,7 +551,7 @@ class RaceEnv(PlanningEnv):
                 pit_info.append((self._index_to_active[idx], [compound, 0, 0.]))
 
         # Use default strategies for all non-controlled drivers during search in planners
-        if self.search_mode:
+        if self.search_mode and not self._use_vse:
             for d in self._drivers:
                 if d not in self._active_drivers_mapping:
                     actions = self.get_default_strategy(d) # get_available_actions(d)
@@ -638,9 +672,11 @@ class RaceEnv(PlanningEnv):
         # use_plot:             set if plotting should be used or not
 
         self.search_mode = False
-        race_pars_file = self._races_config_files.pop(0)
+        self.rollout_mode = False
+        self._max_pit_count = MAX_PIT_COUNT
+        # race_pars_file = self._races_config_files.pop(0)
         # print(race_pars_file)
-        self._races_config_files.append(race_pars_file)
+        # self._races_config_files.append(race_pars_file)
 
         # race_pars_file = "pars_Melbourne_2017.ini"
         # race_pars_file = "pars_SaoPaulo_2018.ini"
@@ -648,7 +684,10 @@ class RaceEnv(PlanningEnv):
         # race_pars_file = "pars_Suzuka_2016.ini"
         # race_pars_file = "pars_SaoPaulo_2018.ini"
         # race_pars_file = "pars_Spielberg_2017.ini"
-        race_pars_file = "pars_Shanghai_2018.ini"
+        # race_pars_file = "pars_Shanghai_2018.ini" #SC
+        # race_pars_file = "pars_Spa_2017.ini" #SC
+        # race_pars_file = "pars_Sochi_2017.ini"
+        race_pars_file = self.race_config
 
 
         # load parameters
@@ -660,6 +699,11 @@ class RaceEnv(PlanningEnv):
         # check parameters
         check_pars(sim_opts=self.sim_opts, pars_in=pars_in)
 
+        event_pars = {"fcy_data": {"phases": [],
+                                   "domain": "progress"},
+                      "retire_data": {"retirements": [],
+                                      "domain": "progress"}}
+
         self._race_sim = Race(race_pars=pars_in["race_pars"],
                               driver_pars=pars_in["driver_pars"],
                               car_pars=pars_in["car_pars"],
@@ -670,7 +714,8 @@ class RaceEnv(PlanningEnv):
                               use_prob_infl=self.sim_opts['use_prob_infl'],
                               create_rand_events=self.sim_opts['create_rand_events'],
                               monte_carlo_pars=pars_in["monte_carlo_pars"],
-                              event_pars=pars_in["event_pars"],
+                              #event_pars=pars_in["event_pars"],
+                              event_pars = event_pars, # The simulator must not have FCY data at initialization
                               disable_retirements=True)
 
         self._race_sim.set_enable_vse(False)
@@ -683,7 +728,6 @@ class RaceEnv(PlanningEnv):
             start_lap = float(event[0])
             end_lap = float(event[1])
             fcy_type = event[2]
-            print(start_lap, end_lap, fcy_type)
             self._fcy_data[math.floor(start_lap)] = (end_lap, fcy_type)
 
         # Compute the expected duration for each tire compound
