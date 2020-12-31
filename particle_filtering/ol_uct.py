@@ -312,6 +312,7 @@ class OL_MCTS(object):
             state = self.root  # reset to root for new trace
             if not is_atari:
                 mcts_env = copy.deepcopy(Env)  # copy original Env to rollout from
+                mcts_env.enable_search_mode()
             else:
                 raise NotImplementedError
             mcts_env.seed(np.random.randint(1e7))

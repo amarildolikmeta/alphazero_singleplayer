@@ -109,10 +109,11 @@ class RaceEnv(PlanningEnv):
             self._active_drivers = np.asarray(config_data['controlled_drivers'])
             self._year = config_data['year']
             self.race_config = "pars_" + config_data['track'] + "_" + str(config_data['year']) + ".ini"
-            self._add_extra_pits = config_data['extra_pits']
-            self._use_vse = config_data['vse']
-            self._use_rollout_vse = config_data['rollout_vse']
-            randomize_events = config_data['randomize_events']
+            self._add_extra_pits = config_data['extra_pits']  # Allow the driver to pit again if FCY is deployed
+            self._use_vse = config_data['vse']  # Enable VSE for the whole environment
+            self._use_true_strategies = config_data['true_strategies']  # Use true strategies also during search
+            self._use_rollout_vse = config_data['rollout_vse']  # Enable VSE for rollout strategy prediction
+            randomize_events = config_data['randomize_events']  # Generate random events
             config.close()
 
 
@@ -551,7 +552,7 @@ class RaceEnv(PlanningEnv):
                 pit_info.append((self._index_to_active[idx], [compound, 0, 0.]))
 
         # Use default strategies for all non-controlled drivers during search in planners
-        if self.search_mode and not self._use_vse:
+        if self.search_mode and not (self._use_vse or self._use_true_strategies):
             for d in self._drivers:
                 if d not in self._active_drivers_mapping:
                     actions = self.get_default_strategy(d) # get_available_actions(d)

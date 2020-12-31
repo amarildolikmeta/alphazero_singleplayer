@@ -297,7 +297,7 @@ class State(object):
     def rollout(actions, env, budget, max_depth=200, terminal=False, brain_on=True, double_rollout=False, no_pit=True):
 
         if isinstance(env, PlanningEnv):
-            env.enable_rollout_mode()
+            # env.enable_rollout_mode()
             owner = env.get_next_agent()
             ret, budget = strategic_rollout(env, budget, max_depth, terminal, owner,
                                             double_rollout=double_rollout, brain_on=brain_on, no_pit=no_pit)
@@ -352,7 +352,8 @@ class QL_OL_MCTS(object):
         while budget > 0:
             state = self.root  # reset to root for new trace
             if not is_atari:
-                mcts_env = copy.deepcopy(Env)  # copy original Env to rollout from
+                mcts_env = copy.deepcopy(Env) # copy original Env to rollout from
+                mcts_env.enable_search_mode()
             else:
                 raise NotImplementedError
             mcts_env.seed(np.random.randint(1e7))
