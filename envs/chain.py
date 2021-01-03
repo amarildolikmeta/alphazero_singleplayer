@@ -2,13 +2,13 @@ import numpy as np
 from envs.FiniteMDP import FiniteMDP
 
 
-def generate_chain(n=5, slip=0.2, small=2, large=10, gamma=0.9999, horizon=1000):
+def generate_chain(n=5, slip=0.01, small=2, large=15, gamma=0.9999, horizon=1000):
         nA = 2
         nS = n
         p = compute_probabilities(slip,nS, nA)
         r = compute_rewards(nS, nA, small, large)
         mu = compute_mu(nS)
-        return  FiniteMDP(p, r, mu, gamma, horizon)
+        return FiniteMDP(p, r, mu, gamma, horizon)
 
 
 def compute_probabilities(slip, nS, nA):
