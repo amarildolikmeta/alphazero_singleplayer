@@ -38,3 +38,21 @@ def compute_mu(nS):
         mu[0]=1
         return mu
 
+if __name__ == '__main__':
+    horizon=20
+    eval_episodes = 50
+    mdp = generate_chain(horizon=horizon)
+    ret_vec = []
+    a = 0
+
+    for j in range(0, eval_episodes):
+        s = mdp.reset()
+        ret = 0
+        for i in range(1,horizon+1):
+            s, r, done, prices = mdp.step(a)
+            # print("Reward:" + str(r) + " State:" + str(s) )
+            mdp.set_signature(mdp.get_signature())
+            ret += r
+        ret_vec += [ret]
+
+    print("average: ", np.average(ret_vec), " standard deviation: ", np.std(ret_vec))
