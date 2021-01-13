@@ -92,10 +92,39 @@ class RaceEnv(PlanningEnv):
         self.search_mode = False
         self.rollout_mode = False
 
-        # TODO regulate dynamically the number of actions and drivers
+        with open(config_path) as config:
+            config_data = json.load(config)
+            self._active_drivers = np.asarray(config_data['controlled_drivers'])
+            self._year = config_data['year']
+            self.race_config = "pars_" + config_data['track'] + "_" + str(config_data['year']) + ".ini"
+            self._add_extra_pits = config_data['extra_pits']  # Allow the driver to pit again if FCY is deployed
+            self._use_vse_search = config_data['search_vse']  # Enable VSE for the whole environment
+            self._use_true_strategies = config_data['true_strategies']  # Use true strategies also during search
+            self._use_rollout_vse = config_data['rollout_vse']  # Enable VSE for rollout strategy prediction
+            randomize_events = config_data['randomize_events']  # Generate random events
+            config.close()
+
+        self.sim_opts = {"use_prob_infl": True,
+                    "create_rand_events": randomize_events,
+                    "use_vse": self._use_vse_search or self._use_rollout_vse,
+                    "no_sim_runs": 1,
+                    "no_workers": 1,
+                    "use_print": False,
+                    "use_print_result": False,
+                    "use_plot": False}
+
         self.obs_dim = 30
-        self.n_actions = 4
+
+        # Obtain the number of available compounds to set the number of actions in the gym env
+        pars_in, _ = import_pars(use_print=self.sim_opts["use_print"],
+                                         use_vse=self.sim_opts["use_vse"],
+                                         race_pars_file=self.race_config,
+                                         mcs_pars_file=MCS_PARS_FILE)
+
+        self.n_actions = len(pars_in["vse_pars"]["param_dry_compounds"]) + 1
+
         self.action_space = spaces.Discrete(n=self.n_actions)
+        # TODO check this, unnormalized reward?
         self.observation_space = spaces.Box(low=0., high=self.horizon,
                                             shape=(self.obs_dim,), dtype=np.float64)
         self.scale_reward = scale_reward
@@ -104,27 +133,6 @@ class RaceEnv(PlanningEnv):
 
         self._skip_steps = skip_steps
 
-        with open(config_path) as config:
-            config_data = json.load(config)
-            self._active_drivers = np.asarray(config_data['controlled_drivers'])
-            self._year = config_data['year']
-            self.race_config = "pars_" + config_data['track'] + "_" + str(config_data['year']) + ".ini"
-            self._add_extra_pits = config_data['extra_pits']  # Allow the driver to pit again if FCY is deployed
-            self._use_vse = config_data['vse']  # Enable VSE for the whole environment
-            self._use_true_strategies = config_data['true_strategies']  # Use true strategies also during search
-            self._use_rollout_vse = config_data['rollout_vse']  # Enable VSE for rollout strategy prediction
-            randomize_events = config_data['randomize_events']  # Generate random events
-            config.close()
-
-
-        self.sim_opts = {"use_prob_infl": True,
-                    "create_rand_events": randomize_events,
-                    "use_vse": self._use_vse,
-                    "no_sim_runs": 1,
-                    "no_workers": 1,
-                    "use_print": False,
-                    "use_print_result": False,
-                    "use_plot": False}
         
         if not log_path:
             # get repo path
@@ -366,7 +374,7 @@ class RaceEnv(PlanningEnv):
         for the same agents was at least 5 laps earlier"""
 
         # Don't allow pit actions if the strategy is fully decided by the env
-        if self.rollout_mode and self._use_vse:
+        if self.rollout_mode and (self._use_vse_search or driver in self._active_drivers):
             return [0]
 
         if default_strategy:
@@ -411,23 +419,17 @@ class RaceEnv(PlanningEnv):
                 self._pit_counts[driver] -= 1
                 self._last_pit[driver] = self._race_sim.get_cur_lap() - previous_strategies[driver][-1][0]
 
-        if self._use_vse:
-            self._race_sim.set_enable_vse(True)
+        if self._use_vse_search:
             self._race_sim.set_vse_enabled_drivers(set(self._drivers).difference(set(self._active_drivers)))
+            self._race_sim.set_enable_vse(True)
 
     def enable_rollout_mode(self) -> None:
         if self._use_rollout_vse:
             self.rollout_mode = True
-            self._race_sim.set_enable_vse(True)
             self._race_sim.set_vse_enabled_drivers(self._active_drivers)
-
-    # def reset_stochasticity(self) -> None:
-    #     """Regenerate random events in the simulator from this state onwards, as they need to be precomputed"""
-    #     if self.sim_opts["create_rand_events"]:
-    #         self._race_sim.handle_random_events_generation()
+            self._race_sim.set_enable_vse(True)
 
     def add_fcy_custom(self, fcy_type, stop=-1)->None:
-        #print("[DEBUG] adding FCY at", self._lap + 2)
         self._race_sim.handle_custom_fcy_generation(fcy_type, stop=stop)
         if self._add_extra_pits:
             self._max_pit_count += 1
@@ -539,7 +541,6 @@ class RaceEnv(PlanningEnv):
         if not self.search_mode and self._lap + 2 in self._fcy_data:
             end_lap, fcy_type = self._fcy_data[self._lap + 2]
             self.add_fcy_custom(fcy_type, stop=end_lap)
-            pass
 
         if self.is_terminal():
             print("BBB", self._t, self.horizon, self._lap, self._race_sim.get_race_length())
@@ -552,7 +553,7 @@ class RaceEnv(PlanningEnv):
                 pit_info.append((self._index_to_active[idx], [compound, 0, 0.]))
 
         # Use default strategies for all non-controlled drivers during search in planners
-        if self.search_mode and not (self._use_vse or self._use_true_strategies):
+        if self.search_mode and not (self._use_vse_search or self._use_true_strategies):
             for d in self._drivers:
                 if d not in self._active_drivers_mapping:
                     actions = self.get_default_strategy(d) # get_available_actions(d)
@@ -657,21 +658,6 @@ class RaceEnv(PlanningEnv):
 
     def reset(self, quantile_strategies=False):
 
-        # set simulation options
-        # use_prob_infl:        activates probabilistic influences within the race simulation -> lap times, pit stop
-        #                       durations, race start performance
-        # create_rand_events:   activates the random creation of FCY (full course yellow) phases and retirements in the race
-        #                       simulation -> they will only be created if the according entries in the parameter file
-        #                       contain empty lists, otherwise the file entries are used
-        # use_vse:              determines if the VSE (virtual strategy engineer) is used to take tire change decisions
-        #                       -> the VSE type is defined in the parameter file (VSE_PARS)
-        # no_sim_runs:          number of (valid) races to simulate
-        # no_workers:           defines number of workers for multiprocess calculations, 1 for single process, >1 for
-        #                       multi-process (you can use print(multiprocessing.cpu_count()) to determine the max. number)
-        # use_print:            set if prints to console should be used or not (does not suppress hints/warnings)
-        # use_print_result:     set if result should be printed to console or not
-        # use_plot:             set if plotting should be used or not
-
         self.search_mode = False
         self.rollout_mode = False
         self._max_pit_count = MAX_PIT_COUNT
@@ -715,9 +701,9 @@ class RaceEnv(PlanningEnv):
                               use_prob_infl=self.sim_opts['use_prob_infl'],
                               create_rand_events=self.sim_opts['create_rand_events'],
                               monte_carlo_pars=pars_in["monte_carlo_pars"],
-                              #event_pars=pars_in["event_pars"],
                               event_pars = event_pars, # The simulator must not have FCY data at initialization
-                              disable_retirements=True)
+                              disable_retirements=True,
+                              clean_vse=False)
 
         self._race_sim.set_enable_vse(False)
 
@@ -769,6 +755,12 @@ class RaceEnv(PlanningEnv):
             self._drivers_mapping[self._drivers[i]] = i
             self._index_to_driver[i] = self._drivers[i]
 
+        # Add any safety car that would be deployed before the planning start lap
+        for lap in range(int(self.start_lap) + 2):
+            if lap in self._fcy_data:
+                end_lap, fcy_type = self._fcy_data[lap]
+                self.add_fcy_custom(fcy_type, stop=end_lap)
+
         # Use the default strategies before the actual start
         while self._race_sim.get_cur_lap() < self.start_lap:
             self._race_sim.step([])
@@ -784,6 +776,7 @@ class RaceEnv(PlanningEnv):
                                       self._compound_initials[2]: 2}
         else:
             raise ValueError("Unexpected compound availabilities number, {}", self._compound_initials)
+        self.n_actions
         self._available_compounds = {driver : deepcopy(default_availabilities) for driver in self._drivers}
 
         self.used_compounds = {driver: set() for driver in self._drivers}
@@ -859,17 +852,17 @@ class RaceEnv(PlanningEnv):
 
             # If any compound allows to complete the race, use the one that fits better the remaining laps
             if len(positive) > 0:
-                remaining = remaining[positive]
-                delta = delta[positive]
-                remaining = remaining.ravel()
-                delta = delta.ravel()
+                remaining_pos = remaining[positive]
+                delta_pos = delta[positive]
+                remaining_pos = remaining_pos.ravel()
+                delta_pos = delta_pos.ravel()
                 # Force change of compound to avoid penalty at the end of the race
                 if len(self.used_compounds[owner]) == 1:
                     start_compound = next(iter(self.used_compounds[owner]))
-                    allowed = np.argwhere(remaining != start_compound)
-                    remaining = remaining[allowed]
-                    delta = delta[allowed]
-                assert len(remaining) > 0, "Something wrong with tyre change constraint"
+                    allowed = np.argwhere(np.array(remaining_pos) != start_compound).ravel()
+                    if len(allowed) > 0:
+                        remaining = remaining_pos[allowed]
+                        delta = delta_pos[allowed]
 
             remaining = remaining.tolist()
             delta = delta.tolist()

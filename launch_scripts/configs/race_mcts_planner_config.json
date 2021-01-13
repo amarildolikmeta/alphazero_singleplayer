@@ -1,0 +1,35 @@
+{
+  "budget": 10000,
+  "parallel_execution": true,
+  "max_workers": 30,
+  "enable_scheduler": false,
+  "c": 100,
+  "eval_episodes": 100,
+  "scheduler_params": {
+    "min_depth": 15,
+    "min_budget": 20000,
+    "slope": 4.8
+  },
+  "races": {
+    "race_config": {
+      "controlled_drivers": [5],
+      "extra_pits": true,
+      "search_vse": false,
+      "rollout_vse": true,
+      "true_strategies": false,
+      "randomize_events": false
+    },
+    "race_list": [
+      {"track": "Monza", "year": 2018},
+      {"track": "Sochi", "year": 2017},
+      {"track": "Shanghai", "year": 2018},
+      {"track": "Spa", "year": 2017},
+      {"track": "Catalunya", "year": 2017},
+      {"track": "Melbourne", "year": 2017},
+      {"track": "Suzuka", "year": 2015},
+      {"track": "Suzuka", "year": 2016},
+      {"track": "Spielberg", "year": 2017},
+      {"track": "SaoPaulo", "year": 2018}
+    ]
+  }
+}

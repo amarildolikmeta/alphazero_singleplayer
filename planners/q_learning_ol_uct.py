@@ -49,6 +49,8 @@ def strategic_rollout(env, budget, max_depth=200, terminal=False, root_owner=Non
                       brain_on=True,
                       double_rollout=False):
     """Rollout from the current state following a default policy up to hitting a terminal state"""
+    assert not(no_pit and brain_on), "Rollout cannot have brain_on and no_pit active at the same time"
+
     if double_rollout:
         original_env = copy.deepcopy(env)
 
@@ -66,6 +68,7 @@ def strategic_rollout(env, budget, max_depth=200, terminal=False, root_owner=Non
 
         agent = root_owner
 
+        # print("### Rollout ###")
         while t / env.agents_number < max_depth and not done:
 
             actions = env.get_available_actions(agent, default_strategy=brain_on)
@@ -75,6 +78,9 @@ def strategic_rollout(env, budget, max_depth=200, terminal=False, root_owner=Non
             else:
                 prob = PROBS[len(actions)]
                 action = np.random.choice(actions, p=prob)
+
+            # if action > 0:
+            #     print("PIT")
 
             s, r, done, _ = env.partial_step(action, agent)
 
@@ -87,8 +93,11 @@ def strategic_rollout(env, budget, max_depth=200, terminal=False, root_owner=Non
 
             agent = env.get_next_agent()
 
+    # print()
+
     if double_rollout:
         ret/=2
+
     return ret, budget
 
 
@@ -294,10 +303,10 @@ class State(object):
         return return_, budget
 
     @staticmethod
-    def rollout(actions, env, budget, max_depth=200, terminal=False, brain_on=True, double_rollout=False, no_pit=True):
+    def rollout(actions, env, budget, max_depth=200, terminal=False, brain_on=True, double_rollout=False, no_pit=False):
 
         if isinstance(env, PlanningEnv):
-            # env.enable_rollout_mode()
+            env.enable_rollout_mode()
             owner = env.get_next_agent()
             ret, budget = strategic_rollout(env, budget, max_depth, terminal, owner,
                                             double_rollout=double_rollout, brain_on=brain_on, no_pit=no_pit)

@@ -281,7 +281,8 @@ class QL_UCTH_OL_MCTS(object):
         while budget > 0:
             state = self.root  # reset to root for new trace
             if not is_atari:
-                mcts_env = copy.deepcopy(Env)  # copy original Env to rollout from
+                mcts_env = copy.deepcopy(Env)
+                mcts_env.enable_search_mode()# copy original Env to rollout from
             else:
                 raise NotImplementedError
             mcts_env.seed(np.random.randint(1e7))

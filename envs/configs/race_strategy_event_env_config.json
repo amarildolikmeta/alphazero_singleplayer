@@ -1,10 +1,10 @@
 {
   "controlled_drivers": [5],
-  "year": 2017,
-  "track": "Spielberg",
   "extra_pits": true,
-  "vse": false,
+  "search_vse": false,
   "rollout_vse": false,
   "true_strategies": false,
-  "randomize_events": false
+  "randomize_events": false,
+  "track": "SaoPaulo",
+  "year": 2018
 }
