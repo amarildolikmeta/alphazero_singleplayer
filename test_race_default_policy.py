@@ -4,8 +4,7 @@ from envs.race_strategy_event import RaceEnv
 import numpy as np
 
 from tqdm import trange
-import seaborn as sns
-import matplotlib.pyplot as plt
+import copy
 
 MAX_P = [1]
 PROB_1 = [0.95, 0.05]
@@ -18,18 +17,17 @@ if __name__ == '__main__':
     today = datetime.now()
     timestamp = today.strftime('%Y-%m-%d_%H-%M')
 
-    race = "Shanghai_2018"
-    default_policy = False
+    race = "SaoPaulo_2018"
+    default_policy = True
 
-    env = RaceEnv(horizon=100, scale_reward=False, randomize_events=False, start_lap=8)
-
-    print(env._tyre_expected_duration)
+    env = RaceEnv(horizon=100, scale_reward=False, start_lap=8, config_path='./envs/configs/race_strategy_event_env_config.json')
 
     for i in range(1):
         rews = []
 
         for _ in trange(100):
             env.reset(quantile_strategies=False)
+            env.enable_search_mode()
             lap = 8
 
             done = False
@@ -119,12 +117,20 @@ if __name__ == '__main__':
                 #     action = 0
 
                 # China 2018 - Planner
-                if lap == 9:
-                    action = env.map_compound_to_action("A3")
-                elif lap == 19:
-                    action = env.map_compound_to_action("A4")
-                else:
-                    action = 0
+                # if lap == 9:
+                #     action = env.map_compound_to_action("A3")
+                # elif lap == 19:
+                #     action = env.map_compound_to_action("A4")
+                # else:
+                #     action = 0
+
+                #SaoPaulo 2018 - Planner
+                # if lap == 11:
+                #     action = env.map_compound_to_action("A4")
+                # elif lap == 23:
+                #     action = env.map_compound_to_action("A3")
+                # else:
+                #     action = 0
 
                 s, r, done, _ = env.partial_step(action, agent)
                 # TODO state compression
@@ -133,11 +139,12 @@ if __name__ == '__main__':
 
                 # print(env.used_compounds)
                 # print(env._pit_counts)
+                env = copy.deepcopy(env)
                 cumulative += r
                 lap += 1
                 if done:
                     rews.append(cumulative.tolist())
-            #env.save_results(race +"/" + timestamp)
+            env.save_results(race +"/" + timestamp)
         # print(rews)
         print("Return:", np.mean(rews, axis=0))
         print("std: +-", np.std(rews, axis=0))
