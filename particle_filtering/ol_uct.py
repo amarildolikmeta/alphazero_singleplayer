@@ -41,7 +41,7 @@ PROB_2 = [0.95, 0.025, 0.025]
 PROB_3 = [0.91, 0.03, 0.03, 0.03]
 PROBS = {1: MAX_P, 2: PROB_1, 3: PROB_2, 4:PROB_3}
 
-DEBUG = True
+DEBUG = False
 
 
 def strategic_rollout(env, budget, max_depth=200, terminal=False, root_owner=None,
@@ -101,8 +101,8 @@ class Action(object):
     def __init__(self, index, parent_state):
         self.index = index
         self.parent_state = parent_state
-        self.W = 0.0
-        self.M2 = 0.0
+        self._W = 0.0
+        self._M2 = 0.0
         self.n = 0
         self.Q = 0
         self.sigma = np.inf
@@ -141,13 +141,13 @@ class Action(object):
         delta = new_sample - self.Q
         self.Q += delta / self.n
         delta2 = new_sample - self.Q
-        self.M2 += delta * delta2
+        self._M2 += delta * delta2
 
     def finalize_aggregate(self):
         if self.n < 2:
             self.sigma = np.inf
         else:
-            self.sigma = self.M2 / self.n
+            self.sigma = self._M2 / self.n
 
 
 class State(object):
@@ -282,6 +282,7 @@ class OL_MCTS(object):
         self.csi = csi
         self.c = 1
         self.alpha = alpha
+        self.root_signature = None
 
     def create_root(self, env, budget):
         if self.root is None:
