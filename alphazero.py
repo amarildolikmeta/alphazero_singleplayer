@@ -153,7 +153,9 @@ if __name__ == '__main__':
                                                       q_learning=args.q_learning,
                                                       ucth=args.ucth,
                                                       log_timestamp=time_str,
-                                                      verbose=args.verbose)
+                                                      verbose=args.verbose,
+                                                      power=args.power,
+                                                      p=args.p)
 
             # TODO this works only with one experiment
 

@@ -28,7 +28,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
           particles=0, show_plots=False, n_workers=1, use_sampler=False, budget=np.inf, unbiased=False, biased=False,
           max_workers=100, variance=False, depth_based_bias=False, scheduler_params=None, out_dir=None,
           render=False, second_version=False, third_version=False, multiagent=False, csi=1., bayesian=False,
-          q_learning=False, ucth=False, log_timestamp=None, verbose=False) -> List[OfflineScore]:
+          q_learning=False, ucth=False, log_timestamp=None, verbose=False, power=False, p=100) -> List[OfflineScore]:
     parameter_dict = locals()  # Save the state of all variables for logging
     logger = Logger()
     logger.set_timestamp()
@@ -49,6 +49,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                 from planners.q_learning_ol_uct import QL_OL_MCTS
             elif ucth:
                 from planners.q_learning_ol_uct_h import QL_UCTH_OL_MCTS
+            elif power:
+                from particle_filtering.power_ol_uct import PowerOLMCTS
             else:
                 from particle_filtering.ol_uct import OL_MCTS
         elif biased:
@@ -152,6 +154,11 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                         print("\nUsing Q-Learning UCT-H\n")
                     mcts_maker = QL_UCTH_OL_MCTS
                     mcts_params['alpha'] = alpha
+                elif power:
+                    if verbose:
+                        print("\nUsing Power OLMCTS\n")
+                    mcts_maker = PowerOLMCTS
+                    mcts_params['p'] = p
                 else:
                     if verbose:
                         print("\nUsing OLMCTS\n")
