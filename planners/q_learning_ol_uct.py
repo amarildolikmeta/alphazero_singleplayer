@@ -134,7 +134,7 @@ class Action(object):
 
         return self.child_state, self.child_state.remaining_budget
 
-    def update(self, R, q_learning=False, mixed_q_learning=False, alpha=0.1, gamma=1., a=0.5, b=2):
+    def update(self, R, q_learning=False, mixed_q_learning=False, alpha=0.1, gamma=1., beta=2):
         """
         :param R: is the reward collected by the agent
         :type R: float
@@ -159,7 +159,7 @@ class Action(object):
         self.min_r = min(R, self.min_r)
 
         if mixed_q_learning:
-            alpha = 1/(b + self.n ** a)
+            lr = 1/(beta + self.n ** alpha)
             if self.n == 0:
                 self.Q = self.child_state.V + R
             else:
@@ -171,7 +171,7 @@ class Action(object):
                 else:
                     # TODO this eliminates zeroes, probably not always correct
                     opt_future = np.max([a.Q if a.Q < 0 else -np.inf for a in self.child_state.child_actions])
-                self.Q = self.Q + alpha * (R + gamma * opt_future - self.Q)
+                self.Q = self.Q + lr * (R + gamma * opt_future - self.Q)
             self.n += 1
 
         elif q_learning:
@@ -319,7 +319,7 @@ class QL_OL_MCTS(object):
     """ MCTS object """
 
     def __init__(self, root, root_index, na, gamma, model=None, variance=False, depth_based_bias=False, csi=1.,
-                 q_learning = False, alpha=0.1, mixed_q_learning=True):
+                 q_learning=False, alpha=0.1, beta=2., mixed_q_learning=True):
         self.root = root
         self.root_index = root_index
         self.na = na
@@ -330,7 +330,9 @@ class QL_OL_MCTS(object):
         self.c = 1
         self.q_learning = q_learning or mixed_q_learning
         self.alpha = alpha
+        self.beta = beta
         self.mixed_q_learning = mixed_q_learning
+        self.root_signature = None
 
     def create_root(self, env, budget):
         if self.root is None:
@@ -419,7 +421,7 @@ class QL_OL_MCTS(object):
                 terminal = False
             action = state.parent_action
             action.update(R, q_learning=self.q_learning, mixed_q_learning=self.mixed_q_learning,
-                          alpha=self.alpha, gamma=self.gamma)
+                          alpha=self.alpha, gamma=self.gamma, beta=self.beta)
             state = action.parent_state
             state.update()
 

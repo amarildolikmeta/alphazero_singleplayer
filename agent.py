@@ -149,6 +149,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
                         print("\nUsing Q-Learning MCTS\n")
                     mcts_maker = QL_OL_MCTS
                     mcts_params['alpha'] = alpha
+                    mcts_params['beta'] = beta
                 elif ucth:
                     if verbose:
                         print("\nUsing Q-Learning UCT-H\n")
