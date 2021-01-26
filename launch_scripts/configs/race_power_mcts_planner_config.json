@@ -1,10 +1,10 @@
 {
-  "planner_args": ["--q_learning"],
+  "planner_args": ["--power", "--p=150", "--scale_reward"],
   "budget": 10000,
   "parallel_execution": true,
-  "max_workers": 50,
+  "max_workers": 30,
   "enable_scheduler": false,
-  "c": 100,
+  "c": 4.7,
   "eval_episodes": 100,
   "scheduler_params": {
     "min_depth": 15,
@@ -15,7 +15,7 @@
     "race_config": {
       "controlled_drivers": [5],
       "extra_pits": true,
-      "search_vse": true,
+      "search_vse": false,
       "rollout_vse": false,
       "true_strategies": false,
       "randomize_events": false

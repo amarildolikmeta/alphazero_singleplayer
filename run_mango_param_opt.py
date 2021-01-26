@@ -8,7 +8,8 @@ import numpy as np
 
 from agent import agent
 from utils.parser_setup import parse_game_params, setup_parser, parse_alg_name
-from scipy.stats import uniform
+import pickle
+
 
 results = []
 base_dir = ''
@@ -42,6 +43,7 @@ if __name__ == '__main__':
     time_str = str(start_time)
     out_dir = "logs/mango/" + args.game + '/' + alg + str(args.budget)
     base_dir = out_dir
+    #TODO add missing arguments -> standardize?
     keys = {"game": args.game,
             "n_ep": args.n_ep,
             "n_mcts": args.n_mcts,
@@ -78,10 +80,19 @@ if __name__ == '__main__':
             'out_dir': out_dir,
             'second_version': args.second_version,
             'third_version': args.third_version,
-            'csi': args.csi}
+            'csi': args.csi,
+            'bayesian': args.bayesian,
+            'q_learning': args.q_learning,
+            'ucth': args.ucth,
+            'log_timestamp': time_str,
+            'verbose': args.verbose,
+            'power': args.power,
+            'p': args.p,
+            'beta': args.beta}
 
 
     # @scheduler.parallel(n_jobs=3)
+
     @scheduler.serial
     def objective(**params):
         keywords = deepcopy(keys)
@@ -101,16 +112,25 @@ if __name__ == '__main__':
         print("Standard deviation:", np.std(means))
         print()
         results.append((params, np.mean(means), np.std(means), len(means)))
-        score = -np.mean(means)
-        return score
 
-    param_space = {"c": np.arange(0.1, 2.5, 0.1).tolist(),
-                   #"csi": np.arange(0.25, 10.25, 0.25).tolist(),
-                   "alpha": np.arange(0.4, 0.95, 0.05).tolist()}
+        # The optimizer minimizes the score, ensure it is always negative to obtain a maximization
+        mean_score = np.mean(means)
+        if mean_score < 0:
+            mean_score = -mean_score
+        with open(os.path.join(out_dir, "results.pickle"), 'wb') as pickle_file:
+            pickle.dump(results, pickle_file)
+        return mean_score
+
+    param_space = {"c": np.arange(50, 160, 10).tolist(),
+                   "alpha": np.arange(0.1, 3.1, 0.1).tolist(),
+                   "beta": np.arange(1, 10, 0.5).tolist()}
+                   # "alpha": np.arange(0.4, 0.95, 0.05).tolist()}
 
     conf_dict = dict(num_iteration=args.opt_iters, initial_random=3)
 
     tuner = Tuner(param_space, objective, conf_dict)
-    results = tuner.minimize()
-    print('best parameters:', results['best_params'])
-    print('best return:', results['best_objective'])
+    final_result = tuner.minimize()
+    print('best parameters:', final_result['best_params'])
+    print('best return:', final_result['best_objective'])
+
+    # TODO save the parameters in a log folder

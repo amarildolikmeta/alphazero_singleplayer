@@ -3,7 +3,7 @@ import json
 
 if __name__ == '__main__':
     # Load configuration information from the json file
-    with open('launch_scripts/configs/race_mcts_planner_config.json') as config_file:
+    with open('launch_scripts/configs/race_power_mcts_planner_config.json') as config_file:
         config_data = json.load(config_file)
         config_file.close()
 
@@ -16,16 +16,22 @@ if __name__ == '__main__':
     races = config_data['races']['race_list']
     race_parameters = config_data['races']['race_config']
     eval_episodes = config_data['eval_episodes']
+    planner_args_str = ""
+    for arg in config_data['planner_args']:
+        planner_args_str = planner_args_str + arg + " "
+    planner_args_str = planner_args_str[:-1]
 
     # Build command string
     #command = 'taskset -c 1-22 python3 alphazero.py --game=RaceStrategy-v2 --budget={} --gamma=1 --max_ep_len=100 ' \
     command = 'python3 alphazero.py --game=RaceStrategy-v2 --budget={} --gamma=1 --max_ep_len=100 ' \
               '--eval_freq=1 --temp=0 --n_ep=1 --eval_episodes={} --mcts_only --particles=1 ' \
               '--n_experiments=1 --unbiased {} --max_workers={} {} --min_depth={} --slope={} --min_budget={} ' \
-              '--q_learning --c={}'.format(budget, eval_episodes, parallel, max_workers, enable_scheduler,
+              '{} --c={}'.format(budget, eval_episodes, parallel, max_workers, enable_scheduler,
                                             scheduler_params['min_depth'],
                                             scheduler_params['slope'],
-                                            scheduler_params['min_budget'], c)
+                                            scheduler_params['min_budget'],
+                                            planner_args_str,
+                                            c)
 
     # Backup old config file
     os.rename(r'envs/configs/race_strategy_event_env_config.json',

@@ -155,7 +155,8 @@ if __name__ == '__main__':
                                                       log_timestamp=time_str,
                                                       verbose=args.verbose,
                                                       power=args.power,
-                                                      p=args.p)
+                                                      p=args.p,
+                                                      beta=args.beta)
 
             # TODO this works only with one experiment
 

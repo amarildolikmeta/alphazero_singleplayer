@@ -1,6 +1,12 @@
 import argparse
+import os
 
 from utils.logging import Logger
+
+
+def check_parameters(parsed_args):
+    if not parsed_args.gpu:
+        os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 
 def parse_game_params(args):
@@ -108,6 +114,9 @@ def setup_parser():
     parser.add_argument('--bayesian', action='store_true', help='Enables Bayesian OL UCT in place of regular OL UCT')
     parser.add_argument('--q_learning', action='store_true', help='Enables Q-learning OL UCT in place of regular OL UCT')
     parser.add_argument('--ucth', action='store_true', help='Enables Q-learning OL UCT-H in place of regular OL UCT')
+    parser.add_argument('--power', action='store_true', help='Enables Power OL UCT in place in place of regular OL UCT')
+    parser.add_argument('--p', type=float, default=100, help='Parameter for Power OL UCT')
+    parser.add_argument('--beta', type=float, default=2., help='Constant for learning rate schedule, only for mixed QL')
 
     # Hyperparameter optimization args
     parser.add_argument('--opt_iters', type=int, default=20, help='Number of hyperparameter tries,'
@@ -132,6 +141,8 @@ def setup_parser():
     parser.add_argument('--exp_name', default=None, type=str, help='Additional tag to identify experiment')
 
     parsed = parser.parse_args()
+
+    # TODO check if conflicting planners are enabled
 
     Logger(enable_neptune=parsed.neptune, verbosity_level=int(parsed.verbose), experiment_name=parsed.exp_name)
 
