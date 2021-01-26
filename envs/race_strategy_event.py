@@ -431,8 +431,12 @@ class RaceEnv(PlanningEnv):
 
     def add_fcy_custom(self, fcy_type, stop=-1)->None:
         self._race_sim.handle_custom_fcy_generation(fcy_type, stop=stop)
-        if self._add_extra_pits:
-            self._max_pit_count += 1
+        # if self._add_extra_pits:
+        #     self._max_pit_count += 1
+
+    def is_under_fcy(self, driver):
+        assert self._race_sim is not None, "[ERROR] Env has not been reset yet"
+        return self._race_sim.is_under_fcy(driver)
 
     def map_action_to_compound(self, action_index: int) -> str:
         """Returns the compound name string for the desired input action"""
@@ -466,9 +470,6 @@ class RaceEnv(PlanningEnv):
             self._last_pit[owner] += 1
         else:  # Pit, reset time and remove a compound unit
             self._last_pit[owner] = 0
-            # print("################")
-            # print(self._pit_counts)
-            # print(self._available_compounds)
             compound = self.map_action_to_compound(action)
             assert self._available_compounds[owner][compound] > 0, \
                 "Trying to pit for a missing tyre unit"
@@ -547,7 +548,7 @@ class RaceEnv(PlanningEnv):
             return self.get_state(), np.zeros(self.agents_number), True, {}
 
         pit_info = []
-        for action, idx in zip(actions, range(len(actions))):
+        for idx, action in enumerate(actions):
             if action > 0:
                 compound = self.map_action_to_compound(action)
                 pit_info.append((self._index_to_active[idx], [compound, 0, 0.]))
@@ -578,21 +579,25 @@ class RaceEnv(PlanningEnv):
         self._t += 1
         self._lap = self._race_sim.get_cur_lap()
 
+        # Clip the lap time to a maximum value, to help with normalization
         reward = np.ones(self.agents_number) * self.max_lap_time
         for driver in self._active_drivers:
             active_index = self._active_drivers_mapping[driver]
             index = self._drivers_mapping[driver]
             reward[active_index] = -np.clip(lap_times[index], 0, self.max_lap_time)
 
+        # Normalize the reward between 0 and 1, if needed
         if self.scale_reward:
             reward /= self.max_lap_time
             if self.positive_reward:
                 reward = 1 + reward
 
-        # print(self._lap, self._race_length, self._terminal)
+        # Do not consider pit stop in total count if was performed under safety car
+        for driver, strategy in pit_info:
+            if self.is_under_fcy(driver):
+                self._pit_counts[driver] -= 1
 
-        # if self._terminal:
-        #     print("//////////////////////////////////", reward)
+        # print(self._lap, self._race_length, self._terminal)
 
         return self.get_state(), reward, self.is_terminal(), {}
 
