@@ -2,7 +2,7 @@ import numpy as np
 from envs.FiniteMDP import FiniteMDP
 
 
-def generate_chain(n=5, slip=0.1, small=2, large=10, gamma=0.9999, horizon=1000):
+def generate_chain(n=5, slip=0.01, small=2, large=15, gamma=0.9999, horizon=1000):
         nA = 2
         nS = n
         p = compute_probabilities(slip, nS, nA)
@@ -38,3 +38,21 @@ def compute_mu(nS):
         mu[0]=1
         return mu
 
+if __name__ == '__main__':
+    horizon=20
+    eval_episodes = 50
+    mdp = generate_chain(horizon=horizon)
+    ret_vec = []
+    a = 0
+
+    for j in range(0, eval_episodes):
+        s = mdp.reset()
+        ret = 0
+        for i in range(1,horizon+1):
+            s, r, done, prices = mdp.step(a)
+            # print("Reward:" + str(r) + " State:" + str(s) )
+            mdp.set_signature(mdp.get_signature())
+            ret += r
+        ret_vec += [ret]
+
+    print("average: ", np.average(ret_vec), " standard deviation: ", np.std(ret_vec))
