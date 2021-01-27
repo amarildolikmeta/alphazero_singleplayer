@@ -106,21 +106,29 @@ if __name__ == '__main__':
     data = pd.read_csv(path)
 
     # calibrate and simulate GBM data with exact log likelihood
-    log_returns = np.log(data['Price'].values[1:]) - np.log(data['Price'].values[:-1])
-    params1 = GBM_calibration(log_returns)
-    print('parameters are', params1)
-    GBM_simulation(data, params1)
+    # log_returns = np.log(data['Price'].values[1:]) - np.log(data['Price'].values[:-1])
+    # params1 = GBM_calibration(log_returns)
+    # print('parameters are', params1)
+    # GBM_simulation(data, params1)
+    #
+    # # calibrate and simulate GBM data with optimized log likelihood
+    # x0 = np.array([ 0.001, 0.0001])
+    # params2 = optimize.minimize(GBM_calibration_ll, x0=x0, args=log_returns, method='Nelder-Mead')
+    # print('parameters are', params2.x)
+    # GBM_simulation(data, params2.x)
 
-    # calibrate and simulate GBM data with optimized log likelihood
-    x0 = np.array([ 0.001, 0.0001])
-    params2 = optimize.minimize(GBM_calibration_ll, x0=x0, args=log_returns, method='Nelder-Mead')
-    print('parameters are', params2.x)
-    GBM_simulation(data, params2.x)
+    fun = lambda x: (x[0] - 1) ** 2 + (x[1] - 2.5) ** 2
+    cons = ({'type': 'ineq', 'fun': lambda x: x[0] - 2 * x[1] + 2},
+            {'type': 'ineq', 'fun': lambda x: -x[0] - 2 * x[1] + 6},
+            {'type': 'ineq', 'fun': lambda x: -x[0] + 2 * x[1] + 2})
+    bnds = ((0, None), (0, None))
+    res = optimize.minimize(fun, (2, 0), method='SLSQP', bounds=bnds,
+                   constraints=cons)
 
     x0 = np.array([0.1, 1.0, 0.1, 0.1, 0.1])
     returns = price2ret(data)
     bnds = ((None, None), (0, None), (0, None), (0, None), (None, None))
-    cons = ({'type': 'ineq', 'fun': lambda x: 1 - x[2] - x[3]*(1+x[4])})
+    cons = ({'type': 'ineq', 'fun': lambda x: 1 - x[2] - x[3]*(1+x[4]**2)})
     params3 = optimize.minimize(GARCH_calibration, x0=x0, args=returns, method="SLSQP", bounds=bnds, constraints=cons)
     print('parameters are', params3.x)
     NGARCH_simulation(10, len(data), params3.x, data['Price'].values[0], data)
