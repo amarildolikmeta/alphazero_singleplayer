@@ -55,8 +55,8 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     if parallelize_evaluation:
         print("The evaluation will be parallel")
 
-    parameter_list = {"game": game, "n_ep": n_ep, "n_mcts": n_mcts, "max_ep_len": max_ep_len, "lr": lr, "c": c,
-                      "gamma": gamma, "data_size": data_size, "batch_size": batch_size, "temp": temp,
+    parameter_list = {"game": game, "n_ep": n_ep, "n_mcts": n_mcts, "budget": budget, "max_ep_len": max_ep_len,
+                      "lr": lr, "c": c, "gamma": gamma, "data_size": data_size, "batch_size": batch_size, "temp": temp,
                       "n_hidden_layers": n_hidden_layers, "n_hidden_units": n_hidden_units, "stochastic": stochastic,
                       "eval_freq": eval_freq, "eval_episodes": eval_episodes, "alpha": alpha, "n_epochs": n_epochs,
                       "out_dir": numpy_dump_dir, "pre_process": pre_process, "visualize": visualize,
@@ -99,7 +99,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     timepoints = []
 
     # Environments
-    if game == 'Trading-v0' or 'Trading_discrete-v0':
+    if game == 'Trading-v0' or game == 'Trading_discrete-v0':
         game_params['save_dir'] = out_dir #logger.save_dir
         print(out_dir)
     Env = make_game(game, game_params)

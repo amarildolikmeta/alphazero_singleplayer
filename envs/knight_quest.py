@@ -17,6 +17,7 @@ MAP = [
     entry_point='envs.knight_quest:KnightQuest',
 )'''
 
+
 class KnightQuest(DiscreteEnv):
     def __init__(self,
                  armor_move_prob=0.5,

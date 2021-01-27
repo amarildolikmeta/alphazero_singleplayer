@@ -2,9 +2,8 @@ import numpy as np
 from mdp import random_mdp
 from matplotlib import pyplot
 import time
-import seaborn as sns
-
-# sns.set_style('darkgrid')
+from rl.make_game import make_game
+from utils.parser_setup import setup_parser, parse_game_params
 
 
 def check_sub_trajectory(nu, distribution, depth):
@@ -33,20 +32,21 @@ def compute_ess(weights):
 class Particle(object):
     """Class storing information about a particle"""
 
-    def __init__(self, state, signature, reward, terminal, prob, parent_particle=None):
+    def __init__(self, state, signature, reward, terminal, prob, parent_particle=None, weight=1):
         self.state = state
         self.signature = signature
         self.reward = reward
         self.terminal = terminal
         self.parent_particle = parent_particle
         self.prob = prob
+        self.weight = weight
 
     def __str__(self):
         return str(self.state)
 
 
 class Node:
-    def __init__(self, env, action_sequence, true_P, depth=0,  parent_node=None, ns=10):
+    def __init__(self, env, action_sequence, true_P, depth=0,  parent_node=None, ns=10, fast_estimation=False):
         self.env = env
         self.action_sequence = action_sequence
         self.n = 0
@@ -57,22 +57,33 @@ class Node:
         self.parent_node = parent_node
         self.child_node = None
         self.particles = []
-        self.xs = []
-        self.sampling_depths = []
-        self.trajectories = []
         self.visits = np.zeros(ns)
         self.true_P = true_P
-        self.approx_ps = []
-        self.sampled_particles = []
-        self.sampling_distributions = []
-        self.passing_particles = []
-        self.last_particles = []
-        self.ps = []
-        self.partial_q_sums = []
         self.estimated_n = 0
+        self.reset(fast_estimation=fast_estimation)
+        self.fast_estimation = fast_estimation
+
+    def reset(self, fast_estimation=False, n=100):
+
+        if fast_estimation:
+            pass
+        else:
+            self.approx_ps = []
+            self.sampled_particles = []
+            self.sampling_distributions = []
+            self.passing_particles = []
+            self.last_particles = []
+            self.ps = []
+            self.partial_q_sums = []
+            self.xs = []
+            self.sampling_depths = []
+            self.trajectories = []
 
     def add_child(self, node):
         self.child_node = node
+
+    def sample_particle(self):
+        return np.random.choice(self.particles)
 
     def get_approx_state_dist(self):
         return np.copy(self.visits / self.num_particles)
@@ -85,7 +96,14 @@ class Node:
         self.num_particles += 1
         self.visits[particle.state] += 1
 
+    def _estimate_value_fast(self):
+        if self.estimated_n == self.n:
+            return None
+        self.partial_q_sums[self.estimated_n:self.n] = 0
+
     def estimate_value(self):
+        if self.fast_estimation:
+            self._estimate_value_fast()
         ps = self.ps
         trajectories = self.trajectories
         sampling_depths = self.sampling_depths
@@ -108,7 +126,6 @@ class Node:
         for i in range(self.n - self.estimated_n):
             # for every "new" trajectory
             current_nu = last_nus[i]
-            current_sampled_particle = last_sampled_particles[i]
             current_sampling_depth = last_sampling_depths[i]
             current_sampling_distribution = last_sampling_distributions[i][0]
             current_sampling_num_particles = last_sampling_distributions[i][1]
@@ -119,7 +136,6 @@ class Node:
             # compute the true trajectory distribution
             current_p_nu = current_final_particle.prob / current_passing_particle.prob * \
                            self.true_P[current_passing_state]
-            qs_new = []
             partial_q_sum_new = 0
             for j in range(T):
                 # weight the current trajectory in all sample distributions
@@ -143,7 +159,6 @@ class Node:
                     prob = prob[current_passing_state]
                     prob *= current_final_particle.prob / current_passing_particle.prob
                     weight = prob
-                qs_new.append(weight)
                 partial_q_sum_new += weight
                 # weight old trajectories in the current sample distribution
                 if j < self.estimated_n:
@@ -171,7 +186,7 @@ class Node:
             partial_q_sums.append(partial_q_sum_new)
             ps.append(current_p_nu)
         new_weights = np.array(ps) / np.array(partial_q_sums)
-        new_weights = np.array(new_weights) / np.sum(new_weights)
+        new_weights = new_weights / np.sum(new_weights)
         self.ps = ps
         self.partial_q_sums = partial_q_sums
         self.weights = new_weights
@@ -185,7 +200,6 @@ class Node:
         self.trajectories.append(trajectory)
         self.sampling_depths.append(sampling_depth)
         self.approx_ps.append(approx_p)
-        self.sampling_depths.append(sampling_depth)
         self.sampled_particles.append(sampled_particle)
         self.sampling_distributions.append(sampling_distribution)
         self.passing_particles.append(passing_particle)
@@ -222,54 +236,55 @@ class Estimator:
         assert len(ps) == T - 1
 
         last_nu = trajectories[-1]
-        last_particle = particles[-1]
+        last_sampled_particle = particles[-1]
         last_depth = depths[-1]
         last_distribution = distributions[-1]
-        last_p_nu = last_particle.prob
+        last_p_nu = last_sampled_particle.prob
         last_num_particles = distributions[-1][1]
-        qs_new = []
         partial_q_sum_new = 0
         for j in range(T):
+            # weight new trajectory over all distributions
             num_particles_j = distributions[j][1]
-            if depths[j] > last_depth: # and particles[j].prob != last_p_nu
-                qs_new.append(0)
+            if depths[j] > last_depth:
+                weight = 0
             else:
                 valid, valid_particle = check_sub_trajectory(nu=last_nu,
                                                              distribution=distributions[j][0][:num_particles_j],
-                                                             depth=depths[j]) #, other_depth=last_depth
+                                                             depth=depths[j])
                 if valid:
                     if depths[j] == last_depth:
                         p_nu_j = 1
                     else:
-                        p_nu_j = last_p_nu / valid_particle.prob
-                    qs_new.append(p_nu_j / num_particles_j)
-                    partial_q_sum_new += p_nu_j / num_particles_j
+                        p_nu_j = last_p_nu / last_nu[depths[j]].prob #valid_particle.prob
+                    weight = p_nu_j / num_particles_j
                 else:
-                    qs_new.append(0)
-            # compute q_T(\nu_j)
+                    weight = 0
+            partial_q_sum_new += weight
+            # compute old trajectories weights over the new distribution q
             if j == T - 1:
                 break
             if last_depth > depths[j]: #and last_p_nu != particles[j].prob:
-                partial_q_sums[j] += 0
+                weight = 0
             else:
-                valid, valid_particle = check_sub_trajectory(nu=trajectories[j],
-                                                             distribution=last_distribution[0][:last_num_particles],
-                                                             depth=last_depth)#, other_depth=depths[j]
-                # if i == j:
-                #     assert valid, "Error in checking validity of behavioral distribution"
-                if valid:
-                    if depths[j] == last_depth:
-                        p_nu_j = 1
-                    else:
-                        p_nu_j = last_particle.prob / valid_particle.prob
-                    partial_q_sums[j] += p_nu_j / last_num_particles
-                else:
-                    partial_q_sums[j] += 0
+                # valid, valid_particle = check_sub_trajectory(nu=trajectories[j],
+                #                                              distribution=last_distribution[0][:last_num_particles],
+                #                                              depth=last_depth)
+                # if valid:
+                #     if depths[j] == last_depth:
+                #         p_nu_j = 1
+                #     else:
+                #         p_nu_j = last_sampled_particle.prob / valid_particle.prob
+                #     weight = p_nu_j / last_num_particles
+                # else:
+                #     weight = 0
+                p_nu_j = particles[j].prob / trajectories[j][last_depth].prob
+                weight = p_nu_j / last_num_particles
+            partial_q_sums[j] += weight
 
         partial_q_sums.append(partial_q_sum_new)
         ps.append(last_p_nu)
         new_weights = np.array(ps) / np.array(partial_q_sums)
-        new_weights = np.array(new_weights) / np.sum(new_weights)
+        new_weights = new_weights / np.sum(new_weights)
         return new_weights, ps, partial_q_sums
 
     def compute_bh_weights(self, trajectories, particles, depths, distributions, T):
@@ -303,9 +318,13 @@ class Estimator:
         return weights
 
     def should_resample(self, node, full_resampling_weights=None):
-        particles = node.particles
-        candidate_particle = np.random.choice(particles)
+        candidate_particle = node.sample_particle()
         p = candidate_particle
+        ess = 0
+        # particles = node.particles
+        # num_particles = len(particles)
+        # # for p in particles:
+        # candidate_particle = p
         trajectory = [p]
         while p.parent_particle is not None:
             p = p.parent_particle
@@ -314,7 +333,7 @@ class Estimator:
         new_weights = self.get_new_weights_balance_heuristic(trajectory=trajectory, depth=node.depth,
                                                              particle=candidate_particle,
                                                              distribution=(node.particles, node.num_particles))
-        ess = compute_ess(new_weights)
+        ess += compute_ess(new_weights) #/ num_particles
         sample_size = compute_ess(full_resampling_weights)
 
         full_cost = self.full_cost
@@ -347,7 +366,7 @@ class Estimator:
             evaluations.append(sum_returns / m)
         return evaluations
 
-    def backup(self, node, particle, sampled_particle, sampled_node):
+    def backup(self, node, particle, sampled_particle, sampled_node, fast=False):
         last_node = node
         last_particle = particle
         trajectory = []
@@ -365,7 +384,6 @@ class Estimator:
         self.depths.append(sampled_node.depth)
         self.T += 1
         weights = self.get_weights_balance_heuristic()
-        weights = np.array(weights) / np.sum(weights)
         ess = compute_ess(weights)
         self.ess = ess
         R = 0
@@ -399,7 +417,7 @@ class Estimator:
             prev_state = s
         return particle
 
-    def run_particle_estimation(self, n=1000, budget=1000):
+    def run_particle_estimation(self, n=1000, budget=1000, fast=False):
         evaluations = []
         starting_state = self.starting_state
         signature = self.starting_signature
@@ -433,7 +451,7 @@ class Estimator:
                                             parent_particle=parent_particle)
                         P = np.dot(P, self.env.P[:, a, :])
                         new_node = Node(env=self.env, action_sequence=self.action_sequence, true_P=P, parent_node=node,
-                                        depth=depth+1, ns=self.env.P.shape[0])
+                                        depth=depth+1, ns=self.env.P.shape[0], fast_estimation=fast)
                         new_node.add_particle(particle)
                         node.add_child(new_node)
                         node = new_node
@@ -442,12 +460,8 @@ class Estimator:
                     remaining_budget -= self.full_cost
                     j = 1
                     last_node = node
-                    self.backup(last_node, particle, sampled_node=root, sampled_particle=root_particle)
-                    # node = node.parent_node
-                    # while node.parent_node is not None:
-                    #     node.estimate_value()
-                    #     node = node.parent_node
-                    # node = last_node
+                    self.backup(last_node, particle, sampled_node=root, sampled_particle=root_particle, fast=fast)
+
                     self.last_node = last_node
                 else:
                     node = last_node.parent_node
@@ -473,6 +487,7 @@ class Estimator:
                     if resampled:
                         resampling_count += 1
                         resampling_depths[starting_node.depth - 1] += 1
+                    # starting_particle = starting_node.sample_particle()
                     generated_particle = self.resample_from_particle(node=starting_node, particle=starting_particle)
                     remaining_budget -= (self.full_cost - starting_node.depth)
                     self.backup(self.last_node, generated_particle, sampled_node=starting_node,
@@ -487,13 +502,15 @@ class Estimator:
                 t -= 1
                 node = node.parent_node
             weights = self.weights
-            weights = np.array(weights) / np.sum(weights)
             estimated_values[0] = np.dot(weights, self.xs)
             evaluations.append(estimated_values)
         return evaluations
 
 
-def generate_mdp(num_states, num_actions, num_deterministic, alpha):
+def generate_mdp(num_states, num_actions, num_deterministic, alpha, game=None, game_params=None):
+    if game is not None:
+        mdp = make_game(game, game_params=game_params)
+        return mdp
     mdp = random_mdp(n_states=num_states, n_actions=num_actions)
     mdp.P0 = np.zeros(num_states)
     mdp.P0[0] = 1.
@@ -512,22 +529,29 @@ def generate_mdp(num_states, num_actions, num_deterministic, alpha):
 
 
 if __name__ == '__main__':
+    args = setup_parser()
+    game_params = parse_game_params(args)
     action_length = 10
     num_actions = 3
     num_states = 10
     gamma = 1.
     alpha = 0.9
     num_deterministic = 7
-    num_experiments = 100
+    if args.estimate_env:
+        game = args.game
+    else:
+        game = None
+    mdp = generate_mdp(num_states, num_actions, num_deterministic, alpha, game=game, game_params=game_params)
+    num_actions = mdp.P.shape[1]
     action_sequence = np.random.choice(num_actions, size=action_length)
-    mdp = generate_mdp(num_states, num_actions, num_deterministic, alpha)
     s = mdp.reset()
 
     estimator = Estimator(mdp, action_sequence, gamma=gamma)
-    n = 400
-    budget = 100
+    n = 200
+    budget = args.budget
     bins = 50
     samples = n
+    num_experiments = n
 
     fig, ax = pyplot.subplots()
 
@@ -572,6 +596,30 @@ if __name__ == '__main__':
     ax.set_ylabel("Error")
     pyplot.legend()
     pyplot.show()
+
+
+    mean_mc = np.array(estimations_mc).mean(axis=0)
+    mean_bh = np.array(estimations_particle_bh).mean(axis=0)
+    std_mc = np.array(estimations_mc).std(axis=0)
+    std_bh = np.array(estimations_particle_bh).std(axis=0)
+    pyplot.plot(true_mean, label='true mean')
+    pyplot.plot(mean_mc, label='mc mean')
+    pyplot.plot(mean_bh, label='particle  mean')
+    pyplot.title(args.game)
+    pyplot.legend()
+    pyplot.show()
+
+    pyplot.plot((mean_mc - true_mean) ** 2, label='bias_mc squared')
+    pyplot.plot((mean_bh - true_mean) ** 2, label='bias_particle squared')
+    # pyplot.legend()
+    # pyplot.show()
+
+    pyplot.plot(std_mc ** 2, label='variance mc')
+    pyplot.plot(std_bh ** 2, label='variance particle')
+    pyplot.legend()
+    pyplot.show()
+
+    print()
     # # pyplot.hist(estimations_particle_bh, bins, label='PARTICLE BH', density=True, color='purple')
     # sns.distplot(estimations_particle_bh, ax=ax, kde=True, label='PARTICLE BH', color='purple')
     # pyplot.xlim(mean - 8 * std_hat, mean + 8 * std_hat)

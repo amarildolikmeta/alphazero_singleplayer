@@ -112,7 +112,10 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=
         a = wrapper.pi_wrapper(s, t, max_len - t)
 
         # Check if the action is a pit_stop
-        if a == 0:
+        if hasattr(wrapper.get_mcts(), 'num_resamplings'):
+            num_resamplings = wrapper.get_mcts().num_resamplings
+            action_counter += num_resamplings
+        elif a == 0:
             action_counter += 1
 
         ns, r, done, inf = wrapper.step(a)
@@ -149,5 +152,6 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=
         print("Episode {0}: Return = {1}, Duration = {2}, Time = {3} s".format(i, rew, t, time.time() - start))
 
     # signature = wrapper.get_env().index_to_box(wrapper.get_env().get_signature()['state'])
-
+    if hasattr(wrapper.get_mcts(), 'num_resamplings'):
+        action_counter /= t
     return rew, t, action_counter

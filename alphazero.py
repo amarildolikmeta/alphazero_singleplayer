@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+
 import time
 from utils.parser_setup import setup_parser, parse_game_params, parse_alg_name
 plt.style.use('ggplot')
@@ -177,7 +178,9 @@ if __name__ == '__main__':
                     "budget": [args.budget] * len(indices)}
 
             # Store the count of pit stops only if analyzing Race Strategy problem
-            if "RaceStrategy" in args.game:
+            if args.model_based:
+                data["avg_resampling"] = counts
+            elif "RaceStrategy" in args.game:
                 data["pit_count"] = counts
 
             # Write the dataframe to csv

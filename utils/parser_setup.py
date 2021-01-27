@@ -15,10 +15,9 @@ def parse_game_params(args):
     if args.game == 'GridworldDiscrete':
         game_params['scale_reward'] = args.scale_reward
         game_params['fail_prob'] = args.fail_prob
-        # TODO modify this to return to original taxi problem
-    elif args.game in ['RiverSwim-continuous', 'MountainCar', 'Cartpole']:
+    elif args.game in ['RiverSwim-continuous', 'MountainCar', 'Cartpole', 'RiverSwim']:
         game_params['fail_prob'] = args.fail_prob
-        if args.game in ['RiverSwim-continuous']:
+        if args.game in ['RiverSwim-continuous', 'RiverSwim']:
             game_params['dim'] = args.chain_dim
     elif args.game == 'RaceStrategy':
         game_params['scale_reward'] = args.scale_reward
@@ -26,7 +25,6 @@ def parse_game_params(args):
         game_params['scale_reward'] = args.scale_reward
         game_params['n_cores'] = args.max_xgb_workers
     return game_params
-
 
 
 def parse_alg_name(args):
@@ -126,5 +124,7 @@ def setup_parser():
     parser.add_argument('--max_ret', type=float, default=0.07, help='Maximum return in case of discrete enviroment')
     parser.add_argument('--n_ret', type=int, default=20, help='Number of returns in case of discrete enviroment')
     parser.add_argument('--log_actions', action='store_true', help='Write excel file and plot graphs')
+
+    parser.add_argument('--estimate_env', action='store_true', help='use a true env in particle tests')
 
     return parser.parse_args()

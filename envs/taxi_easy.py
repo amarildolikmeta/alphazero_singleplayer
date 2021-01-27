@@ -131,49 +131,6 @@ def generate_taxi_easy(grid, prob=.9, rew=(1, 3, 15), gamma=.99, horizon=np.inf,
 
     return TaxiEasy(p=p, mu=mu, rew=r, horizon=horizon, gamma=gamma, box=box, grid_map=grid_map,
                     passenger_list=passenger_list, cell_list=cell_list)
-    # env = FiniteMDP(p, r, mu, gamma, horizon)
-    #
-    # if box:
-    #     passenger_indexes = [np.where((np.array(cell_list) == passenger_list[i]).all(axis=1))[0] for i in
-    #                          range(len(passenger_list))]
-    #     passenger_states = cartesian([[0, 1]] * len(passenger_list))
-    #     goals = np.argwhere(np.array(grid_map) == 'G')
-    #     goal_indexes = [np.where((np.array(cell_list) == goals[i]).all(axis=1))[0] for i in range(len(goals))]
-    #     passenger_states = cartesian([[0, 1]] * len(passenger_list))
-    #     # state =[my_position, [passenger_positions], goal_position, [passenger_states]]
-    #     env.observation_space = spaces.Box(low=np.zeros(1 + len(goals) + 2 * len(passenger_list)),
-    #                                        high=np.ones(1 + len(goals) + 2 * len(passenger_list)))
-    #     env._step = env.step
-    #     env._reset = env.reset
-    #
-    #     def index_to_box(s):
-    #         pos = s % len(cell_list)
-    #         st = cell_list[pos[0]]
-    #         current_passenger_state = np.zeros(len(passenger_list))
-    #
-    #         idx = s // len(cell_list)
-    #         current_passenger_state[:] = passenger_states[idx]
-    #         state = np.array(pos.tolist() + np.array(passenger_indexes).flatten().tolist() +\
-    #                 np.array(goal_indexes).flatten().tolist() + current_passenger_state.flatten().tolist())
-    #         if (current_passenger_state != 0).any():
-    #             pass
-    #         #normalize indexes
-    #         state[:-len(passenger_list)] /= len(cell_list)
-    #         return state
-    #
-    #     def step(a):
-    #         s, reward, absorbing, info = env._step(a)
-    #         state = index_to_box(s)
-    #         return np.array(state), reward, absorbing, info
-    #
-    #     def reset(s=None):
-    #         s = env._reset(s)
-    #         state = index_to_box(s)
-    #         return np.array(state)
-    #
-    #     env.step = step
-    #     env.reset = reset
-    # return env
 
 
 def parse_grid(grid):

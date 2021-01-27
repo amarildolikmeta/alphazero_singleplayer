@@ -1,10 +1,6 @@
-import gym
 import numpy as np
-from gym import spaces
 from gym import register
 import time
-import errno
-import os
 from envs.FiniteMDP import FiniteMDP
 
 

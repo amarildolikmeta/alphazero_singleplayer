@@ -591,6 +591,7 @@ class PFModelBasedMCTS(OL_MCTS):
         if is_atari:
             raise NotImplementedError
         self.full_cost = max_depth
+        self.num_resamplings = 0
         while budget > 0:
 
             state = self.root  # reset to root for new trace
@@ -624,11 +625,9 @@ class PFModelBasedMCTS(OL_MCTS):
                     max_margin = margin
                     starting_particle = particle
                     starting_node = state
+                    sampling_depth = state.depth
                 if action.child_state is not None:
                     state = action.child_state
-                    # terminal, budget = state.sample(mcts_env, action.index, budget)
-                    # if terminal:
-                    #     break
                 else:
                     generated_particle, budget = self.resample_from_particle(env=env, node=starting_node,
                                                                              particle=starting_particle,
@@ -656,22 +655,12 @@ class PFModelBasedMCTS(OL_MCTS):
                     #     state = node
                     last_particle = generated_particle
             # Back-up
+            if sampling_depth > 0:
+                self.num_resamplings += 1
             self.backup(state, last_particle=last_particle, source_particle=generated_particle,
                         sampled_node=starting_node, sampled_particle=starting_particle,
                         action_sequence=action_sequence)
 
-            # R = state.V
-            # state.update()
-            # while state.parent_action is not None:  # loop back-up until root is reached
-            #     if not terminal:
-            #         R = state.reward + self.gamma * R
-            #     else:
-            #         R = state.reward
-            #         terminal = False
-            #     action = state.parent_action
-            #     action.update(R)
-            #     state = action.parent_state
-            #     state.update()
 
     def return_results(self, temp, on_visits=False):
         """ Process the output at the root node """

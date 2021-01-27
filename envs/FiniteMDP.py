@@ -99,6 +99,10 @@ class FiniteMDP(gym.Env):
         self._state = np.copy(sig['state'])
         self._t = copy(sig['t'])
 
+    @property
+    def state(self):
+        return self._state
+
     def reset(self, state=None):
         self._t = 0
 

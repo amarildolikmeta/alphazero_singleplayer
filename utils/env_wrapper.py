@@ -82,6 +82,7 @@ class Wrapper(object):
             state, pi, V = self.return_results(self.temp, on_visits=self.on_visits)  # TODO put 0 if the network is enabled
             self.curr_probs.append(pi)
             a_w = argmax(pi)
+
             # actions = ["Up", "Right", "Down", "Left"]
             # print("Action: " + actions[a_w])
             # max_p = np.max(pi)

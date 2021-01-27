@@ -17,10 +17,10 @@ from agent import agent
 #### Command line call, parsing and plotting ##
 colors = ['r', 'b', 'g', 'orange', 'c', 'k', 'purple', 'y']
 markers = ['o', 's', 'v', 'D', 'x', '*', '|', '+', '^', '2', '1', '3', '4']
-budgets = [200, 500, 1000, 2000, 3000, 5000, 7000]
-# budgets = [1000, 3000, 5000, 7000, 10000]
+# budgets = [ 1000, 1500, 2000, 3000] #100, 200, 500, 800,
+budgets = [2500, 5000, 7000]
 
-# budgets = [ 70000, 85000]
+# budgets = [ 3000]
 
 if __name__ == '__main__':
 
@@ -83,7 +83,7 @@ if __name__ == '__main__':
         alg = parse_alg_name(args)
 
         out_dir = "logs/" + args.game
-        if args.game == 'RiverSwim-continuous':
+        if args.game in ['RiverSwim-continuous', 'RiverSwim']:
             out_dir += "/" + "fail_" + str(args.fail_prob)
         out_dir += "/" + alg + str(budget) + '/' + time_str + '/'
         if not os.path.exists(out_dir):

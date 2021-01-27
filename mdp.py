@@ -36,7 +36,8 @@ class MDP(object):
         self.P = np.array(self.P)
         if rewards.shape == (n_states, n_actions, n_states):
             # Compute the expected one-step rewards
-            self.R = np.sum(self.P * rewards, axis=2)
+            self.R = rewards
+            # self.R = np.sum(self.P * rewards, axis=2)
         elif rewards.shape == (n_states, n_actions):
             self.R = rewards
         else:
@@ -69,6 +70,9 @@ class MDP(object):
         assert V.shape == (self.S,), "V must be an {0}-dimensional vector".format(self.S)
 
         Q = np.empty(( self.S, self.A))
+        R = self.R
+        if R.shape == (self.S, self.A, self.S):
+            R = np.sum(self.P * R, axis=2)
         for s in range(self.S):
             Q[s] = self.R[s] + self.gamma * self.P[s].dot(V)
 
@@ -117,7 +121,7 @@ class MDP(object):
 
     def step(self, action):
         next_state = np.random.choice(self.S, p=self.P[self.state, action])
-        reward = self.R[self.state, action]
+        reward = self.R[self.state, action, next_state]
         self.state = next_state
         return next_state, reward, False, {}
 
@@ -149,7 +153,7 @@ def random_mdp(n_states, n_actions, gamma=0.99):
             P[s, a, :] = P[s, a, :] / np.sum(P[s, a, :])
 
     # Create a random reward matrix
-    R = np.random.rand(n_states, n_actions)
+    R = np.random.rand(n_states, n_actions, n_states)
 
     # Create a random initial-state distribution
     P0 = np.random.rand(n_states)
