@@ -1,6 +1,6 @@
 import tensorflow as tf
-import numpy as np
-from trading_paper.models.models import Model
+from trading_paper.models import Model
+
 
 def encoder_block(inp, n_hidden, filter_size):
     inp = tf.expand_dims(inp, 2)
@@ -14,7 +14,7 @@ def encoder_block(inp, n_hidden, filter_size):
         ],
     )
     conv = tf.layers.conv2d(
-        inp, n_hidden, filter_size, padding = 'VALID', activation = None
+        inp, n_hidden, filter_size, padding='VALID', activation=None
     )
     conv = tf.squeeze(conv, 2)
     return conv
@@ -24,7 +24,7 @@ def decoder_block(inp, n_hidden, filter_size):
     inp = tf.expand_dims(inp, 2)
     inp = tf.pad(inp, [[0, 0], [filter_size[0] - 1, 0], [0, 0], [0, 0]])
     conv = tf.layers.conv2d(
-        inp, n_hidden, filter_size, padding = 'VALID', activation = None
+        inp, n_hidden, filter_size, padding='VALID', activation=None
     )
     conv = tf.squeeze(conv, 2)
     return conv
@@ -33,11 +33,11 @@ def decoder_block(inp, n_hidden, filter_size):
 def glu(x):
     return tf.multiply(
         x[:, :, : tf.shape(x)[2] // 2],
-        tf.sigmoid(x[:, :, tf.shape(x)[2] // 2 :]),
+        tf.sigmoid(x[:, :, tf.shape(x)[2] // 2:]),
     )
 
 
-def layer(inp, conv_block, kernel_width, n_hidden, residual = None):
+def layer(inp, conv_block, kernel_width, n_hidden, residual=None):
     z = conv_block(inp, n_hidden, (kernel_width, 1))
     return glu(z) + (residual if residual is not None else 0)
 
@@ -50,11 +50,11 @@ class CNN(Model):
         size,
         size_layer,
         output_size,
-        forget_bias=0.9,
-        kernel_size = 3,
-        n_attn_heads = 16,
+        dropout_rate=0.9,
+        kernel_size=3,
+        n_attn_heads=16,
     ):
-        super(CNN, self).__init__(learning_rate, num_layers, size, size_layer, output_size, forget_bias)
+        super(CNN, self).__init__(size, output_size)
 
         encoder_embedded = tf.layers.dense(self.X, size_layer)
 
@@ -67,7 +67,7 @@ class CNN(Model):
                 size_layer * 2,
                 encoder_embedded,
             )
-            z = tf.nn.dropout(z, keep_prob=forget_bias)
+            z = tf.nn.dropout(z, keep_prob=dropout_rate)
             encoder_embedded = z
 
         encoder_output, output_memory = z, z + e
@@ -98,7 +98,7 @@ class CNN(Model):
 
             c = tf.concat(C, 2)
             h = tf.layers.dense(attn_res + c, size_layer)
-            h = tf.nn.dropout(h, keep_prob=forget_bias)
+            h = tf.nn.dropout(h, keep_prob=dropout_rate)
             encoder_embedded = h
 
         encoder_embedded = tf.sigmoid(encoder_embedded[-1])

@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
-from trading_paper.models.models import Model
+from trading_paper.models import Model
+
 
 def layer_norm(inputs, epsilon=1e-8):
     mean, variance = tf.nn.moments(inputs, [-1], keep_dims=True)
