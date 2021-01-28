@@ -15,7 +15,7 @@ def generate_trade(**game_params):
 
 
 class Trade(FiniteMDP):
-    def __init__(self, fees=0.001, horizon=50, log_actions=True, save_dir='', n_ret=30, max_ret=0.07):
+    def __init__(self, fees=0.01, horizon=50, log_actions=True, save_dir='', n_ret=4, max_ret=0.1):
 
         self.actions = [-1, 0, 1]
         self.n_actions = len(self.actions)
@@ -113,24 +113,43 @@ class Trade(FiniteMDP):
 # )
 
 if __name__ == '__main__':
-    t0 = time.time()
-    mdp = Trade()
 
-    s = mdp.reset()
-    ret=0
-    for i in range(1,100):
-        ft0 = time.time()
-        a = i%3
-        s, r, done, prices = mdp.step(a)
-        print("Reward:" + str(r) + " State:" + str(s) )
-        mdp.set_signature(mdp.get_signature())
-        # ret += r - 0.5
-        print(prices)
-        if done:
-            print("Return:", ret)
-            rt0 = time.time()
-            s = mdp.reset()
-            # print(s)
-    t1 = time.time()
-    print("time is ", t1-t0)
+    horizon=50
+    eval_episodes = 20
+    mdp = Trade(horizon=horizon)
+    ret_vec = []
+    a = 0
+
+    for j in range(0, eval_episodes):
+        s = mdp.reset()
+        ret = 0
+        for i in range(1,horizon+1):
+            s, r, done, prices = mdp.step(a)
+            # print("Reward:" + str(r) + " State:" + str(s) )
+            mdp.set_signature(mdp.get_signature())
+            ret += r
+        ret_vec += [ret]
+
+    print("average: ", np.average(ret_vec), " standard deviation: ", np.std(ret_vec))
+
+    # t0 = time.time()
+    # mdp = Trade()
+    #
+    # s = mdp.reset()
+    # ret=0
+    # for i in range(1,100):
+    #     ft0 = time.time()
+    #     a = i%3
+    #     s, r, done, prices = mdp.step(a)
+    #     print("Reward:" + str(r) + " State:" + str(s) )
+    #     mdp.set_signature(mdp.get_signature())
+    #     # ret += r - 0.5
+    #     print(prices)
+    #     if done:
+    #         print("Return:", ret)
+    #         rt0 = time.time()
+    #         s = mdp.reset()
+    #         # print(s)
+    # t1 = time.time()
+    # print("time is ", t1-t0)
 

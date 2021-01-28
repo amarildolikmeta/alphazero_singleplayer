@@ -2,7 +2,7 @@ import numpy as np
 from envs.FiniteMDP import FiniteMDP
 
 
-def generate_chain(n=5, slip=0.01, small=2, large=15, gamma=0.9999, horizon=1000):
+def generate_chain(n=5, slip=0.01, small=2, large=10, gamma=0.9999, horizon=1000):
         nA = 2
         nS = n
         p = compute_probabilities(slip,nS, nA)
@@ -43,7 +43,7 @@ if __name__ == '__main__':
     eval_episodes = 50
     mdp = generate_chain(horizon=horizon)
     ret_vec = []
-    a = 0
+    a = 1
 
     for j in range(0, eval_episodes):
         s = mdp.reset()
