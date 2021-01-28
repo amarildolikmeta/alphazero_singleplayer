@@ -123,7 +123,9 @@ def vasicek_simulation(data, params, N_sim):
 
 if __name__ == '__main__':
     # Import data
-    path = "/Users/edoardovittori/Code/alphazero_singleplayer/utils/SP.CSV"
+    import os
+    print(os.getcwd())
+    path = (os.path.join(os.getcwd(), 'SP.CSV'))
     data = pd.read_csv(path)
     returns = price2ret(data)
     N_sim = 10
