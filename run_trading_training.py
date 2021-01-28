@@ -1,35 +1,15 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
-from tqdm import tqdm
-from trading_paper.utils import make_model, parse_args, calculate_accuracy, anchor
+from trading_paper.utils import make_model, parse_args, anchor, run_training_lstm, evaluate_lstm
 import sys
 import warnings
+import matplotlib.pyplot as plt
+import time
+import os
 
 if not sys.warnoptions:
     warnings.simplefilter('ignore')
-
-
-def run_training_lstm(X, model, window=5, n_epochs=300, num_layers=1, size_layer=128, bidirectional=False):
-    pbar = tqdm(range(n_epochs), desc='train loop')
-    state_dim = 2 if bidirectional else 1
-    for i in pbar:
-        state = np.zeros((state_dim, num_layers * 2 * size_layer))
-        total_loss, total_acc = [], []
-        for k in range(0, X.shape[0] - 1, window):
-            index = min(k + window, X.shape[0] - 1)
-            batch_x = np.expand_dims(
-                X.iloc[k: index, :].values, axis=0
-            )
-            batch_y = X.iloc[k + 1: index + 1, :].values
-            try:
-                logits, state, loss = model.update(batch_x, batch_y, state)
-            except:
-                print("What")
-            total_loss.append(loss)
-            total_acc.append(calculate_accuracy(batch_y[:, 0], logits[:, 0]))
-        pbar.set_postfix(cost=np.mean(total_loss), acc=np.mean(total_acc))
-    return model
 
 
 if __name__ == '__main__':
@@ -53,7 +33,7 @@ if __name__ == '__main__':
 
     # Split train and test
     df_train = df_log.iloc[:-args.test_size]
-    df_test = df_log.iloc[-args.test_size:]
+    df_test = df_log.iloc[-args.test_size - args.window:].values
 
     # build model
     model_params = {
@@ -67,15 +47,57 @@ if __name__ == '__main__':
     if 'cnn' in args.model:
         model_params['kernel_size'] = args.kernel_size
         model_params['n_attn_heads'] = args.n_attn_heads
-
+    elif 'lstm' == args.model:
+        model_params['stochastic'] = args.stochastic
+        model_params['init_logstd'] = args.init_logstd
+    results = []
+    base_dir = args.log_dir + '/' + args.model + '/'
+    fig, axs = plt.subplots(nrows=1, ncols=2)
+    axs[0].plot(minmax.inverse_transform(df_train.values), label='true_values', marker='o')
+    axs[1].plot(minmax.inverse_transform(df_test[-args.test_size:]), label='true_values', marker='o')
     for i in range(args.n_experiments):
         np.random.seed()
         print("Running Experiment " + str(i))
         model = make_model(args.model, **model_params)
-
+        tf_path = base_dir + str(time.time()) if not args.debug else None
+        if not args.debug and not os.path.exists(tf_path):
+            os.makedirs(tf_path)
         if 'lstm' in args.model:
-            bidirectional = 'bidirectional' in args.model
-            model = run_training_lstm(X=df_train, model=model, window=args.window, n_epochs=args.n_epochs,
-                                      num_layers=args.n_layers, size_layer=args.size_layer, bidirectional=bidirectional)
+            bidirectional = 'bidir' in args.model
+            if bidirectional:
+                init_state = (np.zeros((1, args.n_layers * 2 * args.size_layer)),
+                              np.zeros((1, args.n_layers * 2 * args.size_layer)))
+            else:
+                init_state = np.zeros((1, args.n_layers * 2 * args.size_layer))
+            model, last_state, predictions = run_training_lstm(X=df_train, model=model, window=args.window,
+                                                               n_epochs=args.n_epochs,
+                                                               num_layers=args.n_layers, size_layer=args.size_layer,
+                                                               bidirectional=bidirectional, tf_path=tf_path)
 
+            num_samples = args.stochastic_samples if args.stochastic or True else 1
+            true_predict, simulation_predict = evaluate_lstm(df_test=df_test, model=model, window=args.window,
+                                                             init_state=init_state, stochastic=args.stochastic,
+                                                             num_samples=args.stochastic_samples)
+            true_predict = minmax.inverse_transform(true_predict)
+            predictions = minmax.inverse_transform(predictions)
+            for j in range(num_samples):
+                simulation_predict[j] = minmax.inverse_transform(simulation_predict[j])
+            if args.anchor:
+                true_predict = anchor(true_predict, args.anchor_weight)
+                predictions = anchor(predictions, args.anchor_weight)
+                for j in range(num_samples):
+                    simulation_predict[j] = anchor(simulation_predict[j], args.anchor_weight)
+            results.append((true_predict, simulation_predict))
+            axs[0].plot(predictions, label='predict_' + str(i + 1))
+            axs[1].plot(true_predict, label='good_predict_' + str(i + 1), marker='x')
+            for j in range(num_samples):
+                axs[1].plot(simulation_predict[j], label='simulation_predict_' + str(i + 1) + '_' + str(j + 1))
         model.close()
+    for ax in axs:
+        ax.legend()
+        ax.set_xlabel('Time')
+        ax.set_ylabel("Value")
+    plt.suptitle("S&P")
+    axs[0].set_title('Train Data')
+    axs[1].set_title('Test Data')
+    plt.show()

@@ -1,6 +1,25 @@
 import tensorflow as tf
 from trading_paper.models import Model
 import numpy as np
+import copy
+
+
+def switch(condition, then_expression, else_expression):
+    """Switches between two operations depending on a scalar value (int or bool).
+    Note that both `then_expression` and `else_expression`
+    should be symbolic tensors of the *same shape*.
+
+    # Arguments
+        condition: scalar tensor.
+        then_expression: TensorFlow operation.
+        else_expression: TensorFlow operation.
+    """
+    x_shape = copy.copy(then_expression.get_shape())
+    x = tf.cond(tf.cast(condition, 'bool'),
+                lambda: then_expression,
+                lambda: else_expression)
+    x.set_shape(x_shape)
+    return x
 
 
 class LSTM(Model):
@@ -12,8 +31,11 @@ class LSTM(Model):
             size_layer,
             output_size,
             dropout_rate=0.1,
+            stochastic=False,
+            init_logstd=-1
     ):
         super(LSTM, self).__init__(size, output_size)
+        self.stochastic = stochastic
 
         def lstm_cell(size_layer):
             return tf.nn.rnn_cell.LSTMCell(size_layer, state_is_tuple=False)
@@ -34,7 +56,19 @@ class LSTM(Model):
             drop, self.X, initial_state=self.hidden_layer, dtype=tf.float32
         )
         self.logits = tf.layers.dense(self.outputs[-1], output_size)
-        self.cost = tf.reduce_mean(tf.square(self.Y - self.logits))
+        self.logits = tf.math.sigmoid(self.logits)
+        self.stochastic = tf.placeholder(dtype=tf.bool, shape=())
+        if stochastic:
+            self.mean = self.logits
+            self.logstd = tf.layers.dense(self.outputs[-1], output_size,
+                                             bias_initializer=tf.constant_initializer(value=init_logstd))
+            self.std = tf.exp(self.logstd)
+            self.out = switch(self.stochastic, self.mean + self.std * tf.random_normal(tf.shape(self.mean))
+                                 , self.mean)
+            self.cost = tf.reduce_sum(self.logstd + 0.5 * (self.mean - self.Y) ** 2 / (self.std ** 2 + 1e-10))
+        else:
+            self.cost = tf.reduce_mean(tf.square(self.Y - self.logits))
+            self.out = self.logits
         self.optimizer = tf.train.AdamOptimizer(learning_rate).minimize(
             self.cost
         )
@@ -58,7 +92,7 @@ class LSTM(Model):
         )
         return logits, last_state, loss
 
-    def forward(self, batch_x, state):
+    def forward(self, batch_x, state, stochastic=False):
         if len(batch_x.shape) == 2:
             batch_x = np.expand_dims(
                 batch_x, axis=0
@@ -67,10 +101,11 @@ class LSTM(Model):
             raise Exception("Provide a window of observations")
 
         out_logits, last_state = self.sess.run(
-            [self.logits, self.last_state],
+            [self.out, self.last_state],
             feed_dict={
                 self.X: batch_x,
                 self.hidden_layer: state,
+                self.stochastic: stochastic
             }
         )
         return out_logits, last_state
@@ -84,7 +119,7 @@ class BidirectionalLSTM(Model):
             size,
             size_layer,
             output_size,
-            dropout_rate=0.1,
+            dropout_rate=0.1
     ):
         super(BidirectionalLSTM, self).__init__(size, output_size)
 
@@ -137,7 +172,7 @@ class BidirectionalLSTM(Model):
             )
         elif len(batch_x.shape) != 3:
             raise Exception("Provide a window of observations")
-        assert state.shape[0] == 2, "Need both direction state"
+        assert isinstance(state, tuple), "Need both direction state"
 
         logits, last_state, _, loss = self.sess.run(
             [self.logits, self.last_state, self.optimizer, self.cost],
@@ -157,7 +192,7 @@ class BidirectionalLSTM(Model):
             )
         elif len(batch_x.shape) != 3:
             raise Exception("Provide a window of observations")
-        assert state.shape[0] == 2, "Need both direction state"
+        assert isinstance(state, tuple), "Need both direction state"
 
         out_logits, last_state = self.sess.run(
             [self.logits, self.last_state],
