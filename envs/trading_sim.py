@@ -16,11 +16,11 @@ def generate_trade_sim(**game_params):
 class TradeSim(Trade):
 
     def __init__(self, fees=0.001, time_lag=5, horizon=30, log_actions=True, save_dir='', process="arma",
-                 model_path='models/lstm', model_name='lstm', start_date='2018-07-10', end_date='2019-07-10',):
+                 model_path='models/', model_name='lstm', start_date='2018-07-10', end_date='2019-07-10',):
         self.start_date = start_date
         self.end_date = end_date
         self.model_name = model_name
-        self.load_model_and_data(model_path)
+        self.load_model_and_data(model_path + '/' + model_name + '/')
         super(TradeSim, self).__init__(fees, time_lag, horizon, log_actions, save_dir, process)
         self.during_search = False
 
@@ -84,6 +84,24 @@ class TradeSim(Trade):
         self.ret_window = sig['state'][:-1]
         self.last_state = sig['last_model_state']
         self._t = sig['t']
+
+    def step(self, action):
+        state, reward, terminal, info = super(TradeSim, self).step(action)
+
+        if not self.during_search:
+            self.update(self.ret_window[-1])
+
+        return state, reward, terminal, info
+
+    def update(self, new_ret):
+        if self.model_name == 'lstm':
+            pass
+        elif self.model_name == 'gmb':
+            pass
+        elif self.model_name == 'arima':
+            pass
+        elif self.model_name == 'vasicek':
+            pass
 
 
 if __name__ == '__main__':

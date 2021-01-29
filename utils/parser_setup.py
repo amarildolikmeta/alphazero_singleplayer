@@ -4,9 +4,13 @@ import argparse
 def parse_game_params(args):
     game_params = {'horizon': args.max_ep_len}
     # Accept custom grid if the environment requires it
-    if args.game in ['Trading-v0']:
+    if args.game in ['Trading-v0', 'TradingSim']:
         game_params['fees'] = args.fees
         game_params["log_actions"] = args.log_actions
+        game_params["time_lag"] = args.time_lag
+        if args.game in ['TradingSim']:
+            game_params["model_name"] = args.model_name
+            game_params["start_date"] = args.start_date
     if args.game in ['Trading_discrete-v0']:
         game_params['max_ret'] = args.max_ret
         game_params['n_ret'] = args.n_ret
@@ -124,10 +128,18 @@ def setup_parser():
 
     # trading env arguments
     parser.add_argument('--fees', type=float, default=0.001, help='Fees for transaction costs')
-    parser.add_argument('--max_ret', type=float, default=0.07, help='Maximum return in case of discrete enviroment')
-    parser.add_argument('--n_ret', type=int, default=20, help='Number of returns in case of discrete enviroment')
+    parser.add_argument('--max_ret', type=float, default=0.07, help='Maximum return in case of discrete environment')
+    parser.add_argument('--n_ret', type=int, default=20, help='Number of returns in case of discrete environment')
     parser.add_argument('--log_actions', action='store_true', help='Write excel file and plot graphs')
+    parser.add_argument('--time_lag', type=int, default=2, help='Window size for simulator in trading environment')
 
     parser.add_argument('--estimate_env', action='store_true', help='use a true env in particle tests')
+
+    # Trade env parameters
+
+    # Trading simulator environment
+    parser.add_argument('--model_name', type=str, default='lstm', help='Model to use for the simulator',
+                        choices=['lstm', 'gmb', 'arima', 'vasicek'])
+    parser.add_argument('--start_date', type=str, default='2018-07-10', help='Starting date of time series')
 
     return parser.parse_args()
