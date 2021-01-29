@@ -56,7 +56,6 @@ class LSTM(Model):
             drop, self.X, initial_state=self.hidden_layer, dtype=tf.float32
         )
         self.logits = tf.layers.dense(self.outputs[-1], output_size)
-        self.logits = tf.math.sigmoid(self.logits)
         self.stochastic = tf.placeholder(dtype=tf.bool, shape=())
         if stochastic:
             self.mean = self.logits
@@ -72,7 +71,11 @@ class LSTM(Model):
         self.optimizer = tf.train.AdamOptimizer(learning_rate).minimize(
             self.cost
         )
+        self.init_state = np.zeros((1, num_layers * 2 * size_layer))
         self.initialize()
+
+    def get_init_state(self):
+        return self.init_state
 
     def update(self, batch_x, batch_y, state):
         if len(batch_x.shape) == 2:
@@ -164,6 +167,10 @@ class BidirectionalLSTM(Model):
             self.cost
         )
         self.initialize()
+        self.init_state = (np.zeros((1, num_layers * 2 * size_layer)), np.zeros((1, num_layers * 2 * size_layer)))
+
+    def get_init_state(self):
+        return self.init_state
 
     def update(self, batch_x, batch_y, state):
         if len(batch_x.shape) == 2:

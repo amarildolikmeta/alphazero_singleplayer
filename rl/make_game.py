@@ -10,7 +10,7 @@ from gym.envs.registration import register
 from envs import generate_taxi, generate_taxi_easy, generate_arms, generate_river, generate_loop, generate_chain, \
     generate_three_arms, generate_collect_stochastic, generate_bridge_stochastic, generate_river_continuous, \
     generate_race, generate_cliff, generate_trade, generate_toy, generate_gridworld, generate_mountain, \
-    generate_cartpole, generate_race_full, generate_gridworld_discrete, generate_trade_discrete
+    generate_cartpole, generate_race_full, generate_gridworld_discrete, generate_trade_discrete, generate_trade_sim
 
 
 from rl.wrappers import NormalizeWrapper, ReparametrizeWrapper, PILCOWrapper, ScaleRewardWrapper, ClipRewardWrapper, \
@@ -51,7 +51,8 @@ game_to_env = {
     "Cliff": generate_cliff,
     "MountainCar": generate_mountain,
     "Cartpole": generate_cartpole,
-    "RaceStrategy-v1": generate_race_full
+    "RaceStrategy-v1": generate_race_full,
+    "TradingSim": generate_trade_sim
 }
 
 

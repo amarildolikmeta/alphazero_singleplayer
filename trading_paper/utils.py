@@ -4,6 +4,8 @@ import argparse
 import tensorflow as tf
 from tqdm import tqdm
 import copy
+import os
+import joblib
 
 name_to_model = {
     'lstm': LSTM,
@@ -48,10 +50,7 @@ def run_training_lstm(X, model, window=5, n_epochs=300, num_layers=1, size_layer
     if tf_path != '' and tf_path is not None:
         writer = tf.summary.FileWriter(tf_path)
         counter = 0
-    if bidirectional:
-        init_value = (np.zeros((1, num_layers * 2 * size_layer)), np.zeros((1, num_layers * 2 * size_layer)))
-    else:
-        init_value = np.zeros((1, num_layers * 2 * size_layer))
+    init_value = model.get_init_state()
     for i in pbar:
         state = copy.deepcopy(init_value)
         total_loss, total_acc = [], []
@@ -73,7 +72,7 @@ def run_training_lstm(X, model, window=5, n_epochs=300, num_layers=1, size_layer
                 counter += 1
 
         pbar.set_postfix(cost=np.mean(total_loss), acc=np.mean(total_acc))
-    predictions = np.zeros(X.shape)
+    predictions = np.zeros((X.shape[0] + 1, X.shape[1]))
     predictions[0] = X.iloc[0]
     state = copy.deepcopy(init_value)
 
@@ -83,13 +82,6 @@ def run_training_lstm(X, model, window=5, n_epochs=300, num_layers=1, size_layer
                 ), state)
         predictions[k + 1: k + window + 1] = logits
 
-    # upper_b = (X.shape[0] // window) * window
-    # if upper_b != X.shape[0]:
-    #     logits, state = model.forward(np.expand_dims(
-    #         X.iloc[upper_b:], axis=0
-    #     ), state)
-    #     predictions[upper_b + 1: X.shape[0] + 1] = out_logits
-    #     date_ori.append(date_ori[-1] + timedelta(days=1))
     return model, state, predictions
 
 
@@ -137,6 +129,7 @@ def parse_args():
     parser.add_argument('--anchor', action='store_true', help='Smooth the output')
     parser.add_argument('--anchor_weight', type=float, default=0.3, help='Smoothness parameter')
     parser.add_argument('--start_date', type=str, default='2018-07-10', help='Starting date of the train dataset')
+    parser.add_argument('--end_date', type=str, default='2019-07-10', help='Ending date of the train dataset')
     parser.add_argument('--test_size', type=int, default=30, help='Size of test dataset')
     parser.add_argument('--n_experiments', type=int, default=1, help='Number of models to train')
     parser.add_argument('--window', type=int, default=5, help='Number of days in input')
@@ -163,3 +156,4 @@ def tf_switch(condition, then_expression, else_expression):
                 lambda: else_expression)
     x.set_shape(x_shape)
     return x
+

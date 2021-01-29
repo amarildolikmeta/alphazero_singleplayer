@@ -233,7 +233,7 @@ class Policy(object):
     def load_parallel(self, load_path):
         tf_util.load_variables_parallel(load_path, variables=self.vars)
 
-    def load(self, load_path,extra_vars=None):
+    def load(self, load_path, extra_vars=None):
         tf_util.load_variables(load_path, variables=self.vars, extra_vars=extra_vars)
 
     def load_state(self, load_path):

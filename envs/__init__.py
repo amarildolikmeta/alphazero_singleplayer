@@ -18,3 +18,4 @@ from envs.gridworld import generate_gridworld as generate_gridworld_discrete
 from envs.continuous_mountaincar import generate_mountain
 from envs.carpole import generate_cartpole
 from envs.race_strategy_full import generate_race_full
+from envs.trading_sim import generate_trade_sim

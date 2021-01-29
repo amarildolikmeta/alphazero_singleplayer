@@ -7,6 +7,7 @@ import warnings
 import matplotlib.pyplot as plt
 import time
 import os
+import joblib
 
 if not sys.warnoptions:
     warnings.simplefilter('ignore')
@@ -22,7 +23,7 @@ if __name__ == '__main__':
 
     # Read Dataset
     df = pd.read_csv(args.dataset, parse_dates=[args.date_column], date_parser=date_parser)
-    df = df[(df[args.date_column] > args.start_date)]
+    df = df[(df[args.date_column] >= args.start_date) & (df[args.date_column] <= args.end_date)]
     print("Dataset size: " + str(df.shape[0]) + " rows")
 
     # Scale Data
@@ -30,7 +31,8 @@ if __name__ == '__main__':
     minmax = MinMaxScaler().fit(df.iloc[:, target_index].astype('float32').values.reshape(-1, 1))  # Close index
     df_log = minmax.transform(df.iloc[:, target_index].astype('float32').values.reshape(-1, 1))  # Close index
     df_log = pd.DataFrame(df_log)
-
+    surplus = (df_log.shape[0] - args.test_size) - ((df_log.shape[0] - args.test_size) // args.window) * args.window
+    df_log = df_log.iloc[:-surplus]
     # Split train and test
     df_train = df_log.iloc[:-args.test_size]
     df_test = df_log.iloc[-args.test_size - args.window:].values
@@ -64,11 +66,7 @@ if __name__ == '__main__':
             os.makedirs(tf_path)
         if 'lstm' in args.model:
             bidirectional = 'bidir' in args.model
-            if bidirectional:
-                init_state = (np.zeros((1, args.n_layers * 2 * args.size_layer)),
-                              np.zeros((1, args.n_layers * 2 * args.size_layer)))
-            else:
-                init_state = np.zeros((1, args.n_layers * 2 * args.size_layer))
+            init_state = model.get_init_state()
             model, last_state, predictions = run_training_lstm(X=df_train, model=model, window=args.window,
                                                                n_epochs=args.n_epochs,
                                                                num_layers=args.n_layers, size_layer=args.size_layer,
@@ -92,7 +90,15 @@ if __name__ == '__main__':
             axs[1].plot(true_predict, label='good_predict_' + str(i + 1), marker='x')
             for j in range(num_samples):
                 axs[1].plot(simulation_predict[j], label='simulation_predict_' + str(i + 1) + '_' + str(j + 1))
+
+        # save model and parameters
+        if not args.debug:
+            joblib.dump(minmax, tf_path + '/scaler.gz')
+            joblib.dump(model_params, tf_path + '/model_params.gz')
+            model.save(tf_path + '/model.gz')
         model.close()
+
+
     for ax in axs:
         ax.legend()
         ax.set_xlabel('Time')
