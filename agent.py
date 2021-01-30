@@ -99,7 +99,7 @@ def agent(game, n_ep, n_mcts, max_ep_len, lr, c, gamma, data_size, batch_size, t
     timepoints = []
 
     # Environments
-    if game == 'Trading-v0' or game == 'Trading_discrete-v0':
+    if game == 'Trading-v0' or game == 'Trading_discrete-v0' or game == 'TradingSim':
         game_params['save_dir'] = out_dir #logger.save_dir
         print("Trading logs are saved in", out_dir)
     Env = make_game(game, game_params)

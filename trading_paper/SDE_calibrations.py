@@ -160,7 +160,7 @@ if __name__ == '__main__':
     # Import data
     import os
     print(os.getcwd())
-    path = (os.path.join(os.getcwd(), 'SP.CSV'))
+    path = (os.path.join(os.getcwd(), 'models/SP.CSV'))
     data = pd.read_csv(path)
     returns = price2ret(data)
     N_sim = 10

@@ -139,7 +139,7 @@ def setup_parser():
 
     # Trading simulator environment
     parser.add_argument('--model_name', type=str, default='lstm', help='Model to use for the simulator',
-                        choices=['lstm', 'gmb', 'arima', 'vasicek'])
-    parser.add_argument('--start_date', type=str, default='2018-07-10', help='Starting date of time series')
+                        choices=['lstm', 'gbm', 'arima', 'vasicek'])
+    parser.add_argument('--start_date', type=str, default='01/03/2017', help='Starting date of time series')
 
     return parser.parse_args()

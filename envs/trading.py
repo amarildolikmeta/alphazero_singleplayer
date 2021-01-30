@@ -158,7 +158,7 @@ class Trade(gym.Env):
         else:
             terminal = False
         if self.log_actions:
-            return self.get_state(), reward, terminal, {'save_path': self.file_name}
+            return self.get_state(), reward, terminal, {'save_path': self.file_name, 'initial_price': self.initial_price}
         else:
             return self.get_state(), reward, terminal, {}
 
@@ -175,6 +175,7 @@ class Trade(gym.Env):
         self.previous_portfolio = 0
         self.current_portfolio = 0
         self.rates = 100
+        self.initial_price = 100
         self.ret_window = [0]*self.time_lag
         self.done = False
         return self.get_state()

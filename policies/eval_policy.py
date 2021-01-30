@@ -121,6 +121,7 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=
         ns, r, done, inf = wrapper.step(a)
         if "save_path" in inf:
             save_path = inf['save_path']
+            initial_price = inf['initial_price']
             if bool(save_path):
                 with open(save_path, 'a') as text_file:
                     if "return" in inf:
@@ -146,7 +147,7 @@ def evaluate(add_terminal, wrapper, i, interactive, max_len, verbose, visualize=
         else:
             wrapper.forward(a, s, r)
     if "save_path" in inf:
-        plotter.data_p(inf['save_path'])
+        plotter.data_p(inf['save_path'], initial_price)
 
     if verbose:
         print("Episode {0}: Return = {1}, Duration = {2}, Time = {3} s".format(i, rew, t, time.time() - start))

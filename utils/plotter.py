@@ -18,7 +18,7 @@ import ntpath
 # plt.rcParams['svg.fonttype'] = 'none'
 
 # # def plot_trading(df, dirname, i, action):
-def data_p(path):
+def data_p(path, initial_price):
     df = pd.read_csv(path)
     if not df.empty:
         pre, ext = os.path.splitext(path)
@@ -31,14 +31,14 @@ def data_p(path):
                 raise  # This was not a "directory exist" error..
         file_name = os.path.join(spath, s_num + '.png')
 
-        plot_trading(df, file_name)
+        plot_trading(df, file_name, initial_price)
     else:
         print("empty dataframe, removing ")
         os.remove(path)
 
-def plot_trading(df, save_path):
+def plot_trading(df, save_path, initial_price):
     df = df.append(pd.Series(0, index=df.columns), ignore_index=True)
-    price = [100]
+    price = [initial_price]
     for perc in df['p1']:
         price.append(price[-1] * (1 + perc))
     df['price'] = price[:-1]

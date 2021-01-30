@@ -6,7 +6,7 @@ import joblib
 import pandas as pd
 import copy
 import os
-from models import SDE_calibrations
+from trading_paper import SDE_calibrations
 import datetime
 
 
@@ -33,7 +33,7 @@ class TradeSim(Trade):
 
     def load_model_and_data(self, model_path, dataset):
         # Load data
-        path = (os.path.join(os.getcwd(), '../'))
+        path = (os.path.join(os.getcwd(), 'trading_paper'))
         df = pd.read_csv(os.path.join(path, model_path, dataset), parse_dates=['referenceDate'], date_parser=self.date_parser)
         diff = df['Price'].values[1:] / df['Price'].values[:-1] - 1
         diff = np.insert(diff,0,0)
@@ -99,7 +99,7 @@ class TradeSim(Trade):
 
         self.ret_window = self.data['Returns'][:self.time_lag].values
         self.rates = self.data['Price'][self.time_lag]
-
+        self.initial_price = self.data['Price'][self.time_lag]
         if self.model_name == 'lstm':
             self.ret_window = self.data[:self.time_lag].flatten()
             self.last_state = copy.deepcopy(self.model.get_init_state())

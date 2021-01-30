@@ -112,7 +112,7 @@ def evaluate_lstm(df_test, model, init_state, window=5, stochastic=False,  num_s
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', type=str, default='trading_paper/dataset/S&P.csv', help='Training dataset')
+    parser.add_argument('--dataset', type=str, default='trading_paper/S&P.csv', help='Training dataset')
     parser.add_argument('--target_column', type=str, default='Price', help='Target column in dataset')
     parser.add_argument('--date_column', type=str, default='referenceDate', help='Date column in dataset')
     parser.add_argument('--date_format', type=str, default='%d/%m/%Y', help='Format of date column in dataset')
@@ -128,8 +128,8 @@ def parse_args():
     parser.add_argument('--stochastic_samples', type=int, default=5, help='Number of samples in stochastic models')
     parser.add_argument('--anchor', action='store_true', help='Smooth the output')
     parser.add_argument('--anchor_weight', type=float, default=0.3, help='Smoothness parameter')
-    parser.add_argument('--start_date', type=str, default='2018-07-10', help='Starting date of the train dataset')
-    parser.add_argument('--end_date', type=str, default='2019-07-10', help='Ending date of the train dataset')
+    parser.add_argument('--start_date', type=str, default='10/07/2018', help='Starting date of the train dataset')
+    parser.add_argument('--end_date', type=str, default='10/07/2019', help='Ending date of the train dataset')
     parser.add_argument('--test_size', type=int, default=30, help='Size of test dataset')
     parser.add_argument('--n_experiments', type=int, default=1, help='Number of models to train')
     parser.add_argument('--window', type=int, default=5, help='Number of days in input')
