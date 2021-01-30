@@ -39,8 +39,8 @@ def data_p(path, initial_price):
 def plot_trading(df, save_path, initial_price):
     df = df.append(pd.Series(0, index=df.columns), ignore_index=True)
     price = [initial_price]
-    for perc in df['p1']:
-        price.append(price[-1] * (1 + perc))
+    for i, perc in enumerate(df[df.columns[-3]]):
+        price.append(price[i] * (1 + perc))
     df['price'] = price[:-1]
 
     cr = [0]
