@@ -16,7 +16,7 @@ def generate_trade(**game_params):
 
 
 class Trade(gym.Env):
-    def __init__(self, fees=0.001, time_lag=2, horizon=20, log_actions=True, save_dir='', process="arma"):
+    def __init__(self, fees=0.001, time_lag=2, horizon=20, log_actions=True, save_dir='', process="vasicek"):
         # price history, previous portfolio, time
         observation_low = np.concatenate([np.full(time_lag, -1), [-1.0]])
         observation_high = np.concatenate([np.full(time_lag, +1), [+1.0]])
@@ -29,15 +29,19 @@ class Trade(gym.Env):
         self.time_lag = time_lag
         self.horizon = horizon
         self.ret_window = np.asarray([0]*self.time_lag)
-        self.prices = [100]
         self.fees = fees
-        self.rates = 100
+
         # self.actions = []
         # self.current_ret = [0]
         self.process = process
         if self.process == 'arma':
             self.ARMA_vec = []
+        elif self.process == 'gbm':
+            self.model = [-0.04, 0.04]
+        elif self.process == 'vasicek':
+            self.model = [0, 0, 0, 0.004, 3060, 22]
         self._t = 0
+
         # start logging file
         sd = self.seed()
         self.log_actions = log_actions
@@ -59,7 +63,7 @@ class Trade(gym.Env):
             # print('\n writing actions in ' + self.file_name)
 
             # reset action file
-        self.reset()
+        # self.reset()
 
     def write_file(self, s_a):
         with open(self.file_name, 'a') as text_file:
@@ -91,26 +95,36 @@ class Trade(gym.Env):
         # pl = 1/(1+np.exp(-4*pl))
         return pl
 
-    def gbm(self, sigma=0.2, r=0, days=2, ppd=1):
+    def gbm(self):
+        m_hat = self.model[0]
+        v_hat = self.model[1]
+        bm = self.np_random.normal(0, 1)
+
         # sigma: percentage volatility
         # r: percentage drift
+        # dt = 1
+        # sigma = np.sqrt(v_hat / dt)
+        # r = m_hat / dt + 1 / 2 * sigma ** 2
+        # tmp_exp = r - 0.5 * sigma ** 2
+        # s = np.exp(tmp_exp * dt + sigma * bm * np.sqrt(dt))
 
-        dt = 1 / (365 * ppd)
-        tmp_exp = r - 0.5 * sigma ** 2
-        bm = self.np_random.normal(0, 1)
-        s = np.exp(tmp_exp * dt + sigma * bm * np.sqrt(dt))
+        s = np.exp(m_hat + np.sqrt(v_hat) * bm)
         s_ret = s-1
         self.ret_window = np.append(self.ret_window[1:],s_ret.tolist())
         return s_ret
 
-    def vasicek(self, K=25, theta=100, sigma=50):
+    def vasicek(self):
         # theta: long term mean
-        # K: reversion speed
+        # alpha: reversion speed
         # sigma: instantaneous volatility
+
+        alpha = self.model[3]
+        theta = self.model[4]
+        sigma = self.model[5]
 
         dt = 1 / self.horizon
         bm = self.np_random.normal(0, 1)
-        dr = K * (theta - self.rates) * dt + sigma * bm * dt
+        dr = alpha * (theta - self.rates) * dt + sigma * bm * dt
         s_ret = dr/self.rates
         self.rates = self.rates + dr
         self.ret_window = np.append(self.ret_window[1:],s_ret)
@@ -160,18 +174,20 @@ class Trade(gym.Env):
 
         self.previous_portfolio = 0
         self.current_portfolio = 0
-        self.prices = [100]
+        self.rates = 100
         self.ret_window = [0]*self.time_lag
         self.done = False
         return self.get_state()
 
     def get_signature(self):
-        sig = {'state': np.copy(self.get_state())}
+        sig = {'state': np.copy(self.get_state()),
+               't': self._t}
         return sig
 
     def set_signature(self, sig):
         self.current_portfolio = sig['state'][-1]
         self.ret_window = sig['state'][:-1]
+        self._t = sig['t']
 
 register(
     id='Trading-v0',
